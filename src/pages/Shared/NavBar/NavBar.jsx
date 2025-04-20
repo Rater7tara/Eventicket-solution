@@ -1,25 +1,26 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Ticket, Music, Film, Home, DollarSign, LogIn, Menu } from 'lucide-react';
+import './NavBar.css'; 
+import logo from '../../../assets/logo.png'; 
 
 const NavBar = () => {
 
     const navItems = [
-        { name: 'Home', icon: <Home size={18} />, path: '/' },
-        { name: 'All Events', icon: <Ticket size={18} />, path: '/events' },
-        { name: 'Music Shows', icon: <Music size={18} />, path: '/music' },
-        { name: 'Movies/Films', icon: <Film size={18} />, path: '/movies' },
-        { name: 'Ticket Pricing', icon: <DollarSign size={18} />, path: '/pricing' },
+        { name: 'Home', icon: <Home size={20} />, path: '/' },
+        { name: 'All Events', icon: <Ticket size={20} />, path: '/events' },
+        { name: 'Music Shows', icon: <Music size={20} />, path: '/music' },
+        { name: 'Movies/Films', icon: <Film size={20} />, path: '/movies' },
+        { name: 'Ticket Pricing', icon: <DollarSign size={20} />, path: '/pricing' },
     ];
 
     return (
         <>
-              <div className="navbar bg-neutral text-white px-4 shadow-md sticky top-0 z-50">
+              <div className="navbar bg-white text-neutral shadow-md sticky top-0 z-50">
             {/* Logo */}
             <div className="navbar-start">
-                <Link to="/" className="flex items-center gap-2 text-2xl font-bold tracking-wide hover:text-orange-300 transition-all duration-200">
-                    <Ticket size={28} className="text-orange-400" />
-                    <span className="text-white">Eventify</span>
+                <Link to="/" className="">
+                   <img className='img' src={logo} alt="" />
                 </Link>
             </div>
 
@@ -30,7 +31,7 @@ const NavBar = () => {
                         <li key={name}>
                             <Link
                                 to={path}
-                                className="flex items-center gap-1 text-white hover:text-orange-300 transition-colors duration-150"
+                                className="flex items-center gap-1 text-primary hover-secondary transition-colors duration-150 text-xl"
                             >
                                 {icon}
                                 {name}
@@ -42,8 +43,8 @@ const NavBar = () => {
 
             {/* Right Side: Login + Avatar */}
             <div className="navbar-end gap-4">
-                <button className="btn btn-sm bg-white text-orange-500 hover:bg-orange-100 border-none font-semibold flex items-center gap-1">
-                    <LogIn size={16} />
+                <button className="btn btn-sm bg-white text-primary hover-secondary border-none font-semibold flex items-center gap-1 text-lg">
+                    <LogIn size={20} />
                     Login
                 </button>
                 <div className="avatar">
@@ -60,7 +61,7 @@ const NavBar = () => {
                 </label>
                 <ul
                     tabIndex={0}
-                    className="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-200 rounded-box w-52"
+                    className="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-white rounded-box w-52"
                 >
                     {navItems.map(({ name, icon, path }) => (
                         <li key={name}>
