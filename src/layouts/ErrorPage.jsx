@@ -7,8 +7,8 @@ import Lottie from "lottie-react";
 const ErrorPage = () => {
   const { error, status } = useRouteError()
   return (
-    <section className='m-auto'>
-      <div className='m-auto flex justify-center align-middle'>
+    <section className='m-auto h-full'>
+      <div className='m-auto flex justify-center align-middle h-screen'>
       <Lottie animationData={Error} loop={true}/>
         
       </div>

@@ -9,6 +9,8 @@ import DashboardLayout from "../layouts/DashboardLayout";
 import AdminDashboard from "../pages/Dashboard/AdminDashborad/AdminDashboard";
 import SellerDashboard from "../pages/Dashboard/SellerDashboard/SellerDashboard";
 import UserDashboard from "../pages/Dashboard/UserDashboard/UserDashboard";
+import Login from "../pages/Login/Login/Login";
+import BookSeat from "../pages/BookSeat/BookSeat";
 
 
 export const router = createBrowserRouter([
@@ -41,5 +43,13 @@ export const router = createBrowserRouter([
         element: <UserDashboard />
       }
     ]
+  },
+  {
+    path: 'login',
+    element: <Login />
+  },
+  {
+    path: 'bookSeat',
+    element: <BookSeat />
   }
 ]);
