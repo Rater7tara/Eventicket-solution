@@ -333,9 +333,9 @@ const BookSeat = () => {
                   </div>
                 
                   {/* Front row identifier */}
-                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 bg-gray-800 rounded-md px-3 py-1 opacity-80">
+                  {/* <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 bg-gray-800 rounded-md px-3 py-1 opacity-80">
                     <span className="text-orange-300 text-xs">SCREEN</span>
-                  </div>
+                  </div> */}
                 </div>
               </div>
             </div>
