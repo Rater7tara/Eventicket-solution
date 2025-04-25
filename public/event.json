@@ -1,324 +1,157 @@
 {
-    "events": [
+    "eventName": "Summer Concert Festival",
+    "venue": "Grand Auditorium",
+    "date": "2025-06-15",
+    "time": "19:00",
+    "seatCategories": [
       {
-        "id": 0,
-        "title": "Summer Concert Festival",
-        "description": "Premium concert festival featuring top artists",
-        "time": "June 15, 2025 | 7:00 PM",
-        "location": "Grand Auditorium",
-        "image": "../src/assets/cards/img0.jpg",
-        "price": "$40-$150",
-        "ticketsAvailable": 90,
-        "detailedInfo": {
-          "eventName": "Summer Concert Festival",
-          "venue": "Grand Auditorium",
-          "date": "2025-06-15",
-          "time": "19:00",
-          "seatCategories": [
-            {
-              "id": "first-class",
-              "name": "First Class",
-              "color": "#FF5733",
-              "price": 150,
-              "description": "Premium seating with the best view"
-            },
-            {
-              "id": "second-class",
-              "name": "Second Class",
-              "color": "#33A8FF",
-              "price": 100,
-              "description": "Excellent seating with great views"
-            },
-            {
-              "id": "third-class",
-              "name": "Third Class",
-              "color": "#33FF57",
-              "price": 70,
-              "description": "Good seating with decent views"
-            },
-            {
-              "id": "fourth-class",
-              "name": "Fourth Class",
-              "color": "#D533FF",
-              "price": 40,
-              "description": "Standard seating"
-            }
-          ],
-          "seatMap": {
-            "rows": [
-              {
-                "id": "row-1",
-                "name": "Row A",
-                "seats": [
-                  { "id": "A1", "number": "1", "status": "available", "category": "first-class" },
-                  { "id": "A2", "number": "2", "status": "available", "category": "first-class" },
-                  { "id": "A3", "number": "3", "status": "available", "category": "first-class" },
-                  { "id": "A4", "number": "4", "status": "available", "category": "first-class" },
-                  { "id": "A5", "number": "5", "status": "available", "category": "first-class" },
-                  { "id": "A6", "number": "6", "status": "available", "category": "first-class" },
-                  { "id": "A7", "number": "7", "status": "available", "category": "first-class" },
-                  { "id": "A8", "number": "8", "status": "available", "category": "first-class" }
-                ]
-              },
-              {
-                "id": "row-2",
-                "name": "Row B",
-                "seats": [
-                  { "id": "B1", "number": "1", "status": "available", "category": "first-class" },
-                  { "id": "B2", "number": "2", "status": "available", "category": "first-class" },
-                  { "id": "B3", "number": "3", "status": "available", "category": "first-class" },
-                  { "id": "B4", "number": "4", "status": "available", "category": "first-class" },
-                  { "id": "B5", "number": "5", "status": "available", "category": "first-class" },
-                  { "id": "B6", "number": "6", "status": "available", "category": "first-class" },
-                  { "id": "B7", "number": "7", "status": "available", "category": "first-class" },
-                  { "id": "B8", "number": "8", "status": "available", "category": "first-class" },
-                  { "id": "B9", "number": "9", "status": "available", "category": "first-class" },
-                  { "id": "B10", "number": "10", "status": "available", "category": "first-class" }
-                ]
-              },
-              {
-                "id": "row-3",
-                "name": "Row C",
-                "seats": [
-                  { "id": "C1", "number": "1", "status": "booked", "category": "second-class" },
-                  { "id": "C2", "number": "2", "status": "available", "category": "second-class" },
-                  { "id": "C3", "number": "3", "status": "available", "category": "second-class" },
-                  { "id": "C4", "number": "4", "status": "available", "category": "second-class" },
-                  { "id": "C5", "number": "5", "status": "available", "category": "second-class" },
-                  { "id": "C6", "number": "6", "status": "available", "category": "second-class" },
-                  { "id": "C7", "number": "7", "status": "available", "category": "second-class" },
-                  { "id": "C8", "number": "8", "status": "booked", "category": "second-class" },
-                  { "id": "C9", "number": "9", "status": "available", "category": "second-class" },
-                  { "id": "C10", "number": "10", "status": "available", "category": "second-class" },
-                  { "id": "C11", "number": "11", "status": "available", "category": "second-class" },
-                  { "id": "C12", "number": "12", "status": "available", "category": "second-class" }
-                ]
-              },
-              {
-                "id": "row-4",
-                "name": "Row D",
-                "seats": [
-                  { "id": "D1", "number": "1", "status": "available", "category": "second-class" },
-                  { "id": "D2", "number": "2", "status": "available", "category": "second-class" },
-                  { "id": "D3", "number": "3", "status": "available", "category": "second-class" },
-                  { "id": "D4", "number": "4", "status": "booked", "category": "second-class" },
-                  { "id": "D5", "number": "5", "status": "booked", "category": "second-class" },
-                  { "id": "D6", "number": "6", "status": "available", "category": "second-class" },
-                  { "id": "D7", "number": "7", "status": "available", "category": "second-class" },
-                  { "id": "D8", "number": "8", "status": "available", "category": "second-class" },
-                  { "id": "D9", "number": "9", "status": "available", "category": "second-class" },
-                  { "id": "D10", "number": "10", "status": "available", "category": "second-class" },
-                  { "id": "D11", "number": "11", "status": "available", "category": "second-class" },
-                  { "id": "D12", "number": "12", "status": "available", "category": "second-class" }
-                ]
-              },
-              {
-                "id": "row-5",
-                "name": "Row E",
-                "seats": [
-                  { "id": "E1", "number": "1", "status": "available", "category": "third-class" },
-                  { "id": "E2", "number": "2", "status": "available", "category": "third-class" },
-                  { "id": "E3", "number": "3", "status": "available", "category": "third-class" },
-                  { "id": "E4", "number": "4", "status": "available", "category": "third-class" },
-                  { "id": "E5", "number": "5", "status": "available", "category": "third-class" },
-                  { "id": "E6", "number": "6", "status": "available", "category": "third-class" },
-                  { "id": "E7", "number": "7", "status": "available", "category": "third-class" },
-                  { "id": "E8", "number": "8", "status": "available", "category": "third-class" },
-                  { "id": "E9", "number": "9", "status": "available", "category": "third-class" },
-                  { "id": "E10", "number": "10", "status": "available", "category": "third-class" },
-                  { "id": "E11", "number": "11", "status": "available", "category": "third-class" },
-                  { "id": "E12", "number": "12", "status": "available", "category": "third-class" },
-                  { "id": "E13", "number": "13", "status": "available", "category": "third-class" },
-                  { "id": "E14", "number": "14", "status": "available", "category": "third-class" }
-                ]
-              },
-              {
-                "id": "row-6",
-                "name": "Row F",
-                "seats": [
-                  { "id": "F1", "number": "1", "status": "available", "category": "third-class" },
-                  { "id": "F2", "number": "2", "status": "available", "category": "third-class" },
-                  { "id": "F3", "number": "3", "status": "booked", "category": "third-class" },
-                  { "id": "F4", "number": "4", "status": "booked", "category": "third-class" },
-                  { "id": "F5", "number": "5", "status": "available", "category": "third-class" },
-                  { "id": "F6", "number": "6", "status": "available", "category": "third-class" },
-                  { "id": "F7", "number": "7", "status": "available", "category": "third-class" },
-                  { "id": "F8", "number": "8", "status": "available", "category": "third-class" },
-                  { "id": "F9", "number": "9", "status": "booked", "category": "third-class" },
-                  { "id": "F10", "number": "10", "status": "available", "category": "third-class" },
-                  { "id": "F11", "number": "11", "status": "available", "category": "third-class" },
-                  { "id": "F12", "number": "12", "status": "available", "category": "third-class" },
-                  { "id": "F13", "number": "13", "status": "available", "category": "third-class" },
-                  { "id": "F14", "number": "14", "status": "available", "category": "third-class" }
-                ]
-              },
-              {
-                "id": "row-7",
-                "name": "Row G",
-                "seats": [
-                  { "id": "G1", "number": "1", "status": "available", "category": "fourth-class" },
-                  { "id": "G2", "number": "2", "status": "available", "category": "fourth-class" },
-                  { "id": "G3", "number": "3", "status": "available", "category": "fourth-class" },
-                  { "id": "G4", "number": "4", "status": "available", "category": "fourth-class" },
-                  { "id": "G5", "number": "5", "status": "available", "category": "fourth-class" },
-                  { "id": "G6", "number": "6", "status": "available", "category": "fourth-class" },
-                  { "id": "G7", "number": "7", "status": "available", "category": "fourth-class" },
-                  { "id": "G8", "number": "8", "status": "available", "category": "fourth-class" },
-                  { "id": "G9", "number": "9", "status": "available", "category": "fourth-class" },
-                  { "id": "G10", "number": "10", "status": "available", "category": "fourth-class" },
-                  { "id": "G11", "number": "11", "status": "available", "category": "fourth-class" },
-                  { "id": "G12", "number": "12", "status": "available", "category": "fourth-class" },
-                  { "id": "G13", "number": "13", "status": "available", "category": "fourth-class" },
-                  { "id": "G14", "number": "14", "status": "available", "category": "fourth-class" },
-                  { "id": "G15", "number": "15", "status": "available", "category": "fourth-class" },
-                  { "id": "G16", "number": "16", "status": "available", "category": "fourth-class" }
-                ]
-              },
-              {
-                "id": "row-8",
-                "name": "Row H",
-                "seats": [
-                  { "id": "H1", "number": "1", "status": "available", "category": "fourth-class" },
-                  { "id": "H2", "number": "2", "status": "available", "category": "fourth-class" },
-                  { "id": "H3", "number": "3", "status": "available", "category": "fourth-class" },
-                  { "id": "H4", "number": "4", "status": "available", "category": "fourth-class" },
-                  { "id": "H5", "number": "5", "status": "booked", "category": "fourth-class" },
-                  { "id": "H6", "number": "6", "status": "booked", "category": "fourth-class" },
-                  { "id": "H7", "number": "7", "status": "booked", "category": "fourth-class" },
-                  { "id": "H8", "number": "8", "status": "available", "category": "fourth-class" },
-                  { "id": "H9", "number": "9", "status": "available", "category": "fourth-class" },
-                  { "id": "H10", "number": "10", "status": "available", "category": "fourth-class" },
-                  { "id": "H11", "number": "11", "status": "available", "category": "fourth-class" },
-                  { "id": "H12", "number": "12", "status": "available", "category": "fourth-class" },
-                  { "id": "H13", "number": "13", "status": "available", "category": "fourth-class" },
-                  { "id": "H14", "number": "14", "status": "available", "category": "fourth-class" },
-                  { "id": "H15", "number": "15", "status": "available", "category": "fourth-class" },
-                  { "id": "H16", "number": "16", "status": "available", "category": "fourth-class" }
-                ]
-              }
-            ]
-          }
+        "id": "vip",
+        "name": "VIP (First Class)",
+        "color": "#FF5733",
+        "price": "See Details",
+        "description": "Premium VIP seating with the best view. Rows A-B: Contact Organizer, Rows C-J: $160"
+      },
+      {
+        "id": "hbd-house",
+        "name": "HBD House (Second Class)",
+        "color": "#33A8FF",
+        "price": 120,
+        "description": "Excellent seating with great views"
+      },
+      {
+        "id": "ausdream-arena",
+        "name": "AusDream Arena (Third Class)",
+        "color": "#33FF57",
+        "price": 90,
+        "description": "Good seating with decent views"
+      },
+      {
+        "id": "century-circle",
+        "name": "Century Circle (Fourth Class)",
+        "color": "#D533FF",
+        "price": 70,
+        "description": "Standard seating"
+      },
+      {
+        "id": "gamma-gallery",
+        "name": "Gamma Gallery",
+        "color": "#FFD700",
+        "price": 60,
+        "description": "Budget-friendly seating"
+      }
+    ],
+    "seatMapConfig": {
+      "firstClass": {
+        "id": "vip",
+        "rows": 10,
+        "rowLabels": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"],
+        "seatsPerRow": 40,
+        "hasCenterGap": false,
+        "specialPricing": {
+          "rowsA-B": "Contact Organizer",
+          "rowsC-J": 160
         }
       },
-      {
-        "id": 1,
-        "title": "Rock Fiesta",
-        "description": "Feel the power of live rock with top local bands.",
-        "time": "May 5, 2025 | 8:00 PM",
-        "location": "Red Rocks Amphitheatre, CO",
-        "image": "../src/assets/cards/img1.jpg",
-        "price": "$50",
-        "ticketsAvailable": 120
+      "secondClass": {
+        "id": "hbd-house",
+        "rows": 5,
+        "rowLabels": ["A", "B", "C", "D", "E"],
+        "seatsPerRow": 40,
+        "hasCenterGap": false,
+        "price": 120
       },
-      {
-        "id": 2,
-        "title": "Jazz & Blues Night",
-        "description": "Smooth jazz and deep blues in a cozy atmosphere.",
-        "time": "May 8, 2025 | 7:30 PM",
-        "location": "Blue Note, NY",
-        "image": "../src/assets/cards/img2.jpg",
-        "price": "$40",
-        "ticketsAvailable": 85
+      "thirdClass": {
+        "id": "ausdream-arena",
+        "rows": 8,
+        "rowLabels": ["A", "B", "C", "D", "E", "F", "G", "H"],
+        "seatsPerRow": 30,
+        "hasCenterGap": true,
+        "price": 90
       },
-      {
-        "id": 3,
-        "title": "EDM Rave Party",
-        "description": "Dance your heart out with world-class DJs.",
-        "time": "May 10, 2025 | 10:00 PM",
-        "location": "Warehouse 24, LA",
-        "image": "../src/assets/cards/img3.jpg",
-        "price": "$60",
-        "ticketsAvailable": 200
+      "fourthClass": {
+        "id": "century-circle",
+        "rows": 8,
+        "rowLabels": ["A", "B", "C", "D", "E", "F", "G", "H"],
+        "seatsPerRow": 30,
+        "hasCenterGap": true,
+        "price": 70
       },
-      {
-        "id": 4,
-        "title": "Classical Symphony",
-        "description": "A night of elegance with a full orchestra.",
-        "time": "May 12, 2025 | 6:00 PM",
-        "location": "Sydney Opera House",
-        "image": "../src/assets/cards/img4.jpg",
-        "price": "$75",
-        "ticketsAvailable": 90
-      },
-      {
-        "id": 5,
-        "title": "Indie Vibes",
-        "description": "Discover rising indie stars in an intimate venue.",
-        "time": "May 15, 2025 | 9:00 PM",
-        "location": "The Roxy, LA",
-        "image": "../src/assets/cards/img5.jpg",
-        "price": "$35",
-        "ticketsAvailable": 60
-      },
-      {
-        "id": 6,
-        "title": "Hip-Hop Legends Live",
-        "description": "An epic night with hip-hop legends on stage.",
-        "time": "May 17, 2025 | 9:00 PM",
-        "location": "Barclays Center, NY",
-        "image": "../src/assets/cards/img6.jpg",
-        "price": "$55",
-        "ticketsAvailable": 150
-      },
-      {
-        "id": 7,
-        "title": "Pop Explosion",
-        "description": "The hottest pop artists in one unforgettable night.",
-        "time": "May 20, 2025 | 8:30 PM",
-        "location": "Staples Center, LA",
-        "image": "../src/assets/cards/img7.jpg",
-        "price": "$65",
-        "ticketsAvailable": 180
-      },
-      {
-        "id": 8,
-        "title": "Country Road Fest",
-        "description": "Put on your boots and enjoy top country acts.",
-        "time": "May 22, 2025 | 7:00 PM",
-        "location": "Nashville Fairgrounds",
-        "image": "../src/assets/cards/img8.jpg",
-        "price": "$45",
-        "ticketsAvailable": 130
-      },
-      {
-        "id": 9,
-        "title": "Metal Madness",
-        "description": "Brace yourself for heavy riffs and wild energy.",
-        "time": "May 25, 2025 | 9:00 PM",
-        "location": "The Fillmore, Detroit",
-        "image": "../src/assets/cards/img9.jpg",
-        "price": "$50",
-        "ticketsAvailable": 95
-      },
-      {
-        "id": 10,
-        "title": "Acoustic Evenings",
-        "description": "Chill vibes, acoustic guitars, and warm drinks.",
-        "time": "May 28, 2025 | 6:30 PM",
-        "location": "Luna Lounge, SF",
-        "image": "../src/assets/cards/img10.jpg",
-        "price": "$30",
-        "ticketsAvailable": 50
-      },
-      {
-        "id": 11,
-        "title": "Jazz Madness",
-        "description": "Brace yourself for heavy riffs and wild energy.",
-        "time": "May 24, 2025 | 9:00 PM",
-        "location": "The Fillmore, Detroit",
-        "image": "../src/assets/cards/img11.jpg",
-        "price": "$45",
-        "ticketsAvailable": 110
-      },
-      {
-        "id": 12,
-        "title": "Acoustic Evenings",
-        "description": "Chill vibes, acoustic guitars, and warm drinks.",
-        "time": "May 30, 2025 | 6:30 PM",
-        "location": "Luna Lounge, SF",
-        "image": "../src/assets/cards/img12.jpg",
-        "price": "$30",
-        "ticketsAvailable": 55
+      "gammaGallery": {
+        "id": "gamma-gallery",
+        "totalSeats": 62,
+        "price": 60
       }
-    ]
+    },
+    "seatExamples": {
+      "vip": {
+        "rowA": [
+          {"id": "A1", "number": "1", "status": "available", "category": "vip", "price": "Contact Organizer"},
+          {"id": "A2", "number": "2", "status": "available", "category": "vip", "price": "Contact Organizer"},
+          {"id": "A3", "number": "3", "status": "available", "category": "vip", "price": "Contact Organizer"},
+          {"id": "A4", "number": "4", "status": "available", "category": "vip", "price": "Contact Organizer"},
+          {"id": "A5", "number": "5", "status": "available", "category": "vip", "price": "Contact Organizer"},
+          {"id": "A6", "number": "6", "status": "available", "category": "vip", "price": "Contact Organizer"},
+          {"id": "A7", "number": "7", "status": "available", "category": "vip", "price": "Contact Organizer"},
+          {"id": "A8", "number": "8", "status": "available", "category": "vip", "price": "Contact Organizer"},
+          {"id": "A9", "number": "9", "status": "available", "category": "vip", "price": "Contact Organizer"},
+          {"id": "A10", "number": "10", "status": "available", "category": "vip", "price": "Contact Organizer"},
+          {"id": "A11", "number": "11", "status": "available", "category": "vip", "price": "Contact Organizer"},
+          {"id": "A12", "number": "12", "status": "available", "category": "vip", "price": "Contact Organizer"},
+          {"id": "A13", "number": "13", "status": "available", "category": "vip", "price": "Contact Organizer"},
+          {"id": "A14", "number": "14", "status": "available", "category": "vip", "price": "Contact Organizer"},
+          {"id": "A15", "number": "15", "status": "available", "category": "vip", "price": "Contact Organizer"},
+          {"id": "A16", "number": "16", "status": "available", "category": "vip", "price": "Contact Organizer"},
+          {"id": "A17", "number": "17", "status": "available", "category": "vip", "price": "Contact Organizer"},
+          {"id": "A18", "number": "18", "status": "available", "category": "vip", "price": "Contact Organizer"},
+          {"id": "A19", "number": "19", "status": "available", "category": "vip", "price": "Contact Organizer"},
+          {"id": "A20", "number": "20", "status": "available", "category": "vip", "price": "Contact Organizer"},
+          "... 38 more seats ..."
+        ],
+        "rowC": [
+          {"id": "C1", "number": "1", "status": "available", "category": "vip", "price": 160},
+          {"id": "C2", "number": "2", "status": "available", "category": "vip", "price": 160},
+          "... 38 more seats ..."
+        ]
+      },
+      "hbdHouse": {
+        "rowA": [
+          {"id": "HBD-A1", "number": "1", "status": "available", "category": "hbd-house", "price": 120},
+          {"id": "HBD-A2", "number": "2", "status": "available", "category": "hbd-house", "price": 120},
+          "... 38 more seats ..."
+        ]
+      },
+      "ausdreamArena": {
+        "rowA": {
+          "leftColumn": [
+            {"id": "AUS-A1", "number": "1", "status": "available", "category": "ausdream-arena", "price": 90},
+            {"id": "AUS-A2", "number": "2", "status": "available", "category": "ausdream-arena", "price": 90},
+            "... 13 more seats ..."
+          ],
+          "rightColumn": [
+            {"id": "AUS-A16", "number": "16", "status": "available", "category": "ausdream-arena", "price": 90},
+            {"id": "AUS-A17", "number": "17", "status": "available", "category": "ausdream-arena", "price": 90},
+            "... 13 more seats ..."
+          ]
+        }
+      },
+      "centuryCircle": {
+        "rowA": {
+          "leftColumn": [
+            {"id": "CEN-A1", "number": "1", "status": "available", "category": "century-circle", "price": 70},
+            {"id": "CEN-A2", "number": "2", "status": "available", "category": "century-circle", "price": 70},
+            "... 13 more seats ..."
+          ],
+          "rightColumn": [
+            {"id": "CEN-A16", "number": "16", "status": "available", "category": "century-circle", "price": 70},
+            {"id": "CEN-A17", "number": "17", "status": "available", "category": "century-circle", "price": 70},
+            "... 13 more seats ..."
+          ]
+        }
+      },
+      "gammaGallery": [
+        {"id": "GAM-1", "number": "1", "status": "available", "category": "gamma-gallery", "price": 60},
+        {"id": "GAM-2", "number": "2", "status": "available", "category": "gamma-gallery", "price": 60},
+        "... 60 more seats ..."
+      ]
+    }
   }

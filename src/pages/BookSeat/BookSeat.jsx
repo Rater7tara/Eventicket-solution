@@ -10,52 +10,209 @@ const BookSeat = () => {
   const [activeCategoryFilter, setActiveCategoryFilter] = useState(null);
   const [zoomLevel, setZoomLevel] = useState(1);
 
-  // Fetch data when component mounts
+  // Initialize with custom seating plan
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        
-        // Option 1: Fetch from a local JSON file
-        const response = await fetch('theaterSeating.json');
-        
-        // Option 2: Hardcode the data if fetch doesn't work
-        // If fetch doesn't work, you can uncomment and use this:
-        // const hardcodedData = {/* copy the entire JSON here */};
-        // setEventData(hardcodedData);
-        // setLoading(false);
-        // return;
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch data: ${response.status}`);
+    try {
+      // Create custom theater data
+      const customTheaterData = {
+        eventName: "Theater Event",
+        venue: "Grand Theater",
+        date: "2025-04-24T19:30:00",
+        time: "7:30 PM",
+        seatCategories: [
+          { id: "vip", name: "VIP", price: 100, color: "#FF4500" },
+          { id: "premium", name: "Premium", price: 80, color: "#9370DB" },
+          { id: "standard", name: "Standard", price: 60, color: "#3498DB" },
+          { id: "economy", name: "Economy", price: 40, color: "#2ECC71" },
+          { id: "basic", name: "Basic", price: 20, color: "#F1C40F" }
+        ],
+        seatMap: {
+          rows: []
         }
-        
-        const data = await response.json();
-        setEventData(data);
-        setError(null);
-      } catch (err) {
-        console.error("Error fetching theater seating data:", err);
-        setError("Failed to load seating chart. Please try again later.");
-      } finally {
-        setLoading(false);
-      }
-    };
+      };
 
-    fetchData();
+      // Generate rows and seats
+      generateTheaterSeating(customTheaterData);
+
+      setEventData(customTheaterData);
+      setLoading(false);
+    } catch (err) {
+      console.error("Error creating theater seating data:", err);
+      setError("Failed to load seating chart. Please try again later.");
+      setLoading(false);
+    }
   }, []);
+
+  // Function to generate seating layout
+  const generateTheaterSeating = (data) => {
+    // 1st class - 5 rows (A-E), 20 seats per column (2 columns)
+    for (let r = 1; r <= 5; r++) {
+      const rowId = `first_${r}`;
+      const rowName = String.fromCharCode(64 + r); // A, B, C, D, E
+      const seats = [];
+
+      // Left column
+      for (let s = 1; s <= 20; s++) {
+        seats.push({
+          id: `${rowId}_L${s}`,
+          number: `L${s}`,
+          status: Math.random() > 0.8 ? "booked" : "available",
+          category: "vip"
+        });
+      }
+
+      // Right column
+      for (let s = 1; s <= 20; s++) {
+        seats.push({
+          id: `${rowId}_R${s}`,
+          number: `R${s}`,
+          status: Math.random() > 0.8 ? "booked" : "available",
+          category: "vip"
+        });
+      }
+
+      data.seatMap.rows.push({
+        id: rowId,
+        name: rowName,
+        className: "1st Class",
+        seats: seats
+      });
+    }
+
+    // 2nd class - 5 rows (A-E), 20 seats per column (2 columns)
+    for (let r = 1; r <= 5; r++) {
+      const rowId = `second_${r}`;
+      const rowName = String.fromCharCode(64 + r); // A, B, C, D, E
+      const seats = [];
+
+      // Left column
+      for (let s = 1; s <= 20; s++) {
+        seats.push({
+          id: `${rowId}_L${s}`,
+          number: `L${s}`,
+          status: Math.random() > 0.8 ? "booked" : "available",
+          category: "premium"
+        });
+      }
+
+      // Right column
+      for (let s = 1; s <= 20; s++) {
+        seats.push({
+          id: `${rowId}_R${s}`,
+          number: `R${s}`,
+          status: Math.random() > 0.8 ? "booked" : "available",
+          category: "premium"
+        });
+      }
+
+      data.seatMap.rows.push({
+        id: rowId,
+        name: rowName,
+        className: "2nd Class",
+        seats: seats
+      });
+    }
+
+    // 3rd class - 8 rows (A-H), 30 seats per column (2 columns)
+    for (let r = 1; r <= 8; r++) {
+      const rowId = `third_${r}`;
+      const rowName = String.fromCharCode(64 + r); // A, B, C, D, E, F, G, H
+      const seats = [];
+
+      // Left column
+      for (let s = 1; s <= 30; s++) {
+        seats.push({
+          id: `${rowId}_L${s}`,
+          number: `L${s}`,
+          status: Math.random() > 0.8 ? "booked" : "available",
+          category: "standard"
+        });
+      }
+
+      // Right column
+      for (let s = 1; s <= 30; s++) {
+        seats.push({
+          id: `${rowId}_R${s}`,
+          number: `R${s}`,
+          status: Math.random() > 0.8 ? "booked" : "available",
+          category: "standard"
+        });
+      }
+
+      data.seatMap.rows.push({
+        id: rowId,
+        name: rowName,
+        className: "3rd Class",
+        seats: seats
+      });
+    }
+
+    // 4th class - 8 rows (A-H), 30 seats per column (2 columns)
+    for (let r = 1; r <= 8; r++) {
+      const rowId = `fourth_${r}`;
+      const rowName = String.fromCharCode(64 + r); // A, B, C, D, E, F, G, H
+      const seats = [];
+
+      // Left column
+      for (let s = 1; s <= 30; s++) {
+        seats.push({
+          id: `${rowId}_L${s}`,
+          number: `L${s}`,
+          status: Math.random() > 0.8 ? "booked" : "available",
+          category: "economy"
+        });
+      }
+
+      // Right column
+      for (let s = 1; s <= 30; s++) {
+        seats.push({
+          id: `${rowId}_R${s}`,
+          number: `R${s}`,
+          status: Math.random() > 0.8 ? "booked" : "available",
+          category: "economy"
+        });
+      }
+
+      data.seatMap.rows.push({
+        id: rowId,
+        name: rowName,
+        className: "4th Class",
+        seats: seats
+      });
+    }
+
+    // 5th class - Single row with 62 seats
+    const fifthRowId = "fifth_1";
+    const fifthRowName = "Back";
+    const fifthSeats = [];
+
+    // Single row of 62 seats
+    for (let s = 1; s <= 62; s++) {
+      fifthSeats.push({
+        id: `${fifthRowId}_${s}`,
+        number: s.toString(),
+        status: Math.random() > 0.8 ? "booked" : "available",
+        category: "basic"
+      });
+    }
+
+    data.seatMap.rows.push({
+      id: fifthRowId,
+      name: fifthRowName,
+      seats: fifthSeats
+    });
+  };
 
   // Function to handle seat selection
   const handleSeatClick = (rowId, seatId) => {
+    if (!eventData) return;
+    
     const rowIndex = eventData.seatMap.rows.findIndex(row => row.id === rowId);
     const seatIndex = eventData.seatMap.rows[rowIndex].seats.findIndex(seat => seat.id === seatId);
     const seat = eventData.seatMap.rows[rowIndex].seats[seatIndex];
 
     // Only allow selection of available seats
     if (seat.status === "booked") return;
-
-    // Create a deep copy of the data
-    const updatedData = JSON.parse(JSON.stringify(eventData));
-    const updatedSeat = updatedData.seatMap.rows[rowIndex].seats[seatIndex];
 
     // Check if the seat is already selected and toggle accordingly
     if (selectedSeats.some(selectedSeat => selectedSeat.id === seatId)) {
@@ -77,8 +234,6 @@ const BookSeat = () => {
       setSelectedSeats([...selectedSeats, newSelectedSeat]);
       setSelectedSeatDetails(newSelectedSeat);
     }
-
-    setEventData(updatedData);
   };
 
   // Calculate total price when selected seats change
@@ -89,13 +244,12 @@ const BookSeat = () => {
 
   // Get a category's details by its ID
   const getCategoryById = (categoryId) => {
-    return eventData.seatCategories.find(category => category.id === categoryId);
+    if (!eventData) return { color: "#ccc" };
+    return eventData.seatCategories.find(category => category.id === categoryId) || { color: "#ccc" };
   };
 
   // Get the CSS class for a seat based on its status and category
   const getSeatClass = (seat, isSelected) => {
-    const category = getCategoryById(seat.category);
-    
     if (seat.status === "booked") {
       return "bg-gray-400 cursor-not-allowed opacity-50";
     }
@@ -106,10 +260,10 @@ const BookSeat = () => {
     
     // Apply active filter
     if (activeCategoryFilter && seat.category !== activeCategoryFilter) {
-      return `opacity-30 hover:opacity-60 cursor-pointer transition-all duration-200`;
+      return "opacity-30 hover:opacity-60 cursor-pointer transition-all duration-200";
     }
     
-    return `hover:opacity-80 hover:scale-110 cursor-pointer transition-all duration-200`;
+    return "hover:opacity-80 hover:scale-110 cursor-pointer transition-all duration-200";
   };
 
   // Get the background color style for a seat
@@ -147,6 +301,17 @@ const BookSeat = () => {
 
   const handleResetZoom = () => {
     setZoomLevel(1);
+  };
+
+  // Function to clear all selected seats
+  const clearSelection = () => {
+    setSelectedSeats([]);
+    setSelectedSeatDetails(null);
+  };
+
+  // Function to determine if a row is the last class (5th class)
+  const isLastClass = (rowId) => {
+    return rowId.startsWith('fifth_');
   };
 
   // Show loading state
@@ -273,21 +438,17 @@ const BookSeat = () => {
                     {/* Stage lights */}
                     <div className="absolute -top-6 left-0 right-0 flex justify-around">
                       {[1, 2, 3, 4, 5].map(i => (
-                        <div key={i} className="w-2 h-8 bg-gray-800 relative before:content-[''] before:absolute before:bottom-0 before:left-1/2 before:-translate-x-1/2 before:w-3 before:h-3 before:bg-orange-400 before:rounded-full before:blur-sm before:animate-pulse"></div>
+                        <div key={i} className="w-2 h-8 bg-gray-800 relative"></div>
                       ))}
                     </div>
                     
                     {/* Main stage */}
-                    <div className="w-5/6 mx-auto h-16 perspective-stage relative">
-                      {/* Stage front face */}
-                      <div className="absolute top-0 left-0 right-0 h-full bg-gradient-to-r from-orange-900 via-orange-800 to-orange-900 rounded-t-xl border-t-2 border-orange-700 shadow-[0_-15px_30px_-15px_rgba(0,0,0,0.7)]">
+                    <div className="w-5/6 mx-auto h-16 relative">
+                      <div className="absolute top-0 left-0 right-0 h-full bg-gradient-to-r from-orange-900 via-orange-800 to-orange-900 rounded-t-xl border-t-2 border-orange-700">
                         <div className="flex items-center justify-center h-full">
-                          <span className="text-orange-300 font-bold text-lg tracking-wider drop-shadow-lg">STAGE</span>
+                          <span className="text-orange-300 font-bold text-lg tracking-wider">STAGE</span>
                         </div>
                       </div>
-                      
-                      {/* Stage top face */}
-                      <div className="absolute top-0 left-0 right-0 h-8 bg-orange-800 transform -translate-y-8 rotatex-70 origin-bottom rounded-lg border-t border-orange-700"></div>
                     </div>
                     
                     {/* Floor gradients in front of stage */}
@@ -297,45 +458,92 @@ const BookSeat = () => {
                   {/* Seat Map */}
                   <div className="space-y-6 mx-auto text-center">
                     {eventData.seatMap.rows.map((row, rowIdx) => (
-                      <div key={row.id} className="flex items-center justify-center group">
-                        <div className="w-10 text-right pr-3 font-medium text-gray-400 opacity-80 group-hover:opacity-100 transition-opacity">
-                          {row.name}
+                      <div key={row.id} className="my-6">
+                        {/* Row Label */}
+                        <div className="text-center mb-2">
+                          <span className="px-3 py-1 bg-gray-800 text-orange-300 rounded-md text-sm font-medium">
+                            {row.className ? `${row.className} - Row ${row.name}` : (isLastClass(row.id) ? 'Basic' : 'Row ' + row.name)}
+                          </span>
                         </div>
-                        <div className="flex gap-2 justify-center flex-wrap" style={{ 
-                          // Make rows appear as a curved theater
-                          transform: `perspective(1000px) rotateX(${5 + rowIdx * 0.5}deg)`,
-                          maxWidth: `${Math.min(100, 70 + rowIdx * 5)}%`,
-                        }}>
-                          {row.seats.map((seat) => {
-                            const isSelected = selectedSeats.some(s => s.id === seat.id);
-                            return (
-                              <button
-                                key={seat.id}
-                                disabled={seat.status === "booked"}
-                                onClick={() => handleSeatClick(row.id, seat.id)}
-                                className={`w-7 h-7 m-0.5 rounded-t-lg border-b-0 text-xs font-medium flex items-center justify-center transition-all duration-300 relative seat-3d ${
-                                  isSelected ? 'scale-110 z-10' : ''
-                                } ${getSeatClass(seat, isSelected)}`}
-                                style={{
-                                  ...getSeatStyle(seat, isSelected),
-                                  boxShadow: isSelected ? '0 0 8px rgba(250, 204, 21, 0.7)' : 'none'
-                                }}
-                                title={`${row.name}${seat.number} - ${getCategoryById(seat.category).name}`}
-                              >
-                                {seat.number}
-                                <div className="absolute top-full left-0 right-0 h-1.5 bg-gray-800"></div>
-                              </button>
-                            );
-                          })}
-                        </div>
+                        
+                        {/* Seating Layout */}
+                        {isLastClass(row.id) ? (
+                          // Last class - Single row layout
+                          <div className="flex justify-center">
+                            <div className="flex flex-wrap gap-1 justify-center max-w-4xl">
+                              {row.seats.map((seat) => {
+                                const isSelected = selectedSeats.some(s => s.id === seat.id);
+                                return (
+                                  <button
+                                    key={seat.id}
+                                    disabled={seat.status === "booked"}
+                                    onClick={() => handleSeatClick(row.id, seat.id)}
+                                    className={`w-6 h-6 m-0.5 rounded-t-lg text-xs font-medium flex items-center justify-center transition-all duration-300 relative ${getSeatClass(seat, isSelected)}`}
+                                    style={getSeatStyle(seat, isSelected)}
+                                    title={`${row.name}${seat.number} - ${getCategoryById(seat.category).name}`}
+                                  >
+                                    {seat.number}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ) : (
+                          // Other classes - Two column layout
+                          <div className="flex justify-center gap-16 mx-auto">
+                            {/* Left Column */}
+                            <div className="text-right">
+                              <div className="text-gray-400 text-xs mb-1">Left Column</div>
+                              <div className="flex flex-wrap justify-end gap-1 max-w-xl">
+                                {row.seats.slice(0, row.seats.length / 2).map((seat) => {
+                                  const isSelected = selectedSeats.some(s => s.id === seat.id);
+                                  return (
+                                    <button
+                                      key={seat.id}
+                                      disabled={seat.status === "booked"}
+                                      onClick={() => handleSeatClick(row.id, seat.id)}
+                                      className={`w-6 h-6 m-0.5 rounded-t-lg text-xs font-medium flex items-center justify-center transition-all duration-300 relative ${getSeatClass(seat, isSelected)}`}
+                                      style={getSeatStyle(seat, isSelected)}
+                                      title={`${row.name}${seat.number} - ${getCategoryById(seat.category).name}`}
+                                    >
+                                      {seat.number.replace('L', '')}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            
+                            {/* Right Column */}
+                            <div className="text-left">
+                              <div className="text-gray-400 text-xs mb-1">Right Column</div>
+                              <div className="flex flex-wrap justify-start gap-1 max-w-xl">
+                                {row.seats.slice(row.seats.length / 2).map((seat) => {
+                                  const isSelected = selectedSeats.some(s => s.id === seat.id);
+                                  return (
+                                    <button
+                                      key={seat.id}
+                                      disabled={seat.status === "booked"}
+                                      onClick={() => handleSeatClick(row.id, seat.id)}
+                                      className={`w-6 h-6 m-0.5 rounded-t-lg text-xs font-medium flex items-center justify-center transition-all duration-300 relative ${getSeatClass(seat, isSelected)}`}
+                                      style={getSeatStyle(seat, isSelected)}
+                                      title={`${row.name}${seat.number} - ${getCategoryById(seat.category).name}`}
+                                    >
+                                      {seat.number.replace('R', '')}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
                 
                   {/* Front row identifier */}
-                  {/* <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 bg-gray-800 rounded-md px-3 py-1 opacity-80">
+                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 bg-gray-800 rounded-md px-3 py-1 opacity-80">
                     <span className="text-orange-300 text-xs">SCREEN</span>
-                  </div> */}
+                  </div>
                 </div>
               </div>
             </div>
@@ -394,7 +602,10 @@ const BookSeat = () => {
                   Proceed to Payment
                 </button>
                 
-                <button className="w-full mt-2 py-2 border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors">
+                <button 
+                  onClick={clearSelection}
+                  className="w-full mt-2 py-2 border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors"
+                >
                   Clear Selection
                 </button>
               </>
@@ -409,45 +620,9 @@ const BookSeat = () => {
                 <p className="text-gray-400">Click on available seats in the seating chart to add them to your booking.</p>
               </div>
             )}
-
-            {/* Selected Seat Details */}
-            {selectedSeatDetails && (
-              <div className="mt-6 p-4 bg-gray-900 rounded-lg border border-orange-600/30">
-                <h3 className="font-medium text-orange-300 mb-3">Selected Seat Details</h3>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className="text-gray-400">Category:</div>
-                  <div className="font-medium text-white">{selectedSeatDetails.categoryName}</div>
-                  <div className="text-gray-400">Location:</div>
-                  <div className="font-medium text-white">Row {selectedSeatDetails.rowName}, Seat {selectedSeatDetails.number}</div>
-                  <div className="text-gray-400">Price:</div>
-                  <div className="font-medium text-white">${selectedSeatDetails.price}</div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
-      
-      {/* CSS for 3D effects */}
-      <style jsx>{`
-        .perspective-stage {
-          perspective: 1000px;
-        }
-        
-        .rotatex-70 {
-          transform: rotateX(70deg);
-        }
-        
-        .seat-3d {
-          position: relative;
-          transform-style: preserve-3d;
-          transform: perspective(100px) rotateX(10deg);
-        }
-        
-        .seat-3d:hover {
-          transform: perspective(100px) rotateX(5deg) scale(1.1);
-        }
-      `}</style>
     </div>
   );
 };

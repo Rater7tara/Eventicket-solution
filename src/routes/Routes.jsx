@@ -17,6 +17,8 @@ import ContactUs from "../pages/ContactUS/ContactUs";
 import AboutUs from "../pages/AboutUs/AboutUs";
 import RefundPolicy from "../pages/RefundPolicy/RefundPolicy";
 import Disclaimer from "../pages/Disclaimer/Disclaimer";
+import SeatPlanVisualization from "../pages/SeatPlanVisulization/SeatPlanVisulization";
+import NewSeat from "../pages/BookSeat/NewSeat";
 
 
 export const router = createBrowserRouter([
@@ -80,5 +82,13 @@ export const router = createBrowserRouter([
   {
     path: 'bookSeat',
     element: <BookSeat />
+  },
+  {
+    path: 'SeatBook',
+    element: <SeatPlanVisualization />
+  },
+  {
+    path: 'newSeatPlan',
+    element: <NewSeat />
   }
 ]);
