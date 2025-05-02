@@ -1,30 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Calendar, Users, FileText, Home, Phone, LogIn, Menu, X, Bell, Shield, FileCheck } from 'lucide-react';
-import logo from '../../../assets/logo.png'; 
-import { path } from 'framer-motion/client';
+import React, { useState, useEffect, useContext } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Calendar, Users, FileText, Home, Phone, LogIn, LogOut, Menu, X, Bell, Shield, FileCheck, User } from 'lucide-react';
+import logo from '../../../assets/logo.png';
+import { AuthContext } from '../../../providers/AuthProvider';
 
 const NavBar = () => {
+    const { user, logOut } = useContext(AuthContext);
     const [isScrolled, setIsScrolled] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [userInfo, setUserInfo] = useState(null);
     const location = useLocation();
+    const navigate = useNavigate();
 
     const navItems = [
         { name: 'Home', icon: <Home size={20} />, path: '/' },
         { name: 'Events', icon: <Calendar size={20} />, path: '/events' },
         { name: 'About Us', icon: <Users size={20} />, path: '/about' },
         { name: 'Blogs', icon: <FileText size={20} />, path: '/blogs' },
-        {
-            name: 'Contact',
-            path: '/contact',
-            icon: <Phone size={20} />,
-            dropdown: true,
-            items: [
-                { name: 'Contact Us', icon: <Phone size={20} />, path: '/contact' },
-                { name: 'Privacy Policy', icon: <Shield size={20} />, path: '/privacy-policy' },
-                { name: 'Terms & Conditions', icon: <FileCheck size={20} />, path: '/terms' },
-            ]
-        },
+        { name: 'Contact Us', icon: <Phone size={20} />, path: '/contact' },
     ];
 
     // Detect scroll position to change navbar style
@@ -46,20 +39,52 @@ const NavBar = () => {
         setIsMobileMenuOpen(false);
     }, [location]);
 
+    // Update userInfo when the user state changes
+    useEffect(() => {
+        if (user) {
+            // Get saved user data from localStorage or use data from Firebase user
+            const token = localStorage.getItem('access-token');
+            
+            // Create user info object from Firebase user data
+            const currentUserInfo = {
+                name: user.displayName || 'User',
+                email: user.email,
+                avatar: user.photoURL || 'https://i.pravatar.cc/100' // Default avatar if none provided
+            };
+            
+            // Save user info to localStorage for persistence
+            localStorage.setItem('userInfo', JSON.stringify(currentUserInfo));
+            
+            // Update state
+            setUserInfo(currentUserInfo);
+        } else {
+            // Clear user info if logged out
+            localStorage.removeItem('userInfo');
+            setUserInfo(null);
+        }
+    }, [user]);
+
     // Check if a nav item is active
     const isActive = (path) => {
         return location.pathname === path;
     };
 
-    // Check if any contact dropdown item is active
-    const isContactActive = () => {
-        const contactItem = navItems.find(item => item.dropdown);
-        return contactItem && contactItem.items.some(item => location.pathname === item.path);
-    };
-
     // Toggle mobile menu
     const toggleMobileMenu = () => {
         setIsMobileMenuOpen(!isMobileMenuOpen);
+    };
+
+    // Handle logout
+    const handleLogout = async () => {
+        try {
+            // Use the logOut method from AuthContext
+            await logOut();
+            
+            // After successful logout, redirect to home
+            navigate('/');
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
     };
 
     return (
@@ -81,51 +106,12 @@ const NavBar = () => {
                                         className="h-full object-contain"
                                     />
                                 </div>
-                                
                             </Link>
                         </div>
 
                         {/* Desktop Navigation */}
                         <div className="hidden lg:flex items-center space-x-1">
-                            {navItems.map((item) => item.dropdown ? (
-                                // Contact dropdown menu
-                                <div key={item.name} className="relative contact-dropdown group">
-                                    <Link
-                                        to={item.items[0].path} // Default link to first dropdown item
-                                        className={`relative px-4 py-2 rounded-full font-medium transition-all duration-200 group ${
-                                            isContactActive()
-                                                ? 'text-orange-500 hover:text-white bg-orange-500'
-                                                : 'text-neutral hover:text-orange-600'
-                                        }`}
-                                    >
-                                        <span className="flex items-center space-x-1.5">
-                                            {item.icon}
-                                            <span>{item.name}</span>
-                                        </span>
-                                        
-                                        {/* Hover/active indicator */}
-                                        {!isContactActive() && (
-                                            <span className="absolute bottom-0 left-1/2 w-0 h-0.5 bg-orange-500 group-hover:w-4/5 -translate-x-1/2 transition-all duration-300"></span>
-                                        )}
-                                    </Link>
-
-                                    {/* Contact Dropdown Menu - Visible on Hover */}
-                                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg py-2 z-20 transition-all duration-300 transform origin-top-right opacity-0 invisible group-hover:opacity-100 group-hover:visible scale-95 group-hover:scale-100">
-                                        {item.items.map((dropdownItem) => (
-                                            <Link
-                                                key={dropdownItem.name}
-                                                to={dropdownItem.path}
-                                                className={`block px-4 py-2 text-sm hover:bg-orange-50 transition-colors flex items-center space-x-2 ${
-                                                    isActive(dropdownItem.path) ? 'text-orange-600 bg-orange-50' : 'text-gray-700'
-                                                }`}
-                                            >
-                                                {dropdownItem.icon}
-                                                <span>{dropdownItem.name}</span>
-                                            </Link>
-                                        ))}
-                                    </div>
-                                </div>
-                            ) : (
+                            {navItems.map((item) => (
                                 <Link
                                     key={item.name}
                                     to={item.path}
@@ -150,40 +136,67 @@ const NavBar = () => {
 
                         {/* Right Side Actions */}
                         <div className="flex items-center space-x-3">
-                            {/* Notification Bell */}
-                            <button className="relative p-2 text-gray-700 hover:text-orange-600 transition-colors hidden sm:block">
-                                <Bell size={20} />
-                                <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full"></span>
-                            </button>
-                            
-                            {/* Login Button */}
-                            <Link to="/login">
-                                <button className="hidden sm:flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium rounded-full hover:shadow-md hover:shadow-orange-300 transition-all duration-300 transform hover:-translate-y-0.5">
-                                    <LogIn size={18} />
-                                    <span>Login</span>
+                            {/* Notification Bell - Only shown when logged in */}
+                            {user && (
+                                <button className="relative p-2 text-gray-700 hover:text-orange-600 transition-colors hidden sm:block">
+                                    <Bell size={20} />
+                                    <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full"></span>
                                 </button>
-                            </Link>
+                            )}
                             
-                            {/* User Avatar */}
-                            <div className="relative cursor-pointer group">
-                                <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-orange-500 transform transition-transform duration-300 group-hover:scale-110">
-                                    <img src="https://i.pravatar.cc/100" alt="User" className="w-full h-full object-cover" />
-                                </div>
-                                
-                                {/* Dropdown menu for avatar (optional) */}
-                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform origin-top-right scale-95 group-hover:scale-100">
-                                    <div className="px-4 py-2 border-b border-gray-100">
-                                        <p className="text-sm font-semibold text-gray-700">Signed in as</p>
-                                        <p className="text-sm text-gray-500 truncate">user@example.com</p>
+                            {/* Login/Logout Button */}
+                            {!user ? (
+                                <Link to="/login">
+                                    <button className="hidden sm:flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium rounded-full hover:shadow-md hover:shadow-orange-300 transition-all duration-300 transform hover:-translate-y-0.5">
+                                        <LogIn size={18} />
+                                        <span>Login</span>
+                                    </button>
+                                </Link>
+                            ) : (
+                                <button 
+                                    onClick={handleLogout}
+                                    className="hidden sm:flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium rounded-full hover:shadow-md hover:shadow-orange-300 transition-all duration-300 transform hover:-translate-y-0.5"
+                                >
+                                    <LogOut size={18} />
+                                    <span>Logout</span>
+                                </button>
+                            )}
+                            
+                            {/* User Avatar - Only shown when logged in */}
+                            {user && userInfo ? (
+                                <div className="relative cursor-pointer group">
+                                    <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-orange-500 transform transition-transform duration-300 group-hover:scale-110">
+                                        <img 
+                                            src={userInfo.avatar || "https://i.pravatar.cc/100"} 
+                                            alt="User" 
+                                            className="w-full h-full object-cover" 
+                                        />
                                     </div>
-                                    <a href="#profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50">Your Profile</a>
-                                    <a href="#tickets" className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50">Your Tickets</a>
-                                    <a href="#settings" className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50">Settings</a>
-                                    <div className="border-t border-gray-100 mt-2 pt-2">
-                                        <a href="#signout" className="block px-4 py-2 text-sm text-red-600 hover:bg-red-50">Sign out</a>
+                                    
+                                    {/* Dropdown menu for avatar */}
+                                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform origin-top-right scale-95 group-hover:scale-100">
+                                        <div className="px-4 py-2 border-b border-gray-100">
+                                            <p className="text-sm font-semibold text-gray-700">Signed in as</p>
+                                            <p className="text-sm text-gray-500 truncate">{userInfo.email}</p>
+                                        </div>
+                                        <Link to="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50">Your Profile</Link>
+                                        <Link to="/tickets" className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50">Your Tickets</Link>
+                                        <Link to="/settings" className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50">Settings</Link>
+                                        <div className="border-t border-gray-100 mt-2 pt-2">
+                                            <button 
+                                                onClick={handleLogout} 
+                                                className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                                            >
+                                                Sign out
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            ) : (
+                                <div className="w-10 h-10 rounded-full flex items-center justify-center bg-orange-100 border-2 border-orange-300 lg:hidden">
+                                    <User size={18} className="text-orange-500" />
+                                </div>
+                            )}
                             
                             {/* Mobile Menu Toggle */}
                             <button 
@@ -206,36 +219,25 @@ const NavBar = () => {
                     style={{ top: '64px' }}
                 >
                     <div className="flex flex-col p-5 space-y-3">
-                        {navItems.map((item) => item.dropdown ? (
-                            // Mobile Contact Us Section with dropdown items
-                            <div key={item.name} className="mt-2 border-t border-gray-100 pt-2">
-                                <div className="p-3 text-gray-800 font-medium">
-                                    <span className="flex items-center space-x-3">
-                                        <span className="bg-white p-2 rounded-lg shadow-sm">
-                                            {item.icon}
-                                        </span>
-                                        <span>{item.name}</span>
-                                    </span>
+                        {/* User info section when logged in */}
+                        {user && userInfo && (
+                            <div className="flex items-center space-x-3 p-3 bg-orange-50 rounded-lg mb-3">
+                                <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-orange-500">
+                                    <img 
+                                        src={userInfo.avatar || "https://i.pravatar.cc/100"} 
+                                        alt="User" 
+                                        className="w-full h-full object-cover" 
+                                    />
                                 </div>
-                                
-                                <div className="ml-12 space-y-2">
-                                    {item.items.map((dropdownItem) => (
-                                        <Link
-                                            key={dropdownItem.name}
-                                            to={dropdownItem.path}
-                                            className={`flex items-center space-x-3 p-2 ${
-                                                isActive(dropdownItem.path)
-                                                    ? 'bg-orange-50 text-orange-600 rounded-lg'
-                                                    : 'text-gray-600'
-                                            }`}
-                                        >
-                                            <span>{dropdownItem.icon}</span>
-                                            <span>{dropdownItem.name}</span>
-                                        </Link>
-                                    ))}
+                                <div>
+                                    <p className="font-medium text-gray-800">{userInfo.name}</p>
+                                    <p className="text-sm text-gray-500">{userInfo.email}</p>
                                 </div>
                             </div>
-                        ) : (
+                        )}
+                        
+                        {/* Navigation items */}
+                        {navItems.map((item) => (
                             <Link
                                 key={item.name}
                                 to={item.path}
@@ -250,14 +252,43 @@ const NavBar = () => {
                             </Link>
                         ))}
                         
+                        {/* Login/Logout button for mobile */}
                         <div className="pt-4 mt-4 border-t border-gray-100">
-                            <Link to="/login">
-                                <button className="flex items-center w-full gap-2 p-3 bg-orange-500 text-white rounded-lg font-medium">
-                                    <LogIn size={20} />
-                                    <span>Login / Sign Up</span>
+                            {!user ? (
+                                <Link to="/login">
+                                    <button className="flex items-center w-full gap-2 p-3 bg-orange-500 text-white rounded-lg font-medium">
+                                        <LogIn size={20} />
+                                        <span>Login / Sign Up</span>
+                                    </button>
+                                </Link>
+                            ) : (
+                                <button 
+                                    onClick={handleLogout}
+                                    className="flex items-center w-full gap-2 p-3 bg-orange-500 text-white rounded-lg font-medium"
+                                >
+                                    <LogOut size={20} />
+                                    <span>Logout</span>
                                 </button>
-                            </Link>
+                            )}
                         </div>
+                        
+                        {/* Additional user options when logged in */}
+                        {user && (
+                            <div className="space-y-2 mt-2">
+                                <Link to="/profile" className="flex items-center space-x-3 p-2 text-gray-600 hover:bg-orange-50 rounded-lg">
+                                    <User size={18} />
+                                    <span>Your Profile</span>
+                                </Link>
+                                <Link to="/tickets" className="flex items-center space-x-3 p-2 text-gray-600 hover:bg-orange-50 rounded-lg">
+                                    <FileCheck size={18} />
+                                    <span>Your Tickets</span>
+                                </Link>
+                                <Link to="/settings" className="flex items-center space-x-3 p-2 text-gray-600 hover:bg-orange-50 rounded-lg">
+                                    <Shield size={18} />
+                                    <span>Settings</span>
+                                </Link>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

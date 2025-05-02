@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Phone, 
   Mail, 
@@ -19,6 +19,20 @@ const ContactUs = () => {
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const pageTopRef = useRef(null);
+
+  // Scroll to top when page loads/reloads - using immediate scroll for reliability
+  useEffect(() => {
+    // Force immediate scroll to top without animation for reliability
+    window.scrollTo(0, 0);
+    
+    // Add a secondary forced scroll with a slight delay to handle any dynamic content
+    setTimeout(() => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0; // For Safari
+    }, 50);
+  }, []);
 
   // Scroll effect for sticky header
   useEffect(() => {
@@ -59,7 +73,7 @@ const ContactUs = () => {
   };
 
   return (
-    <div className="min-h-screen pt-6 pb-16 relative">
+    <div className="min-h-screen pt-6 pb-16 relative" ref={pageTopRef}>
       {/* Background decorative elements */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-10 left-10 w-64 h-64 rounded-full bg-orange-100 opacity-50 blur-3xl"></div>
@@ -69,15 +83,15 @@ const ContactUs = () => {
 
       <div className="max-w-5xl mx-auto px-4 relative z-10">
         {/* Back button */}
-        <div className="mb-8">
+        {/* <div className="mb-8">
           <a href="/" className="inline-flex items-center text-gray-600 hover:text-orange-500 transition-colors">
             <ArrowLeft size={20} className="mr-2" />
             <span>Back to Home</span>
           </a>
-        </div>
+        </div> */}
 
         {/* Header */}
-        <div className={`sticky top-20 z-30 py-6 px-8 mb-10 bg-white rounded-2xl shadow-lg transform transition-all duration-300 ${
+        <div className={`top-20 z-30 py-6 px-8 mb-10 bg-white rounded-2xl shadow-lg transform transition-all duration-300 ${
           isScrolled ? 'shadow-orange-100' : ''
         }`}>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -235,16 +249,16 @@ const ContactUs = () => {
         </div>
 
         {/* Google Maps Placeholder */}
-        <div className="mt-12 bg-white rounded-2xl overflow-hidden shadow-lg border border-orange-100">
+        <div className="mt-12 bg-white rounded-2xl overflow-hidden shadow-lg border border-orange-100 h-96">
           <div className="aspect-w-16 aspect-h-8">
             <iframe 
               src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3024.2219901290355!2d-74.00369368400567!3d40.71312937933185!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89c25a47df06b185%3A0xc80b8f06e177fe62!2sNew%20York%2C%20NY%2C%20USA!5e0!3m2!1sen!2sus!4v1623164983123!5m2!1sen!2sus"
               width="100%" 
-              height="450" 
+              height="500" 
               style={{ border: 0 }}
               allowFullScreen="" 
               loading="lazy"
-              className="w-full h-full"
+              className="w-full h-96"
             ></iframe>
           </div>
         </div>
@@ -260,11 +274,6 @@ const ContactUs = () => {
               Request Support
             </button>
           </div>
-        </div>
-
-        {/* Document version */}
-        <div className="mt-12 text-center text-gray-500 text-sm">
-          <p>Last Updated: April 2025</p>
         </div>
       </div>
     </div>

@@ -19,6 +19,7 @@ import RefundPolicy from "../pages/RefundPolicy/RefundPolicy";
 import Disclaimer from "../pages/Disclaimer/Disclaimer";
 import SeatPlanVisualization from "../pages/SeatPlanVisulization/SeatPlanVisulization";
 import NewSeat from "../pages/BookSeat/NewSeat";
+import Register from "../pages/Login/Register/Register";
 
 
 export const router = createBrowserRouter([
@@ -80,6 +81,10 @@ export const router = createBrowserRouter([
     element: <Login />
   },
   {
+    path: 'register',
+    element: <Register />
+  },
+  {
     path: 'bookSeat',
     element: <BookSeat />
   },
@@ -88,7 +93,7 @@ export const router = createBrowserRouter([
     element: <SeatPlanVisualization />
   },
   {
-    path: 'newSeatPlan',
+    path: 'SeatPlan',
     element: <NewSeat />
   }
 ]);

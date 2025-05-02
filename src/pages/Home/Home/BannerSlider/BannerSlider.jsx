@@ -150,7 +150,7 @@ const BannerSlider = () => {
                         </div>
                         
                         {/* Decorative elements */}
-                        <div className="absolute bottom-0 right-0 bg-orange-500/20 backdrop-blur-sm w-64 h-64 rounded-full -mr-32 -mb-32 z-0"></div>
+                        {/* <div className="absolute bottom-2 right-0 bg-orange-500/20 backdrop-blur-sm w-64 h-64 rounded-full -mr-32 -mb-32 z-0"></div> */}
                         <div className="absolute top-1/4 left-1/3 bg-orange-500/10 backdrop-blur-sm w-32 h-32 rounded-full z-0"></div>
                     </div>
                 ))}

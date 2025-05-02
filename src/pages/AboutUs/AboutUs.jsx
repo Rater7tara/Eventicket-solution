@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Music, 
   Users, 
@@ -10,6 +10,20 @@ import {
 
 const AboutUs = () => {
   const [isScrolled, setIsScrolled] = useState(false);
+  const pageTopRef = useRef(null);
+
+  // Force scroll to top when page loads/reloads
+  useEffect(() => {
+    // Force immediate scroll to top without animation for reliability
+    window.scrollTo(0, 0);
+    
+    // Add a secondary forced scroll with a slight delay to handle any dynamic content
+    setTimeout(() => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0; // For Safari
+    }, 50);
+  }, []);
 
   // Scroll effect for sticky header
   useEffect(() => {
@@ -47,7 +61,7 @@ const AboutUs = () => {
   ];
 
   return (
-    <div className="min-h-screen pt-6 pb-16 relative">
+    <div className="min-h-screen pt-6 pb-16 relative" ref={pageTopRef}>
       {/* Background decorative elements */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-10 left-10 w-64 h-64 rounded-full bg-orange-100 opacity-50 blur-3xl"></div>
@@ -56,16 +70,9 @@ const AboutUs = () => {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 relative z-10">
-        {/* Back button */}
-        <div className="mb-8">
-          <a href="/" className="inline-flex items-center text-gray-600 hover:text-orange-500 transition-colors">
-            <ArrowLeft size={20} className="mr-2" />
-            <span>Back to Home</span>
-          </a>
-        </div>
 
         {/* Header */}
-        <div className={`sticky top-20 z-30 py-6 px-8 mb-10 bg-white rounded-2xl shadow-lg transform transition-all duration-300 ${
+        <div className={`top-20 z-30 py-6 px-8 mb-10 bg-white rounded-2xl shadow-lg transform transition-all duration-300 ${
           isScrolled ? 'shadow-orange-100' : ''
         }`}>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -205,11 +212,6 @@ const AboutUs = () => {
               Contact Us
             </a>
           </div>
-        </div>
-
-        {/* Document version */}
-        <div className="mt-12 text-center text-gray-500 text-sm">
-          <p>Last Updated: April 2025</p>
         </div>
       </div>
 

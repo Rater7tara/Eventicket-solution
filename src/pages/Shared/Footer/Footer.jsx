@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Users, FileText, Home, Phone, Mail, MapPin, Instagram, Facebook, Twitter, Music, Ticket, Heart, ChevronRight } from 'lucide-react';
+import { Calendar, Users, FileText, Home, Phone, Mail, MapPin, Instagram, Facebook, Twitter, Music, Ticket, Heart, ChevronRight, Code } from 'lucide-react';
 import logo from '../../../assets/logo.png';
 
 const Footer = () => {
@@ -188,9 +188,9 @@ const Footer = () => {
             © {new Date().getFullYear()} Event n Tickets. All rights reserved.
           </p>
           <div className="flex items-center space-x-1">
-            <span className="text-gray-500 text-sm mr-2">Made with</span>
-            <Heart size={16} className="text-red-500 animate-pulse" />
-            <span className="text-gray-500 text-sm ml-1">for music lovers</span>
+            <span className="text-gray-500 text-sm mr-2">Developed By</span>
+            <Code size={16} className="text-red-500 animate-pulse" />
+            <span className="text-gray-500 text-sm ml-1">CodeClub It Solution</span>
           </div>
         </div>
       </div>
