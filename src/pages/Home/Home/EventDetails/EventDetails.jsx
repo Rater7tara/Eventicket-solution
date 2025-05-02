@@ -49,11 +49,11 @@ const EventDetails = () => {
             console.log("Using event from navigation state:", eventFromState);
             setEvent(eventFromState);
             
-            // Set default ticket types if not provided in data
+            // Set default ticket types with updated prices
             if (!eventFromState.ticketTypes) {
                 eventFromState.ticketTypes = [
-                    { id: 1, name: "Regular", price: parseFloat((eventFromState.price || "0").replace('$', '')) || 10 },
-                    { id: 2, name: "VIP", price: parseFloat((eventFromState.price || "0").replace('$', '')) * 1.5 || 20 }
+                    { id: 1, name: "Regular", price: 60 },
+                    { id: 2, name: "VIP", price: 0, contactOnly: true }
                 ];
             }
             
@@ -77,11 +77,11 @@ const EventDetails = () => {
             if (foundEvent) {
                 setEvent(foundEvent);
                 
-                // Set default ticket types if not provided in data
+                // Set default ticket types with updated prices
                 if (!foundEvent.ticketTypes) {
                     foundEvent.ticketTypes = [
-                        { id: 1, name: "Regular", price: parseFloat((foundEvent.price || "0").replace('$', '')) || 10 },
-                        { id: 2, name: "VIP", price: parseFloat((foundEvent.price || "0").replace('$', '')) * 1.5 || 20 }
+                        { id: 1, name: "Regular", price: 60 },
+                        { id: 2, name: "VIP", price: 0, contactOnly: true }
                     ];
                 }
                 
@@ -155,22 +155,10 @@ const EventDetails = () => {
     // Calculate the price based on selected ticket type
     const ticketPrice = event.ticketTypes[selectedTicketType].price;
     const totalPrice = ticketPrice * ticketQuantity;
+    const isContactOnly = event.ticketTypes[selectedTicketType].contactOnly;
 
     return (
         <div className="min-h-screen bg-gray-900 py-8 px-4 sm:px-6 lg:px-8 text-white">
-            {/* Back button */}
-            {/* <div className="max-w-7xl mx-auto mb-6">
-                <button 
-                    onClick={handleGoBack}
-                    className="flex items-center text-orange-400 hover:text-orange-300 transition-colors"
-                >
-                    <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                    </svg>
-                    Back to Events
-                </button>
-            </div> */}
-            
             <div className="max-w-7xl mx-auto">
                 {/* Main content */}
                 <div className="bg-gray-800 rounded-xl shadow-xl overflow-hidden">
@@ -280,71 +268,52 @@ const EventDetails = () => {
                                             >
                                                 <div>
                                                     <div className="font-medium text-white">{type.name}</div>
-                                                    <div className="text-xs text-gray-400">Includes all event access</div>
+                                                    <div className="text-xs text-gray-400">
+                                                        {type.contactOnly 
+                                                            ? 'Contact organizer for pricing'
+                                                            : 'Includes all event access'}
+                                                    </div>
                                                 </div>
-                                                <div className="font-bold text-orange-400">${type.price}</div>
+                                                <div className="font-bold text-orange-400">
+                                                    {type.contactOnly 
+                                                        ? 'Contact for price' 
+                                                        : `$${type.price}`}
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
                                     
-                                    {/* Quantity selector */}
-                                    <div className="mb-6">
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                                            Ticket Quantity
-                                        </label>
-                                        <div className="flex items-center">
-                                            <button 
-                                                className="w-10 h-10 rounded-l-lg bg-gray-700 flex items-center justify-center hover:bg-gray-600 transition-colors"
-                                                onClick={() => setTicketQuantity(Math.max(1, ticketQuantity - 1))}
-                                                disabled={ticketQuantity <= 1}
-                                            >
-                                                <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4" />
-                                                </svg>
-                                            </button>
-                                            <div className="w-12 h-10 flex items-center justify-center border-t border-b border-gray-700 text-gray-300 font-medium">
-                                                {ticketQuantity}
-                                            </div>
-                                            <button 
-                                                className="w-10 h-10 rounded-r-lg bg-gray-700 flex items-center justify-center hover:bg-gray-600 transition-colors"
-                                                onClick={() => setTicketQuantity(Math.min(10, ticketQuantity + 1))}
-                                                disabled={ticketQuantity >= 10 || event.ticketsAvailable <= 0}
-                                            >
-                                                <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    
-                                    {/* Total */}
-                                    <div className="flex justify-between items-center mb-6 font-medium">
-                                        <span className="text-gray-300">Total:</span>
-                                        <span className="text-xl text-orange-400">
-                                            ${totalPrice.toFixed(2)}
-                                        </span>
-                                    </div>
-                                    
                                     {/* Action buttons */}
                                     <div className="space-y-3">
-                                        <button 
-                                            onClick={handleBookNow}
-                                            disabled={event.ticketsAvailable <= 0}
-                                            className={`w-full py-3 px-4 rounded-lg font-bold shadow-md text-center ${
-                                                event.ticketsAvailable <= 0
-                                                ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                                                : 'bg-gradient-to-r from-orange-500 to-red-600 text-white hover:shadow-lg transform transition-all duration-300 hover:translate-y-0 hover:scale-105'
-                                            }`}
-                                        >
-                                            {event.ticketsAvailable <= 0 ? 'Sold Out' : 'Book Now'}
-                                        </button>
+                                        {!isContactOnly ? (
+                                            <button 
+                                                onClick={handleBookNow}
+                                                disabled={event.ticketsAvailable <= 0}
+                                                className={`w-full py-3 px-4 rounded-lg font-bold shadow-md text-center ${
+                                                    event.ticketsAvailable <= 0
+                                                    ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                                                    : 'bg-gradient-to-r from-orange-500 to-red-600 text-white hover:shadow-lg transform transition-all duration-300 hover:translate-y-0 hover:scale-105'
+                                                }`}
+                                            >
+                                                {event.ticketsAvailable <= 0 ? 'Sold Out' : 'Book Now'}
+                                            </button>
+                                        ) : (
+                                            <button 
+                                                onClick={handleContactOrganizer}
+                                                className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white py-3 px-4 rounded-lg font-bold shadow-md hover:shadow-lg transform transition-all duration-300 hover:translate-y-0 hover:scale-105"
+                                            >
+                                                Contact Organizer
+                                            </button>
+                                        )}
                                         
-                                        <button 
-                                            onClick={handleContactOrganizer}
-                                            className="w-full bg-transparent border-2 border-orange-500 text-orange-400 py-3 px-4 rounded-lg font-medium hover:bg-orange-500/10 transition-colors"
-                                        >
-                                            Contact Organizer
-                                        </button>
+                                        {!isContactOnly && (
+                                            <button 
+                                                onClick={handleContactOrganizer}
+                                                className="w-full bg-transparent border-2 border-orange-500 text-orange-400 py-3 px-4 rounded-lg font-medium hover:bg-orange-500/10 transition-colors"
+                                            >
+                                                Contact Organizer
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             </div>
