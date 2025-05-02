@@ -10,17 +10,15 @@ import AdminDashboard from "../pages/Dashboard/AdminDashborad/AdminDashboard";
 import SellerDashboard from "../pages/Dashboard/SellerDashboard/SellerDashboard";
 import UserDashboard from "../pages/Dashboard/UserDashboard/UserDashboard";
 import Login from "../pages/Login/Login/Login";
-import BookSeat from "../pages/BookSeat/BookSeat";
 import TermsAndConditions from "../pages/Terms&Conditions/Terms&Conditions";
 import PrivacyPolicy from "../pages/PrivacyPolicy/PrivacyPolicy";
 import ContactUs from "../pages/ContactUS/ContactUs";
 import AboutUs from "../pages/AboutUs/AboutUs";
 import RefundPolicy from "../pages/RefundPolicy/RefundPolicy";
 import Disclaimer from "../pages/Disclaimer/Disclaimer";
-import SeatPlanVisualization from "../pages/SeatPlanVisulization/SeatPlanVisulization";
-import NewSeat from "../pages/BookSeat/NewSeat";
 import Register from "../pages/Login/Register/Register";
 import EventDetails from "../pages/Home/Home/EventDetails/EventDetails";
+import SeatPlan from "../pages/BookSeat/SeatPlan";
 
 
 export const router = createBrowserRouter([
@@ -90,15 +88,7 @@ export const router = createBrowserRouter([
     element: <Register />
   },
   {
-    path: 'bookSeat',
-    element: <BookSeat />
-  },
-  {
     path: 'SeatBook',
-    element: <SeatPlanVisualization />
-  },
-  {
-    path: 'SeatPlan',
-    element: <NewSeat />
+    element: <SeatPlan />
   }
 ]);
