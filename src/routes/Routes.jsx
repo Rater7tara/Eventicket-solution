@@ -19,6 +19,10 @@ import Disclaimer from "../pages/Disclaimer/Disclaimer";
 import Register from "../pages/Login/Register/Register";
 import EventDetails from "../pages/Home/Home/EventDetails/EventDetails";
 import SeatPlan from "../pages/BookSeat/SeatPlan";
+import CheckoutTickets from "../pages/Home/CheckoutTickets/CheckoutTickets";
+import MyTickets from "../pages/Home/UserDashboard/MyTickects/MyTickets";
+import { useContext } from "react";
+import { AuthContext } from "../providers/AuthProvider";
 
 
 export const router = createBrowserRouter([
@@ -34,6 +38,10 @@ export const router = createBrowserRouter([
       {
         path: '/events/:id', 
         element: <EventDetails />,
+      },
+      {
+        path: '/checkout', 
+        element: <CheckoutTickets />,
       },
       {
         path: '/terms',
@@ -63,8 +71,12 @@ export const router = createBrowserRouter([
   },
   {
     path: '/dashboard',
-    element: <DashboardLayout role="admin" />, 
+    element: <DashboardLayout />,
     children: [
+      {
+        index: true, // Default dashboard route
+        element: <UserDashboard /> // Default to user dashboard directly
+      },
       {
         path: 'admin',
         element: <AdminDashboard />
@@ -76,6 +88,42 @@ export const router = createBrowserRouter([
       {
         path: 'user',
         element: <UserDashboard />
+      },
+      {
+        path: 'my-tickets',
+        element: <MyTickets />
+      },
+      // Admin specific routes
+      {
+        path: 'manage-users',
+        element: <AdminDashboard /> // Replace with actual component
+      },
+      {
+        path: 'reports',
+        element: <AdminDashboard /> // Replace with actual component
+      },
+      // Seller specific routes
+      {
+        path: 'my-events',
+        element: <SellerDashboard /> // Replace with actual component
+      },
+      {
+        path: 'add-event',
+        element: <SellerDashboard /> // Replace with actual component
+      },
+      // User specific routes
+      {
+        path: 'upcoming-events',
+        element: <UserDashboard /> // Replace with actual component
+      },
+      {
+        path: 'purchase-history',
+        element: <UserDashboard /> // Replace with actual component
+      },
+      // Common routes
+      {
+        path: 'settings',
+        element: <UserDashboard /> // Replace with actual component
       }
     ]
   },

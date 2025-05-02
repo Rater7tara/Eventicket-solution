@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Calendar, Users, FileText, Home, Phone, LogIn, LogOut, Menu, X, Bell, Shield, FileCheck, User } from 'lucide-react';
+import { Calendar, Users, FileText, Home, Phone, LogIn, LogOut, Menu, X, Bell, Shield, FileCheck, User, LayoutDashboard } from 'lucide-react';
 import logo from '../../../assets/logo.png';
 import { AuthContext } from '../../../providers/AuthProvider';
 
@@ -19,6 +19,17 @@ const NavBar = () => {
         { name: 'Blogs', icon: <FileText size={20} />, path: '/blogs' },
         { name: 'Contact Us', icon: <Phone size={20} />, path: '/contact' },
     ];
+
+    // Add Dashboard link to navItems when user is logged in
+    const getNavItems = () => {
+        if (user) {
+            return [
+                ...navItems,
+                { name: 'Dashboard', icon: <LayoutDashboard size={20} />, path: '/dashboard' }
+            ];
+        }
+        return navItems;
+    };
 
     // Detect scroll position to change navbar style
     useEffect(() => {
@@ -87,6 +98,9 @@ const NavBar = () => {
         }
     };
 
+    // Get current nav items based on user login state
+    const currentNavItems = getNavItems();
+
     return (
         <>
             <div 
@@ -111,7 +125,7 @@ const NavBar = () => {
 
                         {/* Desktop Navigation */}
                         <div className="hidden lg:flex items-center space-x-1">
-                            {navItems.map((item) => (
+                            {currentNavItems.map((item) => (
                                 <Link
                                     key={item.name}
                                     to={item.path}
@@ -180,6 +194,7 @@ const NavBar = () => {
                                             <p className="text-sm text-gray-500 truncate">{userInfo.email}</p>
                                         </div>
                                         <Link to="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50">Your Profile</Link>
+                                        <Link to="/dashboard" className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50">Dashboard</Link>
                                         <Link to="/tickets" className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50">Your Tickets</Link>
                                         <Link to="/settings" className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50">Settings</Link>
                                         <div className="border-t border-gray-100 mt-2 pt-2">
@@ -237,7 +252,7 @@ const NavBar = () => {
                         )}
                         
                         {/* Navigation items */}
-                        {navItems.map((item) => (
+                        {currentNavItems.map((item) => (
                             <Link
                                 key={item.name}
                                 to={item.path}
@@ -278,6 +293,10 @@ const NavBar = () => {
                                 <Link to="/profile" className="flex items-center space-x-3 p-2 text-gray-600 hover:bg-orange-50 rounded-lg">
                                     <User size={18} />
                                     <span>Your Profile</span>
+                                </Link>
+                                <Link to="/dashboard" className="flex items-center space-x-3 p-2 text-gray-600 hover:bg-orange-50 rounded-lg">
+                                    <LayoutDashboard size={18} />
+                                    <span>Dashboard</span>
                                 </Link>
                                 <Link to="/tickets" className="flex items-center space-x-3 p-2 text-gray-600 hover:bg-orange-50 rounded-lg">
                                     <FileCheck size={18} />

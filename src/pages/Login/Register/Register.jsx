@@ -1,6 +1,6 @@
 import React, { useContext, useState } from "react";
 import { motion } from "framer-motion";
-import { Mail, Lock, User, Phone, Calendar } from "lucide-react";
+import { Mail, Lock, User, Phone, UserCircle } from "lucide-react";
 import logo from "../../../assets/logo.png";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../../providers/AuthProvider";
@@ -19,6 +19,7 @@ const Register = () => {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [role, setRole] = useState('buyer'); // Default role is buyer
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   
@@ -32,6 +33,7 @@ const Register = () => {
     const phone = form.phone.value;
     const password = form.password.value;
     const confirmPass = form.confirmPassword.value;
+    const role = form.role.value;
     
     // Password validation
     if (password !== confirmPass) {
@@ -50,13 +52,14 @@ const Register = () => {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ name, email, phone, password })
+      body: JSON.stringify({ name, email, phone, password, role })
     })
     .then(res => res.json())
     .then(data => {
       if (data.token) {
-        // Save token to localStorage
+        // Save token and user role to localStorage
         localStorage.setItem('access-token', data.token);
+        localStorage.setItem('user-role', role);
         
         // Use Firebase auth for consistency with your AuthProvider
         createUser(email, password)
@@ -176,6 +179,40 @@ const Register = () => {
                 required
               />
             </div>
+          </div>
+
+          {/* New Role Selection */}
+          <div className="form-control">
+            <label className="block text-white font-medium mb-2" htmlFor="role">
+              Account Type
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <UserCircle className="w-5 h-5 text-orange-500" />
+              </div>
+              <select
+                id="role"
+                name="role"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="pl-10 w-full py-3 px-4 rounded-lg bg-white/90 border border-orange-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition duration-300 appearance-none"
+                required
+              >
+                <option value="buyer">Buyer</option>
+                <option value="seller">Seller</option>
+                <option value="admin">Admin</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
+            <p className="text-xs text-white/70 mt-1">
+              {role === 'buyer' && 'Buy tickets & attend events'}
+              {role === 'seller' && 'Create & manage your own events'}
+              {role === 'admin' && 'Manage platform & user accounts'}
+            </p>
           </div>
 
           <div className="form-control">

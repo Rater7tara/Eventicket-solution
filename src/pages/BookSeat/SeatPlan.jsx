@@ -231,7 +231,7 @@ const SeatPlan = () => {
           
           <div className="mt-2 text-center text-sm md:text-base bg-orange-900 bg-opacity-40 p-2 rounded-lg">
             <p><span className="font-semibold">Selected Ticket:</span> {ticketType.name || 'Regular'} - ${ticketType.price || '0'} each</p>
-            <p><span className="font-semibold">Quantity:</span> {quantity} {quantity === 1 ? 'ticket' : 'tickets'}</p>
+            {/* <p><span className="font-semibold">Quantity:</span> {quantity} {quantity === 1 ? 'ticket' : 'tickets'}</p> */}
           </div>
         </div>
         
