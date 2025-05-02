@@ -20,9 +20,13 @@ import Register from "../pages/Login/Register/Register";
 import EventDetails from "../pages/Home/Home/EventDetails/EventDetails";
 import SeatPlan from "../pages/BookSeat/SeatPlan";
 import CheckoutTickets from "../pages/Home/CheckoutTickets/CheckoutTickets";
-import MyTickets from "../pages/Home/UserDashboard/MyTickects/MyTickets";
+import MyTickets from "../pages/Dashboard/UserDashboard/MyTickects/MyTickets";
 import { useContext } from "react";
 import { AuthContext } from "../providers/AuthProvider";
+import AddEvents from "../pages/Dashboard/SellerDashboard/AddEvents/AddEvents";
+import MyEvents from "../pages/Dashboard/SellerDashboard/MyEvents/MyEvents";
+import TicketSellReport from "../pages/Dashboard/SellerDashboard/TicketSellReport/TicketSellReport";
+import DashboardWelcome from "../pages/Dashboard/WelcomePage/DashboardWelcome";
 
 
 export const router = createBrowserRouter([
@@ -75,7 +79,7 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true, // Default dashboard route
-        element: <UserDashboard /> // Default to user dashboard directly
+        element: <DashboardWelcome />, // Default to user dashboard directly
       },
       {
         path: 'admin',
@@ -105,11 +109,15 @@ export const router = createBrowserRouter([
       // Seller specific routes
       {
         path: 'my-events',
-        element: <SellerDashboard /> // Replace with actual component
+        element: <MyEvents />,
       },
       {
         path: 'add-event',
-        element: <SellerDashboard /> // Replace with actual component
+        element: <AddEvents />,
+      },
+      {
+        path: 'sales-report',
+        element: <TicketSellReport />,
       },
       // User specific routes
       {
