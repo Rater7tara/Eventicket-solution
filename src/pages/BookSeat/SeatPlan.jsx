@@ -21,7 +21,7 @@ const SeatPlan = () => {
       id: 'vip', 
       name: 'VIP Lounge', 
       price: 200, 
-      color: '#FF4500',
+      color: '#FF0000', // Red for VIP
       rows: 2,
       seatsPerRow: 20,
       columns: 2,
@@ -32,7 +32,7 @@ const SeatPlan = () => {
       id: 'energon-enclave', 
       name: 'Energon Enclave', 
       price: 160, 
-      color: '#FF7E50',
+      color: '#FF4500', // OrangeRed
       rows: 3,
       seatsPerRow: 20,
       columns: 2,
@@ -42,7 +42,7 @@ const SeatPlan = () => {
       id: 'hdb-house', 
       name: 'HDB House', 
       price: 120, 
-      color: '#FFA07A',
+      color: '#FF7F00', // Orange
       rows: 5,
       seatsPerRow: 20,
       columns: 2
@@ -51,7 +51,7 @@ const SeatPlan = () => {
       id: 'ausdream-arena', 
       name: 'AusDream Arena', 
       price: 80, 
-      color: '#FFB6C1',
+      color: '#9400D3', // Violet
       rows: 8,
       seatsPerRow: 30,
       columns: 2
@@ -60,7 +60,7 @@ const SeatPlan = () => {
       id: 'century-circle', 
       name: 'Century Circle', 
       price: 70, 
-      color: '#FFC0CB',
+      color: '#4169E1', // Royal Blue
       rows: 8,
       seatsPerRow: 30,
       columns: 2
@@ -69,7 +69,7 @@ const SeatPlan = () => {
       id: 'gamma-gallery', 
       name: 'Gamma Gallery', 
       price: 60, 
-      color: '#FFDAB9',
+      color: '#8A2BE2', // Deep purple
       rows: 13,
       specialLayout: true,
       columnSeats: [
@@ -144,6 +144,45 @@ const SeatPlan = () => {
     // Use a deterministic algorithm to create a pattern of booked seats
     return (section.charCodeAt(0) + row * 3 + seat) % 11 === 0;
   };
+  
+  // Judges table component
+  const JudgesTable = () => (
+    <div className="flex flex-col items-center my-4">
+      <div className="text-xs text-orange-300 mb-1">Judges Panel</div>
+      <div className="flex flex-col items-center">
+        {/* Table */}
+        <div className="h-6 w-40 bg-gray-600 rounded-t-md flex items-center justify-center">
+          {/* Laptops on the table */}
+          <div className="flex justify-around w-full px-2">
+            <div className="w-6 h-4 bg-gray-800 rounded"></div>
+            <div className="w-6 h-4 bg-gray-800 rounded"></div>
+            <div className="w-6 h-4 bg-gray-800 rounded"></div>
+          </div>
+        </div>
+        {/* Chairs */}
+        <div className="flex justify-around w-40 px-2">
+          <div className="w-6 h-3 bg-gray-700 rounded-b-md"></div>
+          <div className="w-6 h-3 bg-gray-700 rounded-b-md"></div>
+          <div className="w-6 h-3 bg-gray-700 rounded-b-md"></div>
+        </div>
+      </div>
+    </div>
+  );
+  
+  // Entrance door component - Updated to be vertical with vertical text and gate
+  const EntranceDoor = () => (
+    <div className="absolute" style={{ left: "0px", top: "40%" }}>
+      <div className="flex items-center">
+        <div className="border-2 border-orange-500 rounded-md p-1 bg-gray-800 shadow-lg flex flex-col items-center">
+          {/* Gate shape */}
+          <div className="flex flex-col items-center">
+          
+          </div>
+          <div className="text-xs text-orange-300 font-bold mt-1 writing-mode-vertical" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>ENTRANCE</div>
+        </div>
+      </div>
+    </div>
+  );
   
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 text-white p-4">
@@ -220,8 +259,8 @@ const SeatPlan = () => {
             {/* Seat Map Container */}
             <div className="lg:col-span-4 bg-gray-900 rounded-lg border border-gray-700 p-4 overflow-x-auto">
               {/* Stage */}
-              <div className="w-full max-w-5xl mx-auto h-12 bg-gradient-to-r from-orange-900 via-orange-600 to-orange-900 rounded-xl flex items-center justify-center mb-8 sticky top-0 z-10">
-                <span className="text-orange-100 font-bold tracking-widest">STAGE</span>
+              <div className="w-full max-w-5xl mx-auto h-12 bg-gradient-to-r from-red-900 via-red-600 to-red-900 rounded-xl flex items-center justify-center mb-8 sticky top-0 z-10">
+                <span className="text-red-100 font-bold tracking-widest">STAGE</span>
               </div>
               
               {/* Seating Layout Container */}
@@ -236,18 +275,18 @@ const SeatPlan = () => {
                     
                     <div className="bg-gray-800 rounded-lg p-4 mb-4 border border-gray-700">
                       <div className="flex items-center">
-                        <div className="w-10 h-10 rounded-full bg-orange-600 flex items-center justify-center mr-3">
+                        <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center mr-3">
                           <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                         </div>
                         <div>
-                          <h4 className="font-bold text-orange-300">Premium VIP Section</h4>
+                          <h4 className="font-bold text-red-300">Premium VIP Section</h4>
                           <p className="text-sm text-gray-300">Rows A-B require direct booking with the event organizer.</p>
                         </div>
                         <button 
                           onClick={() => handleContactOrganizer(sections[0])}
-                          className="ml-auto bg-orange-600 hover:bg-orange-500 text-white py-2 px-4 rounded-lg text-sm font-medium"
+                          className="ml-auto bg-red-600 hover:bg-red-500 text-white py-2 px-4 rounded-lg text-sm font-medium"
                         >
                           Contact for VIP Booking
                         </button>
@@ -259,7 +298,7 @@ const SeatPlan = () => {
                         {Array.from({ length: 2 }).map((_, rowIndex) => (
                           <div key={`vip-row-${rowIndex}`} className="flex mb-1">
                             {/* Row Label */}
-                            <div className="mr-2 w-6 flex items-center justify-center text-xs font-bold text-orange-400">
+                            <div className="mr-2 w-6 flex items-center justify-center text-xs font-bold text-red-400">
                               {rowLetters[rowIndex]}
                             </div>
                             
@@ -275,7 +314,7 @@ const SeatPlan = () => {
                                     <button
                                       key={`vip-${rowIndex}-${colIndex}-${seatIndex}`}
                                       disabled={true}
-                                      className="w-6 h-6 rounded flex items-center justify-center text-xs font-medium bg-orange-900 opacity-60 cursor-not-allowed"
+                                      className="w-6 h-6 rounded flex items-center justify-center text-xs font-medium bg-red-900 opacity-60 cursor-not-allowed"
                                       style={{ fontSize: '0.65rem' }}
                                     >
                                       {seatNumber}
@@ -308,7 +347,7 @@ const SeatPlan = () => {
                           return (
                             <div key={`energon-row-${idx}`} className="flex mb-1">
                               {/* Row Label */}
-                              <div className="mr-2 w-6 flex items-center justify-center text-xs font-bold text-orange-400">
+                              <div className="mr-2 w-6 flex items-center justify-center text-xs font-bold text-blue-400">
                                 {rowLetters[rowIndex]}
                               </div>
                               
@@ -370,86 +409,228 @@ const SeatPlan = () => {
                   </div>
                 </div>
                 
-                {/* Standard Sections (HDB House, AusDream, Century Circle) */}
-                {sections.slice(2, 5).map((section, sectionIndex) => {
-                  // Only render if no active section or this is the active section
-                  if (activeSection && activeSection !== section.id) return null;
-                  
-                  return (
-                    <div key={section.id} className="mb-8">
-                      <h3 className="text-center mb-3 inline-block px-3 py-1 rounded-full text-white mx-auto text-sm"
-                          style={{ backgroundColor: section.color }}>
-                        {section.name} - ${section.price}
-                      </h3>
-                      
-                      <div className="overflow-x-auto">
-                        <div className="inline-block min-w-full">
-                          {Array.from({ length: section.rows }).map((_, rowIndex) => (
-                            <div key={`${section.id}-row-${rowIndex}`} className="flex mb-1">
-                              {/* Row Label */}
-                              <div className="mr-2 w-6 flex items-center justify-center text-xs font-bold text-orange-400">
-                                {rowLetters[rowIndex]}
-                              </div>
-                              
-                              {/* Generate columns */}
-                              {Array.from({ length: section.columns }).map((_, colIndex) => (
-                                <div key={`${section.id}-row-${rowIndex}-col-${colIndex}`} className="flex space-x-1 mr-4">
-                                  {/* Generate seats for this column */}
-                                  {Array.from({ length: section.seatsPerRow }).map((_, seatIndex) => {
-                                    // Calculate actual seat number (continuous across columns)
-                                    const seatNumber = colIndex * section.seatsPerRow + seatIndex + 1;
-                                    const seatId = `${section.id}_${rowIndex}_${colIndex}_${seatIndex}`;
-                                    
-                                    // Check if seat is booked (simulated)
-                                    const isBooked = isRandomlyBooked(section.id, rowIndex, seatNumber);
-                                    const isSelected = selectedSeats.some(s => s.id === seatId);
-                                    
-                                    return (
-                                      <button
-                                        key={seatId}
-                                        disabled={isBooked}
-                                        onClick={() => !isBooked && toggleSeat({
-                                          id: seatId,
-                                          name: `${section.name} ${rowLetters[rowIndex]}${seatNumber}`,
-                                          price: section.price,
-                                          section: section.id,
-                                          row: rowLetters[rowIndex],
-                                          number: seatNumber
-                                        })}
-                                        className={`w-6 h-6 rounded flex items-center justify-center text-xs font-medium transition-all ${
-                                          isBooked 
-                                            ? 'bg-gray-700 opacity-50 cursor-not-allowed' 
-                                            : isSelected
-                                              ? 'bg-yellow-400 text-gray-900 shadow-md transform scale-110'
-                                              : `hover:bg-opacity-80 hover:transform hover:scale-105`
-                                        }`}
-                                        style={{
-                                          backgroundColor: isSelected ? '#FBBF24' : isBooked ? '#374151' : section.color,
-                                          fontSize: '0.65rem'
-                                        }}
-                                      >
-                                        {seatNumber}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              ))}
+                {/* HDB House with Judges Table */}
+                {(!activeSection || activeSection === 'hdb-house') && (
+                  <div className="mb-8">
+                    <h3 className="text-center mb-3 inline-block px-3 py-1 rounded-full text-white mx-auto text-sm"
+                        style={{ backgroundColor: sections[2].color }}>
+                      {sections[2].name} - ${sections[2].price}
+                    </h3>
+                    
+                    <div className="overflow-x-auto">
+                      <div className="inline-block min-w-full">
+                        {Array.from({ length: sections[2].rows }).map((_, rowIndex) => (
+                          <div key={`${sections[2].id}-row-${rowIndex}`} className="flex mb-1">
+                            {/* Row Label */}
+                            <div className="mr-2 w-6 flex items-center justify-center text-xs font-bold text-violet-400">
+                              {rowLetters[rowIndex]}
                             </div>
-                          ))}
-                        </div>
-                      </div>
-                      
-                      {/* Section separator */}
-                      {sectionIndex < sections.length - 3 && (
-                        <div className="w-full h-4 my-3 flex items-center justify-center text-xs text-orange-300">
-                          <div className="w-4/5 border-b border-dashed border-orange-500 relative">
-                            <span className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-gray-900 px-2 text-xs">Walking Path</span>
+                            
+                            {/* Generate columns */}
+                            {Array.from({ length: sections[2].columns }).map((_, colIndex) => (
+                              <div key={`${sections[2].id}-row-${rowIndex}-col-${colIndex}`} className="flex space-x-1 mr-4">
+                                {/* Generate seats for this column */}
+                                {Array.from({ length: sections[2].seatsPerRow }).map((_, seatIndex) => {
+                                  // Calculate actual seat number (continuous across columns)
+                                  const seatNumber = colIndex * sections[2].seatsPerRow + seatIndex + 1;
+                                  const seatId = `${sections[2].id}_${rowIndex}_${colIndex}_${seatIndex}`;
+                                  
+                                  // Check if seat is booked (simulated)
+                                  const isBooked = isRandomlyBooked(sections[2].id, rowIndex, seatNumber);
+                                  const isSelected = selectedSeats.some(s => s.id === seatId);
+                                  
+                                  return (
+                                    <button
+                                      key={seatId}
+                                      disabled={isBooked}
+                                      onClick={() => !isBooked && toggleSeat({
+                                        id: seatId,
+                                        name: `${sections[2].name} ${rowLetters[rowIndex]}${seatNumber}`,
+                                        price: sections[2].price,
+                                        section: sections[2].id,
+                                        row: rowLetters[rowIndex],
+                                        number: seatNumber
+                                      })}
+                                      className={`w-6 h-6 rounded flex items-center justify-center text-xs font-medium transition-all ${
+                                        isBooked 
+                                          ? 'bg-gray-700 opacity-50 cursor-not-allowed' 
+                                          : isSelected
+                                            ? 'bg-yellow-400 text-gray-900 shadow-md transform scale-110'
+                                            : `hover:bg-opacity-80 hover:transform hover:scale-105`
+                                      }`}
+                                      style={{
+                                        backgroundColor: isSelected ? '#FBBF24' : isBooked ? '#374151' : sections[2].color,
+                                        fontSize: '0.65rem'
+                                      }}
+                                    >
+                                      {seatNumber}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ))}
                           </div>
-                        </div>
-                      )}
+                        ))}
+                      </div>
                     </div>
-                  );
-                })}
+                    
+                    {/* Add Judges' Table at the bottom of HDB House */}
+                    <div className="mt-2 flex justify-center">
+                      <JudgesTable />
+                    </div>
+                    
+                    {/* Section separator */}
+                    <div className="w-full h-4 my-3 flex items-center justify-center text-xs text-orange-300">
+                      <div className="w-4/5 border-b border-dashed border-orange-500 relative">
+                        <span className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-gray-900 px-2 text-xs">Walking Path</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* AusDream Arena */}
+                {(!activeSection || activeSection === 'ausdream-arena') && (
+                  <div className="mb-8">
+                    <h3 className="text-center mb-3 inline-block px-3 py-1 rounded-full text-white mx-auto text-sm"
+                        style={{ backgroundColor: sections[3].color }}>
+                      {sections[3].name} - ${sections[3].price}
+                    </h3>
+                    
+                    <div className="overflow-x-auto">
+                      <div className="inline-block min-w-full">
+                        {Array.from({ length: sections[3].rows }).map((_, rowIndex) => (
+                          <div key={`${sections[3].id}-row-${rowIndex}`} className="flex mb-1">
+                            {/* Row Label */}
+                            <div className="mr-2 w-6 flex items-center justify-center text-xs font-bold text-orange-400">
+                              {rowLetters[rowIndex]}
+                            </div>
+                            
+                            {/* Generate columns */}
+                            {Array.from({ length: sections[3].columns }).map((_, colIndex) => (
+                              <div key={`${sections[3].id}-row-${rowIndex}-col-${colIndex}`} className="flex space-x-1 mr-4">
+                                {/* Generate seats for this column */}
+                                {Array.from({ length: sections[3].seatsPerRow }).map((_, seatIndex) => {
+                                  // Calculate actual seat number (continuous across columns)
+                                  const seatNumber = colIndex * sections[3].seatsPerRow + seatIndex + 1;
+                                  const seatId = `${sections[3].id}_${rowIndex}_${colIndex}_${seatIndex}`;
+                                  
+                                  // Check if seat is booked (simulated)
+                                  const isBooked = isRandomlyBooked(sections[3].id, rowIndex, seatNumber);
+                                  const isSelected = selectedSeats.some(s => s.id === seatId);
+                                  
+                                  return (
+                                    <button
+                                      key={seatId}
+                                      disabled={isBooked}
+                                      onClick={() => !isBooked && toggleSeat({
+                                        id: seatId,
+                                        name: `${sections[3].name} ${rowLetters[rowIndex]}${seatNumber}`,
+                                        price: sections[3].price,
+                                        section: sections[3].id,
+                                        row: rowLetters[rowIndex],
+                                        number: seatNumber
+                                      })}
+                                      className={`w-6 h-6 rounded flex items-center justify-center text-xs font-medium transition-all ${
+                                        isBooked 
+                                          ? 'bg-gray-700 opacity-50 cursor-not-allowed' 
+                                          : isSelected
+                                            ? 'bg-yellow-400 text-gray-900 shadow-md transform scale-110'
+                                            : `hover:bg-opacity-80 hover:transform hover:scale-105`
+                                      }`}
+                                      style={{
+                                        backgroundColor: isSelected ? '#FBBF24' : isBooked ? '#374151' : sections[3].color,
+                                        fontSize: '0.65rem'
+                                      }}
+                                    >
+                                      {seatNumber}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Section separator */}
+                    <div className="w-full h-4 my-3 flex items-center justify-center text-xs text-orange-300">
+                      <div className="w-4/5 border-b border-dashed border-orange-500 relative">
+                        <span className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-gray-900 px-2 text-xs">Walking Path</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Century Circle with Entrance Door */}
+                {(!activeSection || activeSection === 'century-circle') && (
+                  <div className="mb-8 relative pl-6">
+                    <h3 className="text-center mb-3 inline-block px-3 py-1 rounded-full text-white mx-auto text-sm"
+                        style={{ backgroundColor: sections[4].color }}>
+                      {sections[4].name} - ${sections[4].price}
+                    </h3>
+                    
+                    {/* Add Entrance Door - Now vertical */}
+                    <EntranceDoor />
+                    
+                    <div className="overflow-x-auto">
+                      <div className="inline-block min-w-full">
+                        {Array.from({ length: sections[4].rows }).map((_, rowIndex) => (
+                          <div key={`${sections[4].id}-row-${rowIndex}`} className="flex mb-1">
+                            {/* Row Label */}
+                            <div className="mr-2 w-6 flex items-center justify-center text-xs font-bold text-orange-400">
+                              {rowLetters[rowIndex]}
+                            </div>
+                            
+                            {/* Generate columns */}
+                            {Array.from({ length: sections[4].columns }).map((_, colIndex) => (
+                              <div key={`${sections[4].id}-row-${rowIndex}-col-${colIndex}`} className="flex space-x-1 mr-4">
+                                {/* Generate seats for this column */}
+                                {Array.from({ length: sections[4].seatsPerRow }).map((_, seatIndex) => {
+                                  // Calculate actual seat number (continuous across columns)
+                                  const seatNumber = colIndex * sections[4].seatsPerRow + seatIndex + 1;
+                                  const seatId = `${sections[4].id}_${rowIndex}_${colIndex}_${seatIndex}`;
+                                  
+                                  // Check if seat is booked (simulated)
+                                  const isBooked = isRandomlyBooked(sections[4].id, rowIndex, seatNumber);
+                                  const isSelected = selectedSeats.some(s => s.id === seatId);
+                                  
+                                  return (
+                                    <button
+                                      key={seatId}
+                                      disabled={isBooked}
+                                      onClick={() => !isBooked && toggleSeat({
+                                        id: seatId,
+                                        name: `${sections[4].name} ${rowLetters[rowIndex]}${seatNumber}`,
+                                        price: sections[4].price,
+                                        section: sections[4].id,
+                                        row: rowLetters[rowIndex],
+                                        number: seatNumber
+                                      })}
+                                      className={`w-6 h-6 rounded flex items-center justify-center text-xs font-medium transition-all ${
+                                        isBooked 
+                                          ? 'bg-gray-700 opacity-50 cursor-not-allowed' 
+                                          : isSelected
+                                            ? 'bg-yellow-400 text-gray-900 shadow-md transform scale-110'
+                                            : `hover:bg-opacity-80 hover:transform hover:scale-105`
+                                      }`}
+                                      style={{
+                                        backgroundColor: isSelected ? '#FBBF24' : isBooked ? '#374151' : sections[4].color,
+                                        fontSize: '0.65rem'
+                                      }}
+                                    >
+                                      {seatNumber}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 
                 {/* Special Gamma Gallery Section */}
                 {(!activeSection || activeSection === 'gamma-gallery') && (
@@ -463,7 +644,7 @@ const SeatPlan = () => {
                         {Array.from({ length: sections[5].rows }).map((_, rowIndex) => (
                           <div key={`gamma-row-${rowIndex}`} className="flex mb-1">
                             {/* Row Label */}
-                            <div className="mr-2 w-6 flex items-center justify-center text-xs font-bold text-orange-400">
+                            <div className="mr-2 w-6 flex items-center justify-center text-xs font-bold text-red-400">
                               {rowLetters[rowIndex]}
                             </div>
                             
@@ -522,7 +703,7 @@ const SeatPlan = () => {
                 <div className="text-sm font-medium mb-2">Legend:</div>
                 <div className="flex flex-wrap gap-4">
                   <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 bg-orange-900 opacity-60 rounded"></div>
+                                          <div className="w-4 h-4 bg-red-900 opacity-60 rounded"></div>
                     <span className="text-xs text-gray-400">VIP (Contact Organizer)</span>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -532,6 +713,18 @@ const SeatPlan = () => {
                   <div className="flex items-center space-x-2">
                     <div className="w-4 h-4 bg-yellow-400 rounded"></div>
                     <span className="text-xs text-gray-400">Selected</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="border-2 border-orange-500 rounded-sm p-px bg-gray-800" style={{ width: "16px", height: "16px" }}>
+                      <svg className="w-3 h-3 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                      </svg>
+                    </div>
+                    <span className="text-xs text-gray-400">Entrance</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 bg-gray-600 rounded"></div>
+                    <span className="text-xs text-gray-400">Judges' Table</span>
                   </div>
                   {sections.slice(1).map(section => (
                     <div key={`legend-${section.id}`} className="flex items-center space-x-2">
@@ -579,8 +772,8 @@ const SeatPlan = () => {
                       <p className="font-medium">${serviceFee.toFixed(2)}</p>
                     </div>
                     <div className="flex justify-between items-center text-lg font-bold mt-4">
-                      <p className="text-orange-400">Total</p>
-                      <p className="text-orange-400">${(totalPrice + serviceFee).toFixed(2)}</p>
+                      <p className="text-purple-400">Total</p>
+                      <p className="text-purple-400">${(totalPrice + serviceFee).toFixed(2)}</p>
                     </div>
                   </div>
                   
@@ -590,7 +783,7 @@ const SeatPlan = () => {
                     className={`w-full py-3 ${
                       selectedSeats.length === 0 
                         ? 'bg-gray-600 cursor-not-allowed' 
-                        : 'bg-gradient-to-r from-orange-600 to-orange-700 hover:shadow-orange-500/30 transform hover:-translate-y-0.5'
+                        : 'bg-gradient-to-r from-purple-600 to-purple-700 hover:shadow-purple-500/30 transform hover:-translate-y-0.5'
                     } text-white font-bold rounded-lg shadow-lg transition-all duration-300`}
                   >
                     {selectedSeats.length === 0 ? 'Select Seats' : 'Proceed to Checkout'}
@@ -605,7 +798,7 @@ const SeatPlan = () => {
                 </>
               ) : (
                 <div className="text-center py-12">
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-800 text-orange-400 mb-4">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-800 text-purple-400 mb-4">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
                     </svg>
@@ -628,7 +821,7 @@ const SeatPlan = () => {
                       organizer: eventDetails.organizer 
                     } 
                   })}
-                  className="w-full py-2 bg-transparent border border-orange-500 text-orange-400 rounded-lg text-sm hover:bg-orange-500/10 transition-colors"
+                  className="w-full py-2 bg-transparent border border-purple-500 text-purple-400 rounded-lg text-sm hover:bg-purple-500/10 transition-colors"
                 >
                   Contact Event Organizer
                 </button>
