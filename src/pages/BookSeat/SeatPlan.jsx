@@ -100,19 +100,13 @@ const SeatPlan = () => {
     }
   };
   
-  // Toggle seat selection
+  // Toggle seat selection - MODIFIED to allow unlimited selection
   const toggleSeat = (seat) => {
     if (selectedSeats.some(s => s.id === seat.id)) {
       setSelectedSeats(selectedSeats.filter(s => s.id !== seat.id));
     } else {
-      // Limit selection to the quantity specified
-      if (selectedSeats.length < quantity) {
-        setSelectedSeats([...selectedSeats, seat]);
-      } else {
-        // Replace oldest selection if quantity limit reached
-        const newSelection = [...selectedSeats.slice(1), seat];
-        setSelectedSeats(newSelection);
-      }
+      // Add the seat to selection without any quantity limit
+      setSelectedSeats([...selectedSeats, seat]);
     }
   };
   
@@ -599,7 +593,7 @@ const SeatPlan = () => {
                         : 'bg-gradient-to-r from-orange-600 to-orange-700 hover:shadow-orange-500/30 transform hover:-translate-y-0.5'
                     } text-white font-bold rounded-lg shadow-lg transition-all duration-300`}
                   >
-                    {selectedSeats.length < quantity ? `Select ${quantity - selectedSeats.length} More` : 'Proceed to Checkout'}
+                    {selectedSeats.length === 0 ? 'Select Seats' : 'Proceed to Checkout'}
                   </button>
                   
                   <button 
@@ -617,7 +611,7 @@ const SeatPlan = () => {
                     </svg>
                   </div>
                   <h3 className="text-lg font-medium mb-1">No Seats Selected</h3>
-                  <p className="text-gray-400">Please select {quantity} {quantity === 1 ? 'seat' : 'seats'} from the seating chart.</p>
+                  <p className="text-gray-400">Select seats from the seating chart.</p>
                   
                   <div className="mt-6 text-sm text-gray-500">
                     <p>Tip: Click on a section above to focus on that specific seating area.</p>
