@@ -20,6 +20,7 @@ import Disclaimer from "../pages/Disclaimer/Disclaimer";
 import SeatPlanVisualization from "../pages/SeatPlanVisulization/SeatPlanVisulization";
 import NewSeat from "../pages/BookSeat/NewSeat";
 import Register from "../pages/Login/Register/Register";
+import EventDetails from "../pages/Home/Home/EventDetails/EventDetails";
 
 
 export const router = createBrowserRouter([
@@ -31,6 +32,10 @@ export const router = createBrowserRouter([
       {
         path: '/',
         element: <Home />
+      },
+      {
+        path: '/events/:id', 
+        element: <EventDetails />,
       },
       {
         path: '/terms',

@@ -5,7 +5,14 @@ const EventCard = ({ event }) => {
     const navigate = useNavigate();
 
     const handleClick = () => {
-        navigate(`/events/${event.id}`);
+        navigate(`/events/${String(event.id)}`, { state: { event } });
+    };
+
+    // Modify the button click handler to redirect to event details
+    const handleGetTickets = (e) => {
+        e.stopPropagation(); // Prevent the parent div's onClick from firing
+        navigate(`/events/${String(event.id)}`, { state: { event } });
+        console.log("Navigating to event with ID:", event.id, "and full event:", event);
     };
 
     return (
@@ -75,8 +82,11 @@ const EventCard = ({ event }) => {
                                 <span className="truncate">{event.location}</span>
                             </div>
                             
-                            {/* CTA Button */}
-                            <button className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white py-2.5 px-4 rounded-lg font-medium shadow-md hover:shadow-xl transform group-hover:translate-y-0 translate-y-0 group-hover:scale-105 transition-all duration-300">
+                            {/* CTA Button - Updated to navigate to EventDetails */}
+                            <button 
+                                onClick={handleGetTickets}
+                                className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white py-2.5 px-4 rounded-lg font-medium shadow-md hover:shadow-xl transform group-hover:translate-y-0 translate-y-0 group-hover:scale-105 transition-all duration-300"
+                            >
                                 Get Tickets
                             </button>
                         </div>
