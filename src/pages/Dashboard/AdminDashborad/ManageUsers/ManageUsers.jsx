@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { 
   CheckCircle, 
@@ -13,8 +13,27 @@ import {
   ChevronRight
 } from 'lucide-react';
 import serverURL from '../../../../ServerConfig';
+import { AuthContext } from '../../../../providers/AuthProvider'; // Adjust the path as needed
+
+// Add these styles to your global CSS or component
+const fadeInUp = `
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 30px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+.animate-fade-in-up {
+  animation: fadeInUp 0.3s ease-out;
+}
+`;
 
 const ManageUsers = () => {
+  const { user } = useContext(AuthContext);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -27,16 +46,48 @@ const ManageUsers = () => {
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
+  // Get auth token from localStorage
+  const getAuthToken = () => {
+    return localStorage.getItem('auth-token');
+  };
+
+  // Set up axios headers with authentication
+  const getAuthHeaders = () => {
+    const token = getAuthToken();
+    return {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    };
+  };
+
   // Fetch all users
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${serverURL}/admin/users`);
-      setUsers(response.data.users || []);
-      setTotalUsers(response.data.users?.length || 0);
+      
+      // Get auth headers
+      const authHeaders = getAuthHeaders();
+      
+      // Log auth headers for debugging
+      console.log('Auth headers:', authHeaders);
+      
+      // Make API request with auth headers
+      const response = await axios.get(
+        `${serverURL.url}admin/users`, 
+        authHeaders
+      );
+      
+      console.log('Users API response:', response.data);
+      
+      // Updated to access data from the correct property in the response
+      setUsers(response.data.data || []);
+      setTotalUsers(response.data.data?.length || 0);
       setLoading(false);
     } catch (err) {
-      setError('Failed to fetch users');
+      console.error('Error fetching users:', err);
+      setError(err.response?.data?.message || 'Failed to fetch users. Check your admin privileges.');
       setLoading(false);
     }
   };
@@ -48,20 +99,31 @@ const ManageUsers = () => {
   // Handle user deletion
   const handleDeleteUser = async (userId) => {
     try {
-      await axios.delete(`${serverURL}/admin/users/${userId}`);
+      await axios.delete(
+        `${serverURL.url}admin/users/${userId}`,
+        getAuthHeaders()
+      );
       setUsers(users.filter(user => user._id !== userId));
       setIsDeleteModalOpen(false);
       setSelectedUser(null);
     } catch (err) {
-      setError('Failed to delete user');
+      console.error('Error deleting user:', err);
+      setError(err.response?.data?.message || 'Failed to delete user');
     }
   };
 
   // Handle user block/unblock
   const handleToggleBlock = async (userId, isBlocked) => {
     try {
-      const endpoint = isBlocked ? `${serverURL}/admin/unblock-user/` : `${serverURL}/admin/block-user/`;
-      await axios.put(`${endpoint}${userId}`);
+      const endpoint = isBlocked 
+        ? `${serverURL.url}admin/unblock-user/` 
+        : `${serverURL.url}admin/block-user/`;
+        
+      await axios.put(
+        `${endpoint}${userId}`,
+        {}, // Empty body
+        getAuthHeaders()
+      );
       
       setUsers(users.map(user => {
         if (user._id === userId) {
@@ -70,14 +132,19 @@ const ManageUsers = () => {
         return user;
       }));
     } catch (err) {
-      setError(`Failed to ${isBlocked ? 'unblock' : 'block'} user`);
+      console.error('Error toggling block status:', err);
+      setError(err.response?.data?.message || `Failed to ${isBlocked ? 'unblock' : 'block'} user`);
     }
   };
 
   // Handle role update
   const handleUpdateRole = async (userId, newRole) => {
     try {
-      await axios.put(`${serverURL}/admin/update-role/${userId}`, { role: newRole });
+      await axios.put(
+        `${serverURL.url}admin/update-role/${userId}`, 
+        { role: newRole },
+        getAuthHeaders()
+      );
       
       setUsers(users.map(user => {
         if (user._id === userId) {
@@ -89,7 +156,8 @@ const ManageUsers = () => {
       setIsRoleModalOpen(false);
       setSelectedUser(null);
     } catch (err) {
-      setError('Failed to update user role');
+      console.error('Error updating role:', err);
+      setError(err.response?.data?.message || 'Failed to update user role');
     }
   };
 
@@ -117,20 +185,27 @@ const ManageUsers = () => {
     if (!selectedUser) return null;
     
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
-          <h3 className="text-lg font-medium mb-4">Update User Role</h3>
-          <div className="mb-4">
-            <p><span className="font-medium">User:</span> {selectedUser.name}</p>
-            <p><span className="font-medium">Current Role:</span> {selectedUser.role}</p>
+      <div className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity duration-300 ease-in-out">
+        <div 
+          className="bg-white rounded-lg p-6 w-96 shadow-2xl transform transition-all duration-300 ease-out animate-fade-in-up"
+          style={{animation: 'fadeInUp 0.3s ease-out'}}
+        >
+          <h3 className="text-xl font-semibold mb-4 text-gray-800">Update User Role</h3>
+          <div className="mb-4 bg-gray-50 p-3 rounded-md">
+            <p><span className="font-medium text-gray-700">User:</span> {selectedUser.name}</p>
+            <p><span className="font-medium text-gray-700">Current Role:</span> <span className="text-blue-600 font-medium">{selectedUser.role}</span></p>
           </div>
           <div className="space-y-2">
-            <p className="font-medium">Select New Role:</p>
-            <div className="flex flex-col space-y-2">
-              {['user', 'admin', 'seller'].map(role => (
+            <p className="font-medium text-gray-700">Select New Role:</p>
+            <div className="flex flex-col space-y-2 mt-2">
+              {['buyer', 'admin', 'seller'].map(role => (
                 <button
                   key={role}
-                  className={`py-2 px-4 rounded-md ${selectedUser.role === role ? 'bg-blue-100 text-blue-600 border border-blue-600' : 'bg-gray-100 hover:bg-gray-200'}`}
+                  className={`py-3 px-4 rounded-md transition-all duration-200 ${
+                    selectedUser.role === role 
+                      ? 'bg-blue-100 text-blue-700 border border-blue-600 font-medium' 
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-800 hover:text-gray-900'
+                  }`}
                   onClick={() => handleUpdateRole(selectedUser._id, role)}
                 >
                   {role.charAt(0).toUpperCase() + role.slice(1)}
@@ -140,7 +215,7 @@ const ManageUsers = () => {
           </div>
           <div className="mt-6 flex justify-end space-x-3">
             <button
-              className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300"
+              className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 text-gray-800 transition-colors duration-200 font-medium"
               onClick={() => {
                 setIsRoleModalOpen(false);
                 setSelectedUser(null);
@@ -159,16 +234,19 @@ const ManageUsers = () => {
     if (!selectedUser) return null;
     
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
+      <div className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity duration-300 ease-in-out">
+        <div 
+          className="bg-white rounded-lg p-6 w-96 shadow-2xl transform transition-all duration-300 ease-out animate-fade-in-up"
+          style={{animation: 'fadeInUp 0.3s ease-out'}}
+        >
           <div className="flex items-center mb-4">
             <AlertCircle className="text-red-500 mr-2" size={24} />
-            <h3 className="text-lg font-medium">Confirm Deletion</h3>
+            <h3 className="text-xl font-semibold text-gray-800">Confirm Deletion</h3>
           </div>
-          <p className="mb-4">Are you sure you want to delete user <span className="font-medium">{selectedUser.name}</span>? This action cannot be undone.</p>
+          <p className="mb-6 text-gray-600">Are you sure you want to delete user <span className="font-medium text-gray-800">{selectedUser.name}</span>? This action cannot be undone.</p>
           <div className="flex justify-end space-x-3">
             <button
-              className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300"
+              className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 text-gray-800 transition-colors duration-200 font-medium"
               onClick={() => {
                 setIsDeleteModalOpen(false);
                 setSelectedUser(null);
@@ -177,7 +255,7 @@ const ManageUsers = () => {
               Cancel
             </button>
             <button
-              className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
+              className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200 shadow-md font-medium"
               onClick={() => handleDeleteUser(selectedUser._id)}
             >
               Delete
@@ -197,6 +275,16 @@ const ManageUsers = () => {
             <h1 className="text-2xl font-bold text-gray-800">Manage Users</h1>
             <p className="text-gray-600 mt-1">View and manage all users in the system</p>
           </div>
+          
+          {/* User role check */}
+          {user?.role !== 'admin' && (
+            <div className="p-6 bg-yellow-50 border-b border-yellow-200">
+              <div className="flex items-center text-yellow-700">
+                <AlertCircle className="mr-2" size={20} />
+                <p>You need admin privileges to manage users. Current role: {user?.role || 'unknown'}</p>
+              </div>
+            </div>
+          )}
           
           {/* Controls */}
           <div className="p-6 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
@@ -221,6 +309,7 @@ const ManageUsers = () => {
                   onChange={(e) => setFilterRole(e.target.value)}
                 >
                   <option value="all">All Roles</option>
+                  <option value="buyer">Buyer</option>
                   <option value="user">User</option>
                   <option value="admin">Admin</option>
                   <option value="seller">Seller</option>

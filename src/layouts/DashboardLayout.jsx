@@ -61,6 +61,7 @@ const DashboardLayout = () => {
     const roleLinks = {
         admin: [
             { to: '/dashboard/manage-users', label: 'Manage Users', icon: <UserCircle size={20} /> },
+            { to: '/dashboard/create-events', label: 'Create Events', icon: <Calendar size={20} /> },
             { to: '/dashboard/manage-events', label: 'Manage Events', icon: <Calendar size={20} /> },
             { to: '/dashboard/reports', label: 'Reports', icon: <FileText size={20} /> },
             { to: '/dashboard/settings', label: 'Settings', icon: <Settings size={20} /> },

@@ -27,6 +27,7 @@ import TicketSellReport from "../pages/Dashboard/SellerDashboard/TicketSellRepor
 import DashboardWelcome from "../pages/Dashboard/WelcomePage/DashboardWelcome";
 import UserDetailsForm from "../pages/Home/Home/UserDetailsForm/UserDetailsForm";
 import ManageUsers from "../pages/Dashboard/AdminDashborad/ManageUsers/ManageUsers";
+import CreateEvent from "../pages/Dashboard/AdminDashborad/CreateEvent/CreateEvent";
 
 
 export const router = createBrowserRouter([
@@ -75,6 +76,14 @@ export const router = createBrowserRouter([
         path: '/user-details',
         element: <UserDetailsForm />,
       },
+      {
+        path: 'login',
+        element: <Login />
+      },
+      {
+        path: 'register',
+        element: <Register />
+      },
     ]
   },
   {
@@ -105,6 +114,10 @@ export const router = createBrowserRouter([
       {
         path: 'manage-users',
         element: <ManageUsers />,
+      },
+      {
+        path: 'create-events',
+        element: <CreateEvent />,
       },
       {
         path: 'reports',
@@ -139,14 +152,14 @@ export const router = createBrowserRouter([
       }
     ]
   },
-  {
-    path: 'login',
-    element: <Login />
-  },
-  {
-    path: 'register',
-    element: <Register />
-  },
+  // {
+  //   path: 'login',
+  //   element: <Login />
+  // },
+  // {
+  //   path: 'register',
+  //   element: <Register />
+  // },
   {
     path: 'SeatPlan',
     element: <SeatPlan />

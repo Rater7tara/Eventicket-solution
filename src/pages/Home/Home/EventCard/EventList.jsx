@@ -11,7 +11,7 @@ const EventList = () => {
         const fetchEvents = async () => {
             try {
                 setLoading(true);
-                const response = await fetch(`${serverURL.url}ticket/tickets`);
+                const response = await fetch(`${serverURL.url}ticket/published-tickets`);
                 
                 if (!response.ok) {
                     throw new Error(`Error: ${response.status}`);
