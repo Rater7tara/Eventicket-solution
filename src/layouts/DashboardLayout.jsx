@@ -1,47 +1,54 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation, Navigate } from 'react-router-dom';
 import { Home, UserCircle, LayoutDashboard, Ticket, LogOut, Menu, X, Calendar, Settings, FileText, ShoppingBag } from 'lucide-react';
 import { AuthContext } from '../providers/AuthProvider'; // Adjust the path as needed
 
+// Import dashboard components for each role
+import AdminDashboard from '../pages/Dashboard/AdminDashborad/AdminDashboard';
+import SellerDashboard from '../pages/Dashboard/SellerDashboard/SellerDashboard';
+import BuyerDashboard from '../pages/Dashboard/UserDashboard/UserDashboard';
+
 const DashboardLayout = () => {
-    const { user, logOut } = useContext(AuthContext);
+    const { user, loading, logOut } = useContext(AuthContext);
     const [isSidebarOpen, setSidebarOpen] = useState(true);
-    const location = useLocation();
     const [userName, setUserName] = useState('User');
+    const location = useLocation();
     
-    // Get user data from AuthContext and localStorage
-    // Updated key name to match what we saved in the Register component
-    const [role, setRole] = useState('buyer'); // Default to buyer
-    
-    // Load role from localStorage when component mounts
+    // IMPORTANT: All hooks must be called at the top level, before any conditional returns
     useEffect(() => {
-        const storedRole = localStorage.getItem('user-role');
-        if (storedRole) {
-            console.log("Found role in localStorage:", storedRole);
-            setRole(storedRole);
-        } else {
-            console.log("No role found in localStorage, using default: buyer");
-        }
-    }, []);
-    
-    // Update userName when user object changes - with improved logging
-    useEffect(() => {
-        console.log("User object changed:", user); // Add debugging to see what's in the user object
         if (user) {
+            console.log("User object changed:", user);
             if (user.displayName) {
                 setUserName(user.displayName);
                 console.log("Setting userName from displayName:", user.displayName);
             } else if (user.name) {
-                // Try alternative property if displayName doesn't exist
                 setUserName(user.name);
                 console.log("Setting userName from name:", user.name);
             } else if (user.email) {
-                // Fallback to email if no name is available
                 setUserName(user.email.split('@')[0]);
                 console.log("Setting userName from email:", user.email);
             }
         }
     }, [user]);
+    
+    // Show loading spinner while checking authentication
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center min-h-screen bg-orange-50">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
+            </div>
+        );
+    }
+    
+    // If not logged in, redirect to login
+    if (!user) {
+        console.log("No user found, redirecting to login");
+        return <Navigate to="/login" state={{ from: location }} replace />;
+    }
+    
+    // Get user role from the user object (after we've confirmed user exists)
+    const role = user?.role || 'buyer';
+    console.log("Current user role in dashboard:", role);
     
     // Format role for display (capitalize first letter)
     const formattedRole = role.charAt(0).toUpperCase() + role.slice(1);
@@ -62,7 +69,6 @@ const DashboardLayout = () => {
             { to: '/dashboard/my-events', label: 'My Events', icon: <Calendar size={20} /> },
             { to: '/dashboard/add-event', label: 'Add Event', icon: <FileText size={20} /> },
             { to: '/dashboard/sales-report', label: 'Sales Report', icon: <ShoppingBag size={20} /> },
-            // { to: '/dashboard/settings', label: 'Settings', icon: <Settings size={20} /> },
         ],
         buyer: [
             { to: '/dashboard/my-tickets', label: 'My Tickets', icon: <Ticket size={20} /> },
@@ -82,10 +88,6 @@ const DashboardLayout = () => {
     const handleLogout = async () => {
         try {
             await logOut();
-            // Clear role from localStorage on logout
-            localStorage.removeItem('user-role');
-            localStorage.removeItem('access-token');
-            // Navigate to home page will be handled by the auth provider
         } catch (error) {
             console.error('Logout error:', error);
         }
@@ -96,12 +98,28 @@ const DashboardLayout = () => {
         setSidebarOpen(!isSidebarOpen);
     };
 
-    // Debugging helper - render this somewhere hidden if needed
-    const debugOutput = process.env.NODE_ENV === 'development' ? (
-        <div className="hidden">
-            <pre>{JSON.stringify({ user, userName, role }, null, 2)}</pre>
-        </div>
-    ) : null;
+    // Check if we're at the main dashboard route
+    const isMainDashboard = location.pathname === '/dashboard';
+
+    // Render appropriate dashboard component based on role if we're at the main dashboard route
+    const renderDashboardContent = () => {
+        if (!isMainDashboard) {
+            // If not on main dashboard, use Outlet to render nested routes
+            return <Outlet />;
+        }
+
+        // On main dashboard, render role-specific dashboard
+        console.log("Rendering dashboard for role:", role);
+        switch (role) {
+            case 'admin':
+                return <AdminDashboard userName={userName} />;
+            case 'seller':
+                return <SellerDashboard userName={userName} />;
+            case 'buyer':
+            default:
+                return <BuyerDashboard userName={userName} />;
+        }
+    };
 
     return (
         <div className="flex h-screen bg-orange-50">
@@ -175,7 +193,7 @@ const DashboardLayout = () => {
             {/* Main content */}
             <main className="flex-1 overflow-y-auto p-6 lg:p-8">
                 <div className="max-w-6xl mx-auto">
-                    {/* Breadcrumb & page title could be added here */}
+                    {/* Page header */}
                     <div className="mb-6">
                         <h1 className="text-2xl font-bold text-gray-800">Welcome back, {userName}!</h1>
                         <p className="text-gray-800">
@@ -183,10 +201,9 @@ const DashboardLayout = () => {
                         </p>
                     </div>
                     
-                    {/* Dashboard content */}
+                    {/* Dashboard content - render different content based on role */}
                     <div className="bg-white rounded-xl shadow-lg p-6">
-                        {debugOutput}
-                        <Outlet />
+                        {renderDashboardContent()}
                     </div>
                 </div>
             </main>

@@ -25,11 +25,8 @@ const Login = () => {
     setError('');
     setLoading(true);
     
-    const form = event.target;
-    const email = form.email.value;
-    const password = form.password.value;
-    
     try {
+      // Use the updated signIn function from our API-only AuthProvider
       const result = await signIn(email, password);
       console.log('Login successful:', result);
       navigate(from, { replace: true });
@@ -41,12 +38,21 @@ const Login = () => {
     }
   };
 
+  // For Google sign-in, this would require integration with your API
   const handleGoogleSignIn = async () => {
     setError('');
     setLoading(true);
     
     try {
-      const result = await signInWithGoogle();
+      // Since we don't have Firebase, you might need to handle Google auth differently
+      // For now, we'll simulate Google auth with a mock user object
+      const googleUserData = {
+        email: 'google-user@example.com',
+        displayName: 'Google User',
+        photoURL: 'https://example.com/photo.jpg'
+      };
+      
+      const result = await signInWithGoogle(googleUserData);
       console.log('Google login successful:', result);
       navigate(from, { replace: true });
     } catch (error) {

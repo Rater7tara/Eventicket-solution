@@ -21,12 +21,12 @@ import EventDetails from "../pages/Home/Home/EventDetails/EventDetails";
 import SeatPlan from "../pages/BookSeat/SeatPlan";
 import CheckoutTickets from "../pages/Home/CheckoutTickets/CheckoutTickets";
 import MyTickets from "../pages/Dashboard/UserDashboard/MyTickects/MyTickets";
-import { useContext } from "react";
-import { AuthContext } from "../providers/AuthProvider";
 import AddEvents from "../pages/Dashboard/SellerDashboard/AddEvents/AddEvents";
 import MyEvents from "../pages/Dashboard/SellerDashboard/MyEvents/MyEvents";
 import TicketSellReport from "../pages/Dashboard/SellerDashboard/TicketSellReport/TicketSellReport";
 import DashboardWelcome from "../pages/Dashboard/WelcomePage/DashboardWelcome";
+import UserDetailsForm from "../pages/Home/Home/UserDetailsForm/UserDetailsForm";
+import ManageUsers from "../pages/Dashboard/AdminDashborad/ManageUsers/ManageUsers";
 
 
 export const router = createBrowserRouter([
@@ -71,6 +71,10 @@ export const router = createBrowserRouter([
         path: '/disclaimer',
         element: <Disclaimer />
       },
+      {
+        path: '/user-details',
+        element: <UserDetailsForm />,
+      },
     ]
   },
   {
@@ -100,7 +104,7 @@ export const router = createBrowserRouter([
       // Admin specific routes
       {
         path: 'manage-users',
-        element: <AdminDashboard /> // Replace with actual component
+        element: <ManageUsers />,
       },
       {
         path: 'reports',
@@ -144,7 +148,7 @@ export const router = createBrowserRouter([
     element: <Register />
   },
   {
-    path: 'SeatBook',
+    path: 'SeatPlan',
     element: <SeatPlan />
   }
 ]);

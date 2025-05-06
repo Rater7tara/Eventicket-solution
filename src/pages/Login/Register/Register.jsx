@@ -4,6 +4,7 @@ import { Mail, Lock, User, Phone, UserCircle } from "lucide-react";
 import logo from "../../../assets/logo.png";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../../providers/AuthProvider";
+import serverURL from "../../../ServerConfig";
 
 const Register = () => {
   const { createUser } = useContext(AuthContext);
@@ -22,10 +23,12 @@ const Register = () => {
   const [role, setRole] = useState('buyer'); // Default role is buyer
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   
-  const handleRegister = event => {
+  const handleRegister = async (event) => {
     event.preventDefault();
     setError('');
+    setLoading(true);
     
     const form = event.target;
     const name = form.name.value;
@@ -38,47 +41,53 @@ const Register = () => {
     // Password validation
     if (password !== confirmPass) {
       setError('Passwords do not match');
+      setLoading(false);
       return;
     }
     
     if (password.length < 6) {
       setError('Password must be at least 6 characters long');
+      setLoading(false);
       return;
     }
     
-    // Call the API to register the user
-    fetch('http://localhost:5000/api/user/register', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ name, email, phone, password, role })
-    })
-    .then(res => res.json())
-    .then(data => {
+    try {
+      // Call the API to register the user with the new serverURL format
+      const response = await fetch(`${serverURL.url}auth/create-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ name, email, phone, password, role })
+      });
+      
+      const data = await response.json();
+      
       if (data.token) {
         // Save token and user role to localStorage
         localStorage.setItem('access-token', data.token);
         localStorage.setItem('user-role', role);
         
         // Use Firebase auth for consistency with your AuthProvider
-        createUser(email, password)
-          .then(result => {
-            console.log('User registered successfully');
-            navigate(from, { replace: true });
-          })
-          .catch(error => {
-            console.error('Firebase registration error:', error);
-            setError(error.message);
-          });
+        // But don't fail if Firebase auth fails
+        try {
+          await createUser(email, password);
+        } catch (firebaseError) {
+          console.warn('Firebase registration failed, but continuing with API auth:', firebaseError);
+          // Continue with the flow even if Firebase fails
+        }
+        
+        console.log('User registered successfully');
+        navigate(from, { replace: true });
       } else {
         setError(data.message || 'Registration failed');
       }
-    })
-    .catch(error => {
+    } catch (error) {
       console.error('Registration error:', error);
       setError('Registration failed. Please try again.');
-    });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleTogglePasswordVisibility = () => {
@@ -287,8 +296,9 @@ const Register = () => {
             whileTap={{ scale: 0.97 }}
             className="w-full py-3 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium shadow-lg hover:shadow-orange-500/50 transition-all duration-300 mt-6"
             type="submit"
+            disabled={loading}
           >
-            Create Account
+            {loading ? "Creating Account..." : "Create Account"}
           </motion.button>
 
           {/* Social login options */}
@@ -307,6 +317,7 @@ const Register = () => {
               whileTap={{ scale: 0.97 }}
               type="button"
               className="py-2.5 px-4 rounded-lg bg-white/90 text-gray-800 font-medium flex items-center justify-center shadow-md hover:shadow-lg transition-all duration-300"
+              disabled={loading}
             >
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
                 <path
@@ -333,6 +344,7 @@ const Register = () => {
               whileTap={{ scale: 0.97 }}
               type="button"
               className="py-2.5 px-4 rounded-lg bg-[#1877F2]/90 text-white font-medium flex items-center justify-center shadow-md hover:shadow-lg transition-all duration-300"
+              disabled={loading}
             >
               <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M9.198 21.5h4v-8.01h3.604l.396-3.98h-4V7.5a1 1 0 0 1 1-1h3v-4h-3a5 5 0 0 0-5 5v2.01h-2l-.396 3.98h2.396v8.01Z" />

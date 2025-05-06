@@ -5,14 +5,14 @@ const EventCard = ({ event }) => {
     const navigate = useNavigate();
 
     const handleClick = () => {
-        navigate(`/events/${String(event.id)}`, { state: { event } });
+        navigate(`/events/${String(event._id)}`, { state: { event } });
     };
 
     // Modify the button click handler to redirect to event details
     const handleGetTickets = (e) => {
         e.stopPropagation(); // Prevent the parent div's onClick from firing
-        navigate(`/events/${String(event.id)}`, { state: { event } });
-        console.log("Navigating to event with ID:", event.id, "and full event:", event);
+        navigate(`/events/${String(event._id)}`, { state: { event } });
+        console.log("Navigating to event with ID:", event._id, "and full event:", event);
     };
 
     return (
@@ -50,15 +50,15 @@ const EventCard = ({ event }) => {
                                 </div>
                             </div>
                             
-                            {/* Date badge - assuming event has a date property */}
+                            {/* Date/Time badge */}
                             <div className="absolute bottom-3 left-3 bg-white/80 backdrop-blur-sm px-2 py-1 rounded shadow-md text-xs font-semibold text-gray-800">
-                                {event.date || event.time}
+                                {event.time}
                             </div>
                             
                             {/* Price tag */}
                             <div className="absolute -top-2 -right-2 transform rotate-3 group-hover:rotate-0 transition-transform duration-300">
                                 <div className="bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold px-6 py-2 rounded shadow-lg">
-                                    {event.price ? `${event.price}` : 'FREE'}
+                                    {event.price ? `${event.price} BDT` : 'FREE'}
                                 </div>
                             </div>
                         </div>
@@ -82,12 +82,17 @@ const EventCard = ({ event }) => {
                                 <span className="truncate">{event.location}</span>
                             </div>
                             
-                            {/* CTA Button - Updated to navigate to EventDetails */}
+                            {/* Show appropriate button based on ticket availability */}
                             <button 
                                 onClick={handleGetTickets}
-                                className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white py-2.5 px-4 rounded-lg font-medium shadow-md hover:shadow-xl transform group-hover:translate-y-0 translate-y-0 group-hover:scale-105 transition-all duration-300"
+                                disabled={event.ticketsAvailable <= 0}
+                                className={`w-full py-2.5 px-4 rounded-lg font-medium shadow-md hover:shadow-xl transform group-hover:translate-y-0 translate-y-0 transition-all duration-300 ${
+                                    event.ticketsAvailable <= 0 
+                                    ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
+                                    : 'bg-gradient-to-r from-orange-500 to-red-600 text-white group-hover:scale-105'
+                                }`}
                             >
-                                Get Tickets
+                                {event.ticketsAvailable <= 0 ? 'Sold Out' : 'Get Tickets'}
                             </button>
                         </div>
                     </div>

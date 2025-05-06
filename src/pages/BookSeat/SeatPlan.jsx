@@ -117,13 +117,15 @@ const SeatPlan = () => {
   
   // Handle proceed to checkout
   const handleCheckout = () => {
-    navigate('/checkout', { 
+    navigate('/user-Details', { 
       state: { 
         event: eventDetails,
         selectedSeats,
         totalPrice,
         serviceFee,
-        grandTotal: totalPrice + serviceFee
+        grandTotal: totalPrice + serviceFee,
+        ticketType,
+        quantity
       } 
     });
   };

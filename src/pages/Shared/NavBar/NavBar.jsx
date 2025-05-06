@@ -25,7 +25,7 @@ const NavBar = () => {
         if (user) {
             return [
                 ...navItems,
-                { name: 'Dashboard', icon: <LayoutDashboard size={20} />, path: '/dashboard' }
+                // { name: 'Dashboard', icon: <LayoutDashboard size={20} />, path: '/dashboard' }
             ];
         }
         return navItems;

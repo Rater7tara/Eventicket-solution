@@ -1,32 +1,73 @@
 import React, { createContext, useEffect, useState } from 'react';
-import { GoogleAuthProvider, createUserWithEmailAndPassword, getAuth, onAuthStateChanged, signInWithEmailAndPassword, signInWithPopup, signOut } from "firebase/auth";
-import app from '../firebase/firebase.config';
+import serverURL from '../ServerConfig';
 
 export const AuthContext = createContext(null);
-
-const auth = getAuth(app);
-const googleAuthProvider = new GoogleAuthProvider();
 
 const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // Create a user with Firebase authentication and our API
-    const createUser = async (email, password) => {
+    // Create a user with our API
+    const createUser = async (email, password, role = 'buyer') => {
         setLoading(true);
         
-        // We'll continue to use Firebase for authentication
-        // Our custom API handling is in the Register component
-        return createUserWithEmailAndPassword(auth, email, password);
+        try {
+            // Register with your API
+            const response = await fetch(`${serverURL.url}auth/create-user`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    email,
+                    password,
+                    name: email.split('@')[0], // Default name from email
+                    role: role
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to create user on API');
+            }
+            
+            // Extract token if available in response
+            const token = data.token || null;
+            
+            // Create user object with role
+            const userInfo = {
+                email: email,
+                role: role,
+                name: data.user?.name || email.split('@')[0],
+                _id: data.user?._id
+            };
+            
+            // Store user information and token in localStorage for persistence
+            localStorage.setItem('user-info', JSON.stringify(userInfo));
+            if (token) {
+                localStorage.setItem('auth-token', token);
+            }
+            
+            // Update user state
+            setUser(userInfo);
+            setLoading(false);
+            
+            return userInfo;
+        } catch (error) {
+            console.error('User creation error:', error);
+            setLoading(false);
+            throw error;
+        }
     }
 
-    // Sign in with our API and Firebase
+    // Sign in with email/password
     const signIn = async (email, password) => {
         setLoading(true);
         
         try {
-            // First, try to sign in with our API
-            const response = await fetch('http://localhost:5000/api/user/login', {
+            // Sign in with your API
+            const response = await fetch(`${serverURL.url}auth/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -36,60 +77,93 @@ const AuthProvider = ({ children }) => {
             
             const data = await response.json();
             
-            if (data.token) {
-                // Save token to localStorage
-                localStorage.setItem('access-token', data.token);
-                
-                // Continue with Firebase authentication for consistency
-                return signInWithEmailAndPassword(auth, email, password);
-            } else {
+            if (!response.ok) {
                 throw new Error(data.message || 'Login failed');
             }
+            
+            // Get token from API response
+            const token = data.token;
+            
+            // Get user info from the API response
+            const { role, name, _id } = data.user || {};
+            
+            // Use the role from API or default to buyer
+            const userRole = role || 'buyer';
+            
+            // Create the user object with role
+            const userInfo = {
+                email: email,
+                role: userRole,
+                name: name || email.split('@')[0],
+                _id: _id
+            };
+            
+            // Save user data in localStorage for persistence
+            localStorage.setItem('user-info', JSON.stringify(userInfo));
+            localStorage.setItem('auth-token', token);
+            
+            // Update user state
+            setUser(userInfo);
+            setLoading(false);
+            
+            return userInfo;
         } catch (error) {
             console.error('Login error:', error);
-            throw error;
-        } finally {
             setLoading(false);
+            throw error;
         }
     }
 
     // Sign in with Google
-    const signInWithGoogle = async () => {
+    const signInWithGoogle = async (googleUserData) => {
         setLoading(true);
         
         try {
-            // First sign in with Firebase Google auth
-            const result = await signInWithPopup(auth, googleAuthProvider);
+            const { displayName, email, photoURL } = googleUserData;
             
-            if (result.user) {
-                const { displayName, email, photoURL } = result.user;
-                
-                // Now register this user with our API
-                const response = await fetch('http://localhost:5000/api/user/google-auth', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ 
-                        name: displayName, 
-                        email, 
-                        photoURL,
-                        // Add any additional required fields
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.token) {
-                    // Save token to localStorage
-                    localStorage.setItem('access-token', data.token);
-                    return result;
-                } else {
-                    throw new Error(data.message || 'Google sign-in failed');
-                }
+            // Register this user with our API
+            const response = await fetch(`${serverURL.url}auth/create-user`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    name: displayName || email.split('@')[0], 
+                    email, 
+                    photoURL,
+                    authProvider: 'google'
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.message || 'Google sign-in failed');
             }
             
-            return result;
+            // Get token from response
+            const token = data.token;
+            
+            // Get role from API response or use default
+            const role = data.user?.role || 'buyer';
+            
+            // Create user object with role
+            const userInfo = {
+                email: email,
+                role: role,
+                name: displayName || email.split('@')[0],
+                photoURL: photoURL,
+                _id: data.user?._id
+            };
+            
+            // Save data in localStorage
+            localStorage.setItem('user-info', JSON.stringify(userInfo));
+            localStorage.setItem('auth-token', token);
+            
+            // Update user state
+            setUser(userInfo);
+            
+            return userInfo;
         } catch (error) {
             console.error('Google sign-in error:', error);
             throw error;
@@ -98,66 +172,52 @@ const AuthProvider = ({ children }) => {
         }
     }
 
-    // Log out from both Firebase and clear the token
+    // Log out
     const logOut = async () => {
         setLoading(true);
         
         try {
-            // Clear the token from localStorage
-            localStorage.removeItem('access-token');
+            // Clear user data and token from localStorage
+            localStorage.removeItem('user-info');
+            localStorage.removeItem('auth-token');
             
-            // Also sign out from Firebase
-            return signOut(auth);
+            // Clear user state
+            setUser(null);
+            setLoading(false);
+            
+            return true;
         } catch (error) {
             console.error('Logout error:', error);
-            throw error;
-        } finally {
             setLoading(false);
+            throw error;
         }
     }
 
     // Check if the user is authenticated on component mount
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, loggedUser => {
-            console.log('Logged in user inside auth state observer', loggedUser);
-            setUser(loggedUser);
-            setLoading(false);
-        });
-
-        return () => {
-            unsubscribe();
-        }
-    }, []);
-
-    // Check token validity
-    useEffect(() => {
-        const verifyToken = async () => {
-            const token = localStorage.getItem('access-token');
-            
-            if (token) {
-                try {
-                    // Optional: verify token with your API
-                    const response = await fetch('http://localhost:5000/api/user/verify-token', {
-                        method: 'GET',
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (!data.valid) {
-                        // Token is invalid, log out
-                        localStorage.removeItem('access-token');
-                        signOut(auth);
-                    }
-                } catch (error) {
-                    console.error('Token verification error:', error);
+        const checkAuth = () => {
+            try {
+                // Check for token and user info in localStorage
+                const token = localStorage.getItem('auth-token');
+                const userInfo = JSON.parse(localStorage.getItem('user-info') || 'null');
+                
+                if (token && userInfo) {
+                    // User is authenticated, set user state
+                    console.log('User authenticated from localStorage:', userInfo);
+                    setUser(userInfo);
+                } else {
+                    // No authentication data found
+                    setUser(null);
                 }
+            } catch (error) {
+                console.error('Error checking authentication state:', error);
+                setUser(null);
+            } finally {
+                setLoading(false);
             }
         };
         
-        verifyToken();
+        checkAuth();
     }, []);
 
     const authInfo = {
@@ -166,7 +226,28 @@ const AuthProvider = ({ children }) => {
         createUser,
         signIn,
         logOut,
-        signInWithGoogle
+        signInWithGoogle: () => {
+            // A simpler version that just returns a promise - implement Google auth as needed
+            return Promise.reject(new Error('Google sign-in not implemented'));
+        },
+        setUserRole: (role) => {
+            if (user) {
+                // Create updated user object
+                const updatedUser = {
+                    ...user,
+                    role: role
+                };
+                
+                // Update localStorage
+                localStorage.setItem('user-info', JSON.stringify(updatedUser));
+                
+                // Update user state
+                setUser(updatedUser);
+                
+                return updatedUser;
+            }
+            return null;
+        }
     }
 
     return (
