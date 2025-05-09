@@ -1,120 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { loadStripe } from '@stripe/stripe-js';
-import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { Elements } from '@stripe/react-stripe-js';
+import { paymentService } from '../../../services/api'; // Import the payment service
+import serverURL from '../../../ServerConfig';
+import CheckoutForm from './CheckoutForm'; // Make sure to import the CheckoutForm component
 
 // Replace with your Stripe publishable key
-const stripePromise = loadStripe('pk_test_your_stripe_publishable_key');
-
-// Payment form component
-const CheckoutForm = ({ grandTotal, onPaymentComplete }) => {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [error, setError] = useState(null);
-  const [processing, setProcessing] = useState(false);
-  const [succeeded, setSucceeded] = useState(false);
-  const [disabled, setDisabled] = useState(true);
-
-  // Handle form submission
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setProcessing(true);
-
-    if (!stripe || !elements) {
-      return;
-    }
-
-    // In a real implementation, you would create a payment intent on your server
-    // and return the client secret to complete the payment here
-    
-    // This is a simplified example
-    const cardElement = elements.getElement(CardElement);
-
-    const { error, paymentMethod } = await stripe.createPaymentMethod({
-      type: 'card',
-      card: cardElement,
-    });
-
-    if (error) {
-      setError(`Payment failed: ${error.message}`);
-      setProcessing(false);
-    } else {
-      setError(null);
-      setSucceeded(true);
-      setProcessing(false);
-      
-      // Simulate a successful payment (in production, verify on server)
-      setTimeout(() => {
-        onPaymentComplete(paymentMethod.id);
-      }, 1000);
-    }
-  };
-
-  // Handle input change
-  const handleChange = (event) => {
-    setDisabled(event.empty);
-    setError(event.error ? event.error.message : "");
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="w-full max-w-md mt-6">
-      <div className="mb-4">
-        <label className="block text-orange-300 text-sm font-medium mb-2">
-          Card Details
-        </label>
-        <div className="p-3 border border-gray-600 rounded-lg bg-gray-800">
-          <CardElement 
-            options={{
-              style: {
-                base: {
-                  fontSize: '16px',
-                  color: '#f3f4f6',
-                  '::placeholder': {
-                    color: '#9ca3af',
-                  },
-                },
-                invalid: {
-                  color: '#ef4444',
-                },
-              },
-            }}
-            onChange={handleChange}
-          />
-        </div>
-      </div>
-      
-      {error && (
-        <div className="text-red-500 text-sm mb-4">
-          {error}
-        </div>
-      )}
-      
-      <button
-        type="submit"
-        disabled={processing || disabled || succeeded}
-        className={`w-full py-3 px-6 rounded-lg text-white font-medium transition-all ${
-          processing || disabled
-            ? 'bg-gray-600 cursor-not-allowed'
-            : 'bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 shadow-lg hover:shadow-xl'
-        }`}
-      >
-        {processing ? (
-          <span className="flex items-center justify-center">
-            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            Processing...
-          </span>
-        ) : succeeded ? (
-          "Payment Successful!"
-        ) : (
-          `Pay $${grandTotal.toFixed(2)}`
-        )}
-      </button>
-    </form>
-  );
-};
+const stripePromise = loadStripe('pk_test_51RMBsVPPhrKgTwpcPcorStmAPBALn5dtB3xrqJ5bn3xfHKRYM1BPXBLyO8HkVtkk7Hhq1HZs9UaJpjR4lqxgnCvu00MVzStYrv');
 
 // Main Checkout Page
 const CheckoutTickets = () => {
@@ -122,27 +15,36 @@ const CheckoutTickets = () => {
   const navigate = useNavigate();
   const [paymentComplete, setPaymentComplete] = useState(false);
   const [confirmationNumber, setConfirmationNumber] = useState('');
+  const [orderData, setOrderData] = useState(null);
   
   // Get data from location state
-  const { event, selectedSeats, totalPrice, serviceFee, grandTotal } = location.state || {};
+  const { event, selectedSeats, totalPrice, serviceFee, grandTotal, userData } = location.state || {};
   
   // Scroll to top when component mounts
   useEffect(() => {
     window.scrollTo(0, 0);
     
-    // Generate a random confirmation number
+    // Generate a random confirmation number if not set
     if (!confirmationNumber) {
       const random = Math.floor(100000 + Math.random() * 900000);
       const timestamp = new Date().getTime().toString().slice(-4);
       setConfirmationNumber(`TKT-${random}-${timestamp}`);
     }
-  }, [confirmationNumber]);
+
+    // Check if we have the required data - if in development mode, don't redirect
+    if (!event || !selectedSeats || selectedSeats.length === 0) {
+      if (process.env.NODE_ENV !== 'development') {
+        navigate('/');
+      } else {
+        console.warn('Missing event data in development mode - would redirect in production');
+      }
+    }
+  }, [confirmationNumber, navigate, event, selectedSeats]);
 
   // Handle payment completion
-  const handlePaymentComplete = (paymentId) => {
+  const handlePaymentComplete = async (orderId) => {
     setPaymentComplete(true);
-    
-    // In a real app, you would save the transaction to your database here
+    setOrderData({ orderId });
     
     // Scroll to the confirmation section
     setTimeout(() => {
@@ -182,7 +84,8 @@ const CheckoutTickets = () => {
         serviceFee,
         grandTotal,
         confirmationNumber,
-        purchaseDate: new Date().toISOString()
+        purchaseDate: new Date().toISOString(),
+        orderId: orderData?.orderId
       }
     });
   };
@@ -243,7 +146,7 @@ const CheckoutTickets = () => {
               <h3 className="text-md font-bold text-orange-300">Your Tickets</h3>
               
               {selectedSeats?.map((seat, index) => (
-                <div key={seat.id} className="relative overflow-hidden">
+                <div key={seat.id || index} className="relative overflow-hidden">
                   {/* Ticket UI */}
                   <div className="ticket-card bg-gradient-to-r from-gray-900 to-gray-800 rounded-lg border border-orange-500 border-opacity-40 shadow-lg overflow-hidden">
                     {/* Ticket Header */}
@@ -259,7 +162,7 @@ const CheckoutTickets = () => {
                       <div className="flex-1">
                         <div className="flex flex-col space-y-2">
                           <div className="text-xs text-gray-400">Section</div>
-                          <div className="font-medium">{seat.name.split(' ')[0]} {seat.name.split(' ')[1]}</div>
+                          <div className="font-medium">{seat.name?.split(' ')[0] || 'Section'} {seat.name?.split(' ')[1] || ''}</div>
                           
                           <div className="text-xs text-gray-400 mt-1">Date & Time</div>
                           <div className="flex items-center">
@@ -280,17 +183,8 @@ const CheckoutTickets = () => {
                       <div className="ml-4 flex flex-col items-end justify-between">
                         <div className="flex flex-col items-end">
                           <div className="text-xs text-gray-400">Price</div>
-                          <div className="font-bold text-orange-300">${seat.price.toFixed(2)}</div>
+                          <div className="font-bold text-orange-300">${seat.price?.toFixed(2) || '0.00'}</div>
                         </div>
-                        
-                        {/* Perforated Left Edge */}
-                        {/* <div className="absolute top-0 left-0 h-full w-6 overflow-hidden">
-                          <div className="h-full w-6 flex flex-col justify-around items-center">
-                            {Array.from({ length: 12 }).map((_, i) => (
-                              <div key={i} className="w-3 h-3 bg-white rounded-full transform translate-x-1/2"></div>
-                            ))}
-                          </div>
-                        </div> */}
                         
                         {/* Barcode */}
                         <div className="mt-3">
@@ -309,7 +203,7 @@ const CheckoutTickets = () => {
                           </div>
                           <div className="text-center text-xs mt-1 text-gray-400">
                             {/* Ticket ID based on seat */}
-                            TIX-{seat.section.substring(0, 3).toUpperCase()}-{seat.row}{seat.number}
+                            TIX-{seat.section?.substring(0, 3).toUpperCase() || 'SEC'}-{seat.row || 'A'}{seat.number || '1'}
                           </div>
                         </div>
                       </div>
@@ -322,7 +216,7 @@ const CheckoutTickets = () => {
             {/* Price Summary */}
             <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
               <div className="flex justify-between items-center mb-2">
-                <span>Ticket{selectedSeats?.length > 1 ? 's' : ''} ({selectedSeats?.length})</span>
+                <span>Ticket{selectedSeats?.length > 1 ? 's' : ''} ({selectedSeats?.length || 0})</span>
                 <span>${totalPrice?.toFixed(2) || '0.00'}</span>
               </div>
               <div className="flex justify-between items-center mb-2">
@@ -351,6 +245,8 @@ const CheckoutTickets = () => {
               <Elements stripe={stripePromise}>
                 <CheckoutForm 
                   grandTotal={grandTotal || 0} 
+                  event={event}
+                  selectedSeats={selectedSeats || []}
                   onPaymentComplete={handlePaymentComplete}
                 />
               </Elements>
@@ -401,6 +297,10 @@ const CheckoutTickets = () => {
                   <div className="flex justify-between mb-2">
                     <span className="text-gray-400">Purchase Date:</span>
                     <span>{new Date().toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex justify-between mb-2">
+                    <span className="text-gray-400">Order ID:</span>
+                    <span className="font-mono text-sm">{orderData?.orderId}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-400">Amount Paid:</span>

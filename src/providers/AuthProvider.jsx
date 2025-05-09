@@ -6,6 +6,7 @@ export const AuthContext = createContext(null);
 const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
+    
 
     // Create a user with our API
     const createUser = async (email, password, role = 'buyer') => {

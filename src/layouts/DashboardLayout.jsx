@@ -3,11 +3,6 @@ import { Link, Outlet, useLocation, Navigate } from 'react-router-dom';
 import { Home, UserCircle, LayoutDashboard, Ticket, LogOut, Menu, X, Calendar, Settings, FileText, ShoppingBag } from 'lucide-react';
 import { AuthContext } from '../providers/AuthProvider'; // Adjust the path as needed
 
-// Import dashboard components for each role
-import AdminDashboard from '../pages/Dashboard/AdminDashborad/AdminDashboard';
-import SellerDashboard from '../pages/Dashboard/SellerDashboard/SellerDashboard';
-import BuyerDashboard from '../pages/Dashboard/UserDashboard/UserDashboard';
-
 const DashboardLayout = () => {
     const { user, loading, logOut } = useContext(AuthContext);
     const [isSidebarOpen, setSidebarOpen] = useState(true);
@@ -99,29 +94,6 @@ const DashboardLayout = () => {
         setSidebarOpen(!isSidebarOpen);
     };
 
-    // Check if we're at the main dashboard route
-    const isMainDashboard = location.pathname === '/dashboard';
-
-    // Render appropriate dashboard component based on role if we're at the main dashboard route
-    const renderDashboardContent = () => {
-        if (!isMainDashboard) {
-            // If not on main dashboard, use Outlet to render nested routes
-            return <Outlet />;
-        }
-
-        // On main dashboard, render role-specific dashboard
-        console.log("Rendering dashboard for role:", role);
-        switch (role) {
-            case 'admin':
-                return <AdminDashboard userName={userName} />;
-            case 'seller':
-                return <SellerDashboard userName={userName} />;
-            case 'buyer':
-            default:
-                return <BuyerDashboard userName={userName} />;
-        }
-    };
-
     return (
         <div className="flex h-screen bg-orange-50">
             {/* Mobile sidebar toggle button */}
@@ -202,9 +174,9 @@ const DashboardLayout = () => {
                         </p>
                     </div>
                     
-                    {/* Dashboard content - render different content based on role */}
+                    {/* Dashboard content - ALWAYS use Outlet to render nested routes */}
                     <div className="bg-white rounded-xl shadow-lg p-6">
-                        {renderDashboardContent()}
+                        <Outlet />
                     </div>
                 </div>
             </main>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import authService from '../../../../services/AuthService'; 
 
 const UserDetailsForm = () => {
     const location = useLocation();
@@ -18,30 +19,65 @@ const UserDetailsForm = () => {
     const ticketQuantity = location.state?.quantity || 1;
     const singleTicketType = location.state?.ticketType;
 
+    // Check if user is already authenticated
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [currentUser, setCurrentUser] = useState(null);
+
     // Check if we have the event data, if not redirect back to events
     useEffect(() => {
         if (!eventData) {
             navigate('/');
         }
+
+        // Check authentication status
+        const checkAuth = () => {
+            const isAuth = authService.isAuthenticated();
+            setIsAuthenticated(isAuth);
+            
+            if (isAuth) {
+                const user = authService.getCurrentUser();
+                setCurrentUser(user);
+            }
+        };
+
+        checkAuth();
     }, [eventData, navigate]);
 
     // Get existing user data from localStorage if available
     const savedUserData = JSON.parse(localStorage.getItem('userData') || '{}');
 
-    // Form state
+    // Form state - pre-fill with currentUser data if available
     const [formData, setFormData] = useState({
-        name: savedUserData.name || '',
-        email: savedUserData.email || '',
-        phone: savedUserData.phone || '',
-        address: savedUserData.address || '',
-        city: savedUserData.city || '',
-        postalCode: savedUserData.postalCode || '',
+        name: currentUser?.name || savedUserData.name || '',
+        email: currentUser?.email || savedUserData.email || '',
+        password: savedUserData.password || '',
+        phone: currentUser?.phone || savedUserData.phone || '',
+        address: currentUser?.address || savedUserData.address || '',
+        city: currentUser?.city || savedUserData.city || '',
+        postalCode: currentUser?.postalCode || savedUserData.postalCode || '',
+        role: 'buyer' // Setting the role as 'buyer' by default
     });
+
+    // Update form data if currentUser changes
+    useEffect(() => {
+        if (currentUser) {
+            setFormData(prevState => ({
+                ...prevState,
+                name: currentUser.name || prevState.name,
+                email: currentUser.email || prevState.email,
+                phone: currentUser.phone || prevState.phone,
+                address: currentUser.address || prevState.address,
+                city: currentUser.city || prevState.city,
+                postalCode: currentUser.postalCode || prevState.postalCode,
+            }));
+        }
+    }, [currentUser]);
 
     // Validation state
     const [errors, setErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formSubmitError, setFormSubmitError] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
 
     // Handle input changes
     const handleChange = (e) => {
@@ -76,6 +112,13 @@ const UserDetailsForm = () => {
             newErrors.email = 'Email is invalid';
         }
         
+        // Password validation - only required if user is not logged in
+        if (!isAuthenticated && !formData.password.trim()) {
+            newErrors.password = 'Password is required';
+        } else if (!isAuthenticated && formData.password.length < 6) { // Changed to 6 to match your requirements
+            newErrors.password = 'Password must be at least 6 characters';
+        }
+        
         // Phone validation
         if (!formData.phone.trim()) {
             newErrors.phone = 'Phone number is required';
@@ -106,9 +149,12 @@ const UserDetailsForm = () => {
             setIsSubmitting(true);
             
             try {
-                // Store in localStorage
-                localStorage.setItem('userData', JSON.stringify(formData));
+                // Store in localStorage with role as 'buyer'
+                localStorage.setItem('userData', JSON.stringify({...formData, role: 'buyer'}));
                 
+                // If user is not authenticated, don't try to update role here
+                // The role will be properly set during registration in the CheckoutForm
+
                 // Determine where to navigate next based on whether we came from SeatPlan or EventDetails
                 if (selectedSeats && selectedSeats.length > 0) {
                     // If we have seat data, we came from SeatPlan, go to checkout
@@ -140,6 +186,11 @@ const UserDetailsForm = () => {
                 setIsSubmitting(false);
             }
         }
+    };
+
+    // Toggle password visibility
+    const togglePasswordVisibility = () => {
+        setShowPassword(!showPassword);
     };
 
     // Get summary data based on where we came from
@@ -232,6 +283,9 @@ const UserDetailsForm = () => {
                     <p className="mt-2 text-gray-300">
                         Please provide your details to complete the booking for "{eventData.title}"
                     </p>
+                    <p className="mt-1 text-sm text-orange-400">
+                        You're registering as a buyer
+                    </p>
                 </div>
                 
                 {/* Order Summary */}
@@ -273,6 +327,7 @@ const UserDetailsForm = () => {
                                         errors.name ? 'border-red-500' : 'border-gray-600'
                                     } rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent`}
                                     placeholder="John Doe"
+                                    readOnly={isAuthenticated}
                                 />
                                 {errors.name && (
                                     <p className="mt-1 text-sm text-red-500">{errors.name}</p>
@@ -294,11 +349,54 @@ const UserDetailsForm = () => {
                                         errors.email ? 'border-red-500' : 'border-gray-600'
                                     } rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent`}
                                     placeholder="john@example.com"
+                                    readOnly={isAuthenticated}
                                 />
                                 {errors.email && (
                                     <p className="mt-1 text-sm text-red-500">{errors.email}</p>
                                 )}
                             </div>
+                            
+                            {/* Password - Only show if user is not logged in */}
+                            {!isAuthenticated && (
+                                <div>
+                                    <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">
+                                        Password*
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            type={showPassword ? "text" : "password"}
+                                            id="password"
+                                            name="password"
+                                            value={formData.password}
+                                            onChange={handleChange}
+                                            className={`w-full px-4 py-2.5 bg-gray-700 border ${
+                                                errors.password ? 'border-red-500' : 'border-gray-600'
+                                            } rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent`}
+                                            placeholder="••••••••"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={togglePasswordVisibility}
+                                            className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-300"
+                                        >
+                                            {showPassword ? (
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                                                    <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                                                </svg>
+                                            ) : (
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clipRule="evenodd" />
+                                                    <path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z" />
+                                                </svg>
+                                            )}
+                                        </button>
+                                    </div>
+                                    {errors.password && (
+                                        <p className="mt-1 text-sm text-red-500">{errors.password}</p>
+                                    )}
+                                </div>
+                            )}
                             
                             {/* Phone */}
                             <div>
@@ -378,6 +476,9 @@ const UserDetailsForm = () => {
                                     placeholder="1000"
                                 />
                             </div>
+                            
+                            {/* Role - Hidden field, set to 'buyer' by default */}
+                            <input type="hidden" name="role" value="buyer" />
                         </div>
                         
                         {/* Submit Button */}
