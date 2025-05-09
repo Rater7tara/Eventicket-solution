@@ -49,11 +49,23 @@ const Register = () => {
     }
     
     try {
-      // Use the AuthProvider's createUser method which handles API calls and navigation
-      const userInfo = await createUser(email, password);
+      // Always use 'buyer' role when creating user
+      const userRole = 'buyer';
       
-      // Additional user data update could be done here if needed
-      console.log('User registered successfully:', userInfo);
+      console.log('Registering user with role:', userRole);
+      
+      // Use the AuthProvider's createUser method which handles API calls and navigation
+      const userInfo = await createUser(email, password, userRole);
+      
+      // Log the result to verify role
+      console.log('User registered successfully with role:', userInfo.role);
+      
+      // Update user data in localStorage to ensure role is 'buyer'
+      const savedUserInfo = JSON.parse(localStorage.getItem('user-info') || '{}');
+      if (savedUserInfo && savedUserInfo._id) {
+        savedUserInfo.role = 'buyer';
+        localStorage.setItem('user-info', JSON.stringify(savedUserInfo));
+      }
       
       // Navigate to the intended destination
       navigate(from, { replace: true });
@@ -92,6 +104,10 @@ const Register = () => {
           </h2>
           <p className="text-sm text-orange-50 text-center">
             Sign up to discover and book exciting events
+          </p>
+          {/* Added text to indicate user role */}
+          <p className="mt-1 text-sm text-yellow-300 font-medium">
+            Registering as a buyer
           </p>
         </div>
 
@@ -206,6 +222,9 @@ const Register = () => {
               />
             </div>
           </div>
+
+          {/* Hidden role field */}
+          <input type="hidden" name="role" value="buyer" />
 
           <div className="flex items-center">
             <input 

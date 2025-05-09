@@ -7,12 +7,16 @@ const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     
-
     // Create a user with our API
     const createUser = async (email, password, role = 'buyer') => {
         setLoading(true);
         
         try {
+            // Always use 'buyer' role regardless of what's passed
+            const userRole = 'buyer';
+            
+            console.log('Creating user with role:', userRole);
+            
             // Register with your API
             const response = await fetch(`${serverURL.url}auth/create-user`, {
                 method: 'POST',
@@ -23,7 +27,7 @@ const AuthProvider = ({ children }) => {
                     email,
                     password,
                     name: email.split('@')[0], // Default name from email
-                    role: role
+                    role: userRole // Force role to be 'buyer'
                 })
             });
             
@@ -36,13 +40,15 @@ const AuthProvider = ({ children }) => {
             // Extract token if available in response
             const token = data.token || null;
             
-            // Create user object with role
+            // Create user object with buyer role
             const userInfo = {
                 email: email,
-                role: role,
+                role: userRole, // Explicitly set to 'buyer'
                 name: data.user?.name || email.split('@')[0],
                 _id: data.user?._id
             };
+            
+            console.log('User created with info:', userInfo);
             
             // Store user information and token in localStorage for persistence
             localStorage.setItem('user-info', JSON.stringify(userInfo));
@@ -86,18 +92,20 @@ const AuthProvider = ({ children }) => {
             const token = data.token;
             
             // Get user info from the API response
-            const { role, name, _id } = data.user || {};
+            const { name, _id } = data.user || {};
             
-            // Use the role from API or default to buyer
-            const userRole = role || 'buyer';
+            // ALWAYS use 'buyer' role regardless of what the API returns
+            const userRole = 'buyer';
             
-            // Create the user object with role
+            // Create the user object with role always set to 'buyer'
             const userInfo = {
                 email: email,
-                role: userRole,
+                role: userRole, // Force role to be 'buyer'
                 name: name || email.split('@')[0],
                 _id: _id
             };
+            
+            console.log('User signed in with role:', userRole);
             
             // Save user data in localStorage for persistence
             localStorage.setItem('user-info', JSON.stringify(userInfo));
@@ -122,6 +130,9 @@ const AuthProvider = ({ children }) => {
         try {
             const { displayName, email, photoURL } = googleUserData;
             
+            // Force role to be 'buyer'
+            const userRole = 'buyer';
+            
             // Register this user with our API
             const response = await fetch(`${serverURL.url}auth/create-user`, {
                 method: 'POST',
@@ -132,7 +143,8 @@ const AuthProvider = ({ children }) => {
                     name: displayName || email.split('@')[0], 
                     email, 
                     photoURL,
-                    authProvider: 'google'
+                    authProvider: 'google',
+                    role: userRole // Force role to be 'buyer'
                 })
             });
             
@@ -145,17 +157,16 @@ const AuthProvider = ({ children }) => {
             // Get token from response
             const token = data.token;
             
-            // Get role from API response or use default
-            const role = data.user?.role || 'buyer';
-            
-            // Create user object with role
+            // Create user object with buyer role
             const userInfo = {
                 email: email,
-                role: role,
+                role: userRole, // Always use 'buyer' role
                 name: displayName || email.split('@')[0],
                 photoURL: photoURL,
                 _id: data.user?._id
             };
+            
+            console.log('User signed in with Google, role:', userRole);
             
             // Save data in localStorage
             localStorage.setItem('user-info', JSON.stringify(userInfo));
@@ -203,9 +214,20 @@ const AuthProvider = ({ children }) => {
                 const userInfo = JSON.parse(localStorage.getItem('user-info') || 'null');
                 
                 if (token && userInfo) {
-                    // User is authenticated, set user state
-                    console.log('User authenticated from localStorage:', userInfo);
-                    setUser(userInfo);
+                    // ENSURE user always has 'buyer' role regardless of what's saved
+                    const userWithBuyerRole = {
+                        ...userInfo,
+                        role: 'buyer' // Force role to be 'buyer'
+                    };
+                    
+                    // User is authenticated, set user state with buyer role
+                    console.log('User authenticated from localStorage with role:', userWithBuyerRole.role);
+                    
+                    // Update localStorage with buyer role
+                    localStorage.setItem('user-info', JSON.stringify(userWithBuyerRole));
+                    
+                    // Set user with buyer role
+                    setUser(userWithBuyerRole);
                 } else {
                     // No authentication data found
                     setUser(null);
@@ -227,17 +249,19 @@ const AuthProvider = ({ children }) => {
         createUser,
         signIn,
         logOut,
-        signInWithGoogle: () => {
-            // A simpler version that just returns a promise - implement Google auth as needed
-            return Promise.reject(new Error('Google sign-in not implemented'));
-        },
+        signInWithGoogle,
         setUserRole: (role) => {
+            // Always set role to 'buyer' regardless of what's passed
+            const buyerRole = 'buyer';
+            
             if (user) {
-                // Create updated user object
+                // Create updated user object with 'buyer' role
                 const updatedUser = {
                     ...user,
-                    role: role
+                    role: buyerRole
                 };
+                
+                console.log('Setting user role to:', buyerRole);
                 
                 // Update localStorage
                 localStorage.setItem('user-info', JSON.stringify(updatedUser));

@@ -28,7 +28,17 @@ const Login = () => {
     try {
       // Use the updated signIn function from our API-only AuthProvider
       const result = await signIn(email, password);
-      console.log('Login successful:', result);
+      
+      // Log the result to verify role
+      console.log('Login successful with role:', result.role);
+      
+      // Force update the user role to 'buyer' in localStorage
+      const savedUserInfo = JSON.parse(localStorage.getItem('user-info') || '{}');
+      if (savedUserInfo && savedUserInfo._id) {
+        savedUserInfo.role = 'buyer';
+        localStorage.setItem('user-info', JSON.stringify(savedUserInfo));
+      }
+      
       navigate(from, { replace: true });
     } catch (error) {
       console.error('Login error:', error);
@@ -53,7 +63,17 @@ const Login = () => {
       };
       
       const result = await signInWithGoogle(googleUserData);
-      console.log('Google login successful:', result);
+      
+      // Log the result to verify role
+      console.log('Google login successful with role:', result.role);
+      
+      // Force update the user role to 'buyer' in localStorage
+      const savedUserInfo = JSON.parse(localStorage.getItem('user-info') || '{}');
+      if (savedUserInfo && savedUserInfo._id) {
+        savedUserInfo.role = 'buyer';
+        localStorage.setItem('user-info', JSON.stringify(savedUserInfo));
+      }
+      
       navigate(from, { replace: true });
     } catch (error) {
       console.error('Google login error:', error);
@@ -66,6 +86,7 @@ const Login = () => {
   const handleTogglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-tr from-gray-900 via-orange-500 to-yellow-400 relative overflow-hidden px-4">
