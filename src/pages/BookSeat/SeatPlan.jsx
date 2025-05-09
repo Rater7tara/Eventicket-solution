@@ -9,6 +9,11 @@ const SeatPlan = () => {
   const eventDetails = location.state?.event || {};
   const ticketType = location.state?.ticketType || {};
   const quantity = location.state?.quantity || 1;
+  
+  // Generate a unique order ID
+  const generateOrderId = () => {
+    return `TKT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  };
 
   // Scroll to top when component mounts
   useEffect(() => {
@@ -115,20 +120,78 @@ const SeatPlan = () => {
     navigate(-1);
   };
   
-  // Handle proceed to checkout
-  const handleCheckout = () => {
+  // Handle proceed to checkout - UPDATED to save to localStorage
+// Updated handleCheckout function for the SeatPlan component
+const handleCheckout = async () => {
+  if (selectedSeats.length === 0) return;
+  
+  // Generate a unique order ID for this ticket purchase
+  const orderId = generateOrderId();
+  
+  // Create ticket details object
+  const ticketDetails = {
+    orderId,
+    event: eventDetails,
+    ticketType,
+    selectedSeats,
+    quantity: selectedSeats.length,
+    totalPrice,
+    serviceFee,
+    grandTotal: totalPrice + serviceFee,
+    purchaseDate: new Date().toISOString()
+  };
+  
+  // Save to localStorage
+  try {
+    // Get existing tickets array or initialize a new one
+    const existingTickets = JSON.parse(localStorage.getItem('ticketPurchases')) || [];
+    
+    // Add new ticket purchase
+    existingTickets.push(ticketDetails);
+    
+    // Save back to localStorage
+    localStorage.setItem('ticketPurchases', JSON.stringify(existingTickets));
+    
+    // Also save the current order ID separately for easy access
+    localStorage.setItem('currentOrderId', orderId);
+    
+    console.log('Ticket details saved to localStorage:', ticketDetails);
+    
+    // Make sure authentication token is properly set
+    const token = localStorage.getItem('auth-token');
+    if (!token) {
+      console.warn('No authentication token found. Attempting to retrieve from localStorage...');
+      
+      // Try to find user info and use it to set the token if needed
+      const userInfo = JSON.parse(localStorage.getItem('user-info') || '{}');
+      if (userInfo && userInfo._id) {
+        console.log('User info found, but token missing. This may cause payment issues.');
+      }
+    } else {
+      console.log('Authentication token is available for checkout:', token ? 'Yes' : 'No');
+    }
+    
+    // Add a small delay to ensure localStorage updates are complete
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Navigate to checkout page with ticket details
     navigate('/user-Details', { 
       state: { 
+        orderId,
         event: eventDetails,
         selectedSeats,
         totalPrice,
         serviceFee,
         grandTotal: totalPrice + serviceFee,
         ticketType,
-        quantity
+        quantity: selectedSeats.length
       } 
     });
-  };
+  } catch (error) {
+    console.error('Error saving ticket details to localStorage:', error);
+    alert('There was an error saving your ticket information. Please try again.');
+  }
+};
   
   // Handle contact organizer for VIP seats
   const handleContactOrganizer = (section) => {
@@ -318,6 +381,232 @@ const SeatPlan = () => {
                                       disabled={true}
                                       className="w-6 h-6 rounded flex items-center justify-center text-xs font-medium bg-red-900 opacity-60 cursor-not-allowed"
                                       style={{ fontSize: '0.65rem' }}
+                                    >
+                                      {seatNumber}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Energon Enclave - Same class as VIP but rows C-E */}
+                {(!activeSection || activeSection === 'energon-enclave') && (
+                  <div className="mb-8">
+                    <h3 className="text-center mb-3 inline-block px-3 py-1 rounded-full text-white mx-auto text-sm"
+                        style={{ backgroundColor: sections[1].color }}>
+                      {sections[1].name} - ${sections[1].price}
+                    </h3>
+                    
+                    <div className="overflow-x-auto">
+                      <div className="inline-block min-w-full">
+                        {Array.from({ length: 3 }).map((_, idx) => {
+                          // Use rowIndex starting from C (index 2)
+                          const rowIndex = idx + 2;
+                          
+                          return (
+                            <div key={`energon-row-${idx}`} className="flex mb-1">
+                              {/* Row Label */}
+                              <div className="mr-2 w-6 flex items-center justify-center text-xs font-bold text-blue-400">
+                                {rowLetters[rowIndex]}
+                              </div>
+                              
+                              {/* Generate columns */}
+                              {Array.from({ length: sections[1].columns }).map((_, colIndex) => (
+                                <div key={`energon-row-${idx}-col-${colIndex}`} className="flex space-x-1 mr-4">
+                                  {/* Generate seats for this column */}
+                                  {Array.from({ length: sections[1].seatsPerRow }).map((_, seatIndex) => {
+                                    // Calculate actual seat number (continuous across columns)
+                                    const seatNumber = colIndex * sections[1].seatsPerRow + seatIndex + 1;
+                                    const seatId = `energon-enclave_${idx}_${colIndex}_${seatIndex}`;
+                                    
+                                    // Check if seat is booked (simulated)
+                                    const isBooked = isRandomlyBooked('energon', rowIndex, seatNumber);
+                                    const isSelected = selectedSeats.some(s => s.id === seatId);
+                                    
+                                    return (
+                                      <button
+                                        key={seatId}
+                                        disabled={isBooked}
+                                        onClick={() => !isBooked && toggleSeat({
+                                          id: seatId,
+                                          name: `${sections[1].name} ${rowLetters[rowIndex]}${seatNumber}`,
+                                          price: sections[1].price,
+                                          section: sections[1].id,
+                                          row: rowLetters[rowIndex],
+                                          number: seatNumber
+                                        })}
+                                        className={`w-6 h-6 rounded flex items-center justify-center text-xs font-medium transition-all ${
+                                          isBooked 
+                                            ? 'bg-gray-700 opacity-50 cursor-not-allowed' 
+                                            : isSelected
+                                              ? 'bg-yellow-400 text-gray-900 shadow-md transform scale-110'
+                                              : `hover:bg-opacity-80 hover:transform hover:scale-105`
+                                        }`}
+                                        style={{
+                                          backgroundColor: isSelected ? '#FBBF24' : isBooked ? '#374151' : sections[1].color,
+                                          fontSize: '0.65rem'
+                                        }}
+                                      >
+                                        {seatNumber}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Section separator */}
+                <div className="w-full h-8 my-4 flex items-center justify-center text-xs text-orange-300">
+                  <div className="w-4/5 border-b-2 border-dashed border-orange-500 relative">
+                    <span className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-gray-900 px-2 text-xs">Main Walking Path</span>
+                  </div>
+                </div>
+                
+                {/* HDB House with Judges Table */}
+                {(!activeSection || activeSection === 'hdb-house') && (
+                  <div className="mb-8">
+                    <h3 className="text-center mb-3 inline-block px-3 py-1 rounded-full text-white mx-auto text-sm"
+                        style={{ backgroundColor: sections[2].color }}>
+                      {sections[2].name} - ${sections[2].price}
+                    </h3>
+                    
+                    <div className="overflow-x-auto">
+                      <div className="inline-block min-w-full">
+                        {Array.from({ length: sections[2].rows }).map((_, rowIndex) => (
+                          <div key={`${sections[2].id}-row-${rowIndex}`} className="flex mb-1">
+                            {/* Row Label */}
+                            <div className="mr-2 w-6 flex items-center justify-center text-xs font-bold text-violet-400">
+                              {rowLetters[rowIndex]}
+                            </div>
+                            
+                            {/* Generate columns */}
+                            {Array.from({ length: sections[2].columns }).map((_, colIndex) => (
+                              <div key={`${sections[2].id}-row-${rowIndex}-col-${colIndex}`} className="flex space-x-1 mr-4">
+                                {/* Generate seats for this column */}
+                                {Array.from({ length: sections[2].seatsPerRow }).map((_, seatIndex) => {
+                                  // Calculate actual seat number (continuous across columns)
+                                  const seatNumber = colIndex * sections[2].seatsPerRow + seatIndex + 1;
+                                  const seatId = `${sections[2].id}_${rowIndex}_${colIndex}_${seatIndex}`;
+                                  
+                                  // Check if seat is booked (simulated)
+                                  const isBooked = isRandomlyBooked(sections[2].id, rowIndex, seatNumber);
+                                  const isSelected = selectedSeats.some(s => s.id === seatId);
+                                  
+                                  return (
+                                    <button
+                                      key={seatId}
+                                      disabled={isBooked}
+                                      onClick={() => !isBooked && toggleSeat({
+                                        id: seatId,
+                                        name: `${sections[2].name} ${rowLetters[rowIndex]}${seatNumber}`,
+                                        price: sections[2].price,
+                                        section: sections[2].id,
+                                        row: rowLetters[rowIndex],
+                                        number: seatNumber
+                                      })}
+                                      className={`w-6 h-6 rounded flex items-center justify-center text-xs font-medium transition-all ${
+                                        isBooked 
+                                          ? 'bg-gray-700 opacity-50 cursor-not-allowed' 
+                                          : isSelected
+                                            ? 'bg-yellow-400 text-gray-900 shadow-md transform scale-110'
+                                            : `hover:bg-opacity-80 hover:transform hover:scale-105`
+                                      }`}
+                                      style={{
+                                        backgroundColor: isSelected ? '#FBBF24' : isBooked ? '#374151' : sections[2].color,
+                                        fontSize: '0.65rem'
+                                      }}
+                                    >
+                                      {seatNumber}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Add Judges' Table at the bottom of HDB House */}
+                    <div className="mt-2 flex justify-center">
+                      <JudgesTable />
+                    </div>
+                    
+                    {/* Section separator */}
+                    <div className="w-full h-4 my-3 flex items-center justify-center text-xs text-orange-300">
+                      <div className="w-4/5 border-b border-dashed border-orange-500 relative">
+                        <span className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-gray-900 px-2 text-xs">Walking Path</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Rest of your component code remains unchanged... */}
+                {/* AusDream Arena */}
+                {(!activeSection || activeSection === 'ausdream-arena') && (
+                  <div className="mb-8">
+                    <h3 className="text-center mb-3 inline-block px-3 py-1 rounded-full text-white mx-auto text-sm"
+                        style={{ backgroundColor: sections[3].color }}>
+                      {sections[3].name} - ${sections[3].price}
+                    </h3>
+                    
+                    <div className="overflow-x-auto">
+                      <div className="inline-block min-w-full">
+                        {Array.from({ length: sections[3].rows }).map((_, rowIndex) => (
+                          <div key={`${sections[3].id}-row-${rowIndex}`} className="flex mb-1">
+                            {/* Row Label */}
+                            <div className="mr-2 w-6 flex items-center justify-center text-xs font-bold text-orange-400">
+                              {rowLetters[rowIndex]}
+                            </div>
+                            
+                            {/* Generate columns */}
+                            {Array.from({ length: sections[3].columns }).map((_, colIndex) => (
+                              <div key={`${sections[3].id}-row-${rowIndex}-col-${colIndex}`} className="flex space-x-1 mr-4">
+                                {/* Generate seats for this column */}
+                                {Array.from({ length: sections[3].seatsPerRow }).map((_, seatIndex) => {
+                                  // Calculate actual seat number (continuous across columns)
+                                  const seatNumber = colIndex * sections[3].seatsPerRow + seatIndex + 1;
+                                  const seatId = `${sections[3].id}_${rowIndex}_${colIndex}_${seatIndex}`;
+                                  
+                                  // Check if seat is booked (simulated)
+                                  const isBooked = isRandomlyBooked(sections[3].id, rowIndex, seatNumber);
+                                  const isSelected = selectedSeats.some(s => s.id === seatId);
+                                  
+                                  return (
+                                    <button
+                                      key={seatId}
+                                      disabled={isBooked}
+                                      onClick={() => !isBooked && toggleSeat({
+                                        id: seatId,
+                                        name: `${sections[3].name} ${rowLetters[rowIndex]}${seatNumber}`,
+                                        price: sections[3].price,
+                                        section: sections[3].id,
+                                        row: rowLetters[rowIndex],
+                                        number: seatNumber
+                                      })}
+                                      className={`w-6 h-6 rounded flex items-center justify-center text-xs font-medium transition-all ${
+                                        isBooked 
+                                          ? 'bg-gray-700 opacity-50 cursor-not-allowed' 
+                                          : isSelected
+                                            ? 'bg-yellow-400 text-gray-900 shadow-md transform scale-110'
+                                            : `hover:bg-opacity-80 hover:transform hover:scale-105`
+                                      }`}
+                                      style={{
+                                        backgroundColor: isSelected ? '#FBBF24' : isBooked ? '#374151' : sections[3].color,
+                                        fontSize: '0.65rem'
+                                      }}
                                     >
                                       {seatNumber}
                                     </button>

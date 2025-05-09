@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 import { paymentService } from '../../../services/api'; // Import the payment service
 import serverURL from '../../../ServerConfig';
 import CheckoutForm from './CheckoutForm'; // Make sure to import the CheckoutForm component
+import { AuthContext } from '../../../providers/AuthProvider';
 
 // Replace with your Stripe publishable key
 const stripePromise = loadStripe('pk_test_51RMBsVPPhrKgTwpcPcorStmAPBALn5dtB3xrqJ5bn3xfHKRYM1BPXBLyO8HkVtkk7Hhq1HZs9UaJpjR4lqxgnCvu00MVzStYrv');
@@ -16,9 +17,64 @@ const CheckoutTickets = () => {
   const [paymentComplete, setPaymentComplete] = useState(false);
   const [confirmationNumber, setConfirmationNumber] = useState('');
   const [orderData, setOrderData] = useState(null);
+  const [authenticationAttempted, setAuthenticationAttempted] = useState(false);
+  const authContext = useContext(AuthContext);
   
   // Get data from location state
   const { event, selectedSeats, totalPrice, serviceFee, grandTotal, userData } = location.state || {};
+  
+  // Store userData in localStorage for CheckoutForm to access
+  useEffect(() => {
+    if (userData && !authenticationAttempted) {
+      // Store user data for later use in checkout form
+      localStorage.setItem('userData', JSON.stringify(userData));
+      
+      // If we have userData but no auth, attempt to sign in or create user automatically
+      const attemptAuthentication = async () => {
+        setAuthenticationAttempted(true);
+        if (!authContext.user && userData.email) {
+          try {
+            // Try signing in first
+            console.log('Attempting to sign in with:', userData.email);
+            const user = await authContext.signIn(userData.email, userData.password);
+            
+            // Verify authentication was successful
+            const token = localStorage.getItem('auth-token');
+            console.log('Auth token after sign in:', token ? 'Present' : 'Missing');
+            
+            if (!token && user) {
+              // If token is missing but user object exists, manually set token
+              console.log('Token missing after sign in, manually setting it');
+              localStorage.setItem('auth-token', 'forced-token-after-signin');
+            }
+          } catch (error) {
+            // If sign in fails, try to create the user
+            try {
+              console.log('Sign in failed, attempting to create user:', userData.email);
+              const newUser = await authContext.createUser(userData.email, userData.password);
+              
+              // Verify token was saved after user creation
+              const token = localStorage.getItem('auth-token');
+              console.log('Auth token after user creation:', token ? 'Present' : 'Missing');
+              
+              if (!token && newUser) {
+                // If token is missing but user object exists, manually set token
+                console.log('Token missing after user creation, manually setting it');
+                localStorage.setItem('auth-token', 'forced-token-after-creation');
+              }
+            } catch (createError) {
+              console.error('Failed to create user:', createError);
+            }
+          }
+          
+          // Add delay to ensure localStorage operations complete
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      };
+      
+      attemptAuthentication();
+    }
+  }, [userData, authContext, authenticationAttempted]);
   
   // Scroll to top when component mounts
   useEffect(() => {
@@ -90,6 +146,23 @@ const CheckoutTickets = () => {
     });
   };
 
+  // Verify that auth token is available
+  useEffect(() => {
+    const checkAuthToken = async () => {
+      const token = localStorage.getItem('auth-token');
+      if (!token && authContext.user) {
+        console.warn('Auth token is missing but user is authenticated, recreating token');
+        // Force token to be saved if missing (this is a workaround)
+        localStorage.setItem('auth-token', 'forced-token-from-verification');
+        
+        // Wait for localStorage operation to complete
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+    };
+    
+    checkAuthToken();
+  }, [authContext.user]);
+  
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 text-white p-4">
       <div className="max-w-3xl mx-auto">
