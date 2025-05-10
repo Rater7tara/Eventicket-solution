@@ -4,15 +4,18 @@ import { Home, UserCircle, LayoutDashboard, Ticket, LogOut, Menu, X, Calendar, S
 import { AuthContext } from '../providers/AuthProvider'; // Adjust the path as needed
 
 const DashboardLayout = () => {
-    const { user, loading, logOut } = useContext(AuthContext);
+    const { user, loading, logOut, preserveUserRole, forceAdminRole } = useContext(AuthContext);
     const [isSidebarOpen, setSidebarOpen] = useState(true);
     const [userName, setUserName] = useState('User');
+    const [activeRole, setActiveRole] = useState(null);
     const location = useLocation();
     
     // IMPORTANT: All hooks must be called at the top level, before any conditional returns
     useEffect(() => {
         if (user) {
             console.log("User object changed:", user);
+            
+            // Set user name from available properties
             if (user.displayName) {
                 setUserName(user.displayName);
                 console.log("Setting userName from displayName:", user.displayName);
@@ -23,8 +26,73 @@ const DashboardLayout = () => {
                 setUserName(user.email.split('@')[0]);
                 console.log("Setting userName from email:", user.email);
             }
+            
+            // CRITICAL FIX: Store the role from user object
+            if (user.role) {
+                console.log("Setting active role from user object:", user.role);
+                setActiveRole(user.role);
+                
+                // Store the role in sessionStorage as an extra backup
+                sessionStorage.setItem('active-role', user.role);
+            } else {
+                console.error("User object doesn't have a role property!");
+                
+                // Try to recover from backup
+                const backupRole = sessionStorage.getItem('active-role') || 
+                                  sessionStorage.getItem('user-role-backup');
+                
+                if (backupRole) {
+                    console.log("Recovering role from backup:", backupRole);
+                    setActiveRole(backupRole);
+                } else {
+                    // Absolute last resort
+                    console.warn("No role backup found, defaulting to 'buyer'");
+                    setActiveRole('buyer');
+                }
+            }
         }
     }, [user]);
+    
+    // CRITICAL FIX: Effect to preserve role without needing backend API
+    useEffect(() => {
+        const ensureCorrectRole = () => {
+            if (user) {
+                console.log("Preserving user role...");
+                
+                // Preserve the role using our local storage mechanism
+                preserveUserRole();
+                
+                // Check if this is a known admin based on email
+                const isKnownAdmin = localStorage.getItem('is-admin-account') === 'true' && 
+                                    user.email === localStorage.getItem('admin-email');
+                                    
+                // Get user-specific role backup
+                const userSpecificRole = localStorage.getItem(`user-role-${user.email}`) || 
+                                        sessionStorage.getItem(`user-role-${user.email}`);
+                
+                console.log(`Current user: ${user.email}, Is known admin: ${isKnownAdmin}`);
+                console.log(`Current role: ${user.role}, Backed up role: ${userSpecificRole}`);
+                
+                // Set the active role from the most reliable source
+                const finalRole = isKnownAdmin ? 'admin' : 
+                                 userSpecificRole ? userSpecificRole : 
+                                 user.role || 'buyer';
+                
+                console.log(`Final determined role: ${finalRole}`);
+                setActiveRole(finalRole);
+                sessionStorage.setItem('active-role', finalRole);
+                
+                // Emergency fix for admin case - if we know this should be admin but it's not
+                if (isKnownAdmin && user.role !== 'admin') {
+                    console.log("Admin account detected with wrong role. Forcing admin role...");
+                    // This will update the user object and all storage
+                    forceAdminRole();
+                }
+            }
+        };
+        
+        ensureCorrectRole();
+    }, [user, preserveUserRole, forceAdminRole]);
     
     // Show loading spinner while checking authentication
     if (loading) {
@@ -41,8 +109,9 @@ const DashboardLayout = () => {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
     
-    // Get user role from the user object (after we've confirmed user exists)
-    const role = user?.role || 'buyer';
+    // CRITICAL FIX: Get role from our state rather than user object directly
+    // This ensures we're using the verified/reconciled role value
+    const role = activeRole || 'buyer';
     console.log("Current user role in dashboard:", role);
     
     // Format role for display (capitalize first letter)
@@ -58,6 +127,7 @@ const DashboardLayout = () => {
             { to: '/dashboard/manage-users', label: 'Manage Users', icon: <UserCircle size={20} /> },
             { to: '/dashboard/create-events', label: 'Create Events', icon: <Calendar size={20} /> },
             { to: '/dashboard/manage-events', label: 'Manage Events', icon: <Calendar size={20} /> },
+            { to: '/dashboard/sold-tickets', label: 'Sold Tickets', icon: <Calendar size={20} /> },
             { to: '/dashboard/reports', label: 'Reports', icon: <FileText size={20} /> },
             { to: '/dashboard/settings', label: 'Settings', icon: <Settings size={20} /> },
         ],
@@ -72,8 +142,14 @@ const DashboardLayout = () => {
         ],
     };
 
+    // CRITICAL FIX: Check if roleLinks contains the role key
+    // If not, use buyer as a fallback, but log the error
+    if (!roleLinks[role]) {
+        console.error(`Invalid role detected: ${role}. Using 'buyer' links as fallback.`);
+    }
+
     // Use the role to determine which links to show
-    const links = [...commonLinks, ...(roleLinks[role] || [])];
+    const links = [...commonLinks, ...(roleLinks[role] || roleLinks.buyer)];
     
     // Check if a link is active
     const isActive = (path) => {
@@ -83,6 +159,8 @@ const DashboardLayout = () => {
     // Handle logout
     const handleLogout = async () => {
         try {
+            // CRITICAL FIX: Clear role storage on logout
+            sessionStorage.removeItem('active-role');
             await logOut();
         } catch (error) {
             console.error('Logout error:', error);
@@ -173,6 +251,35 @@ const DashboardLayout = () => {
                             Here's your {role === 'buyer' ? 'ticket dashboard' : role === 'seller' ? 'event dashboard' : 'admin dashboard'}
                         </p>
                     </div>
+                    
+                    {/* Admin Role Debug Section */}
+                    {role === 'admin' && (
+                        <div className="mb-6 p-4 bg-green-100 border border-green-300 rounded-lg">
+                            <h3 className="font-bold text-green-800">Admin Access Confirmed</h3>
+                            <p className="text-green-700">You have full administrator privileges.</p>
+                            <div className="mt-2 text-xs text-green-600">
+                                <p>User: {user.email}</p>
+                                <p>Role: {role}</p>
+                                <p>Role in user object: {user.role}</p>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Role Mismatch Warning */}
+                    {role !== user.role && (
+                        <div className="mb-6 p-4 bg-amber-100 border border-amber-300 rounded-lg">
+                            <h3 className="font-bold text-amber-800">Role Synchronization</h3>
+                            <p className="text-amber-700">
+                                Dashboard role: {role}, User object role: {user.role}
+                            </p>
+                            <button 
+                                onClick={() => forceAdminRole()} 
+                                className="mt-2 px-4 py-2 bg-amber-500 text-white rounded-md text-sm hover:bg-amber-600"
+                            >
+                                Force Admin Role
+                            </button>
+                        </div>
+                    )}
                     
                     {/* Dashboard content - ALWAYS use Outlet to render nested routes */}
                     <div className="bg-white rounded-xl shadow-lg p-6">

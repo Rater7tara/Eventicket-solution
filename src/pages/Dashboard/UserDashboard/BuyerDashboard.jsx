@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { Ticket, CalendarCheck, Clock, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { AuthContext } from '../../../providers/AuthProvider'; // Adjust path as needed
+import serverURL from '../../../ServerConfig'; // Import the server URL
 
 const BuyerDashboard = () => {
     const { user } = useContext(AuthContext);
@@ -21,20 +22,35 @@ const BuyerDashboard = () => {
                 setLoading(true);
                 setError(null);
                 
-                // Get the token for API requests
-                const token = localStorage.getItem('access-token');
+                // Get the token for API requests - make sure to use auth-token, not access-token
+                const token = localStorage.getItem('auth-token');
+                
+                if (!token) {
+                    console.warn('No auth token found for API requests');
+                }
                 
                 // Fetch stats data
                 try {
-                    const statsResponse = await fetch('/api/user/stats', {
+                    // Use the serverURL from your config
+                    const statsResponse = await fetch(`${serverURL.url}user/stats`, {
                         headers: {
-                            'Authorization': `Bearer ${token}`
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
                         }
                     });
                     
-                    if (statsResponse.ok) {
+                    // Check if the response is JSON
+                    const contentType = statsResponse.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
                         const statsData = await statsResponse.json();
-                        setStats(statsData);
+                        if (statsResponse.ok) {
+                            setStats(statsData);
+                        } else {
+                            console.warn('Stats API returned error:', statsData);
+                        }
+                    } else {
+                        console.warn('Stats API did not return JSON, likely HTML error page');
                     }
                 } catch (statsError) {
                     console.error('Error fetching stats:', statsError);
@@ -43,15 +59,25 @@ const BuyerDashboard = () => {
                 
                 // Fetch tickets data
                 try {
-                    const ticketsResponse = await fetch('/api/user/tickets', {
+                    const ticketsResponse = await fetch(`${serverURL.url}user/tickets`, {
                         headers: {
-                            'Authorization': `Bearer ${token}`
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
                         }
                     });
                     
-                    if (ticketsResponse.ok) {
+                    // Check if the response is JSON
+                    const contentType = ticketsResponse.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
                         const ticketsData = await ticketsResponse.json();
-                        setUpcomingTickets(ticketsData);
+                        if (ticketsResponse.ok) {
+                            setUpcomingTickets(ticketsData);
+                        } else {
+                            console.warn('Tickets API returned error:', ticketsData);
+                        }
+                    } else {
+                        console.warn('Tickets API did not return JSON, likely HTML error page');
                     }
                 } catch (ticketsError) {
                     console.error('Error fetching tickets:', ticketsError);
@@ -60,15 +86,25 @@ const BuyerDashboard = () => {
                 
                 // Fetch recommended events
                 try {
-                    const recommendedResponse = await fetch('/api/events/recommended', {
+                    const recommendedResponse = await fetch(`${serverURL.url}events/recommended`, {
                         headers: {
-                            'Authorization': `Bearer ${token}`
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
                         }
                     });
                     
-                    if (recommendedResponse.ok) {
+                    // Check if the response is JSON
+                    const contentType = recommendedResponse.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
                         const recommendedData = await recommendedResponse.json();
-                        setRecommendedEvents(recommendedData);
+                        if (recommendedResponse.ok) {
+                            setRecommendedEvents(recommendedData);
+                        } else {
+                            console.warn('Recommended events API returned error:', recommendedData);
+                        }
+                    } else {
+                        console.warn('Recommended events API did not return JSON, likely HTML error page');
                     }
                 } catch (recommendedError) {
                     console.error('Error fetching recommended events:', recommendedError);
@@ -123,7 +159,15 @@ const BuyerDashboard = () => {
 
     return (
         <div>
-            <h2 className="text-xl font-semibold mb-6">My Tickets Dashboard</h2>
+            <h2 className="text-xl font-semibold mb-6">
+                {user?.role === 'admin' ? 'Admin Tickets Dashboard' : 'My Tickets Dashboard'}
+            </h2>
+            
+            {/* User role info */}
+            <div className="mb-4 p-3 bg-gray-100 rounded-lg">
+                <p>Logged in as: <strong>{user?.name}</strong></p>
+                <p>Role: <strong>{user?.role}</strong></p>
+            </div>
             
             {/* Stats Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">

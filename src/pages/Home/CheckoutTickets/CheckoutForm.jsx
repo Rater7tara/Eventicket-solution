@@ -189,97 +189,112 @@ const CheckoutForm = ({ grandTotal, event, selectedSeats, onPaymentComplete }) =
   }, [grandTotal, event, selectedSeats, authContext.user, paymentInitiated, tokenAttempts, authContext]);
 
   // Handle form submission
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setProcessing(true);
+// Handle form submission
+const handleSubmit = async (event) => {
+  event.preventDefault();
+  setProcessing(true);
 
-    if (!stripe || !elements || !clientSecret) {
-      setProcessing(false);
-      return;
+  if (!stripe || !elements || !clientSecret) {
+    setProcessing(false);
+    return;
+  }
+
+  // Get card element
+  const cardElement = elements.getElement(CardElement);
+  
+  // Get user data for better billing details
+  const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+  const userInfo = JSON.parse(localStorage.getItem('user-info') || '{}');
+
+  // Combine userData and userInfo for more complete billing details
+  const billingDetails = {
+    name: userData.name || userInfo.name || 'Guest Checkout',
+    email: userData.email || userInfo.email || '',
+    address: {
+      line1: userData.address || '',
+      city: userData.city || '',
+      postal_code: userData.postalCode || ''
     }
+  };
 
-    // Get card element
-    const cardElement = elements.getElement(CardElement);
-    
-    // Get user data for better billing details
-    const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-    const userInfo = JSON.parse(localStorage.getItem('user-info') || '{}');
+  // Ensure we have the auth token before proceeding
+  await ensureAuthToken();
 
-    // Combine userData and userInfo for more complete billing details
-    const billingDetails = {
-      name: userData.name || userInfo.name || 'Guest Checkout',
-      email: userData.email || userInfo.email || '',
-      address: {
-        line1: userData.address || '',
-        city: userData.city || '',
-        postal_code: userData.postalCode || ''
+  // Confirm payment with Stripe
+  const { error: paymentError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+    payment_method: {
+      card: cardElement,
+      billing_details: billingDetails
+    }
+  });
+
+  if (paymentError) {
+    setError(`Payment failed: ${paymentError.message}`);
+    setProcessing(false);
+  } else if (paymentIntent.status === 'succeeded') {
+    // Payment succeeded, now confirm with your backend
+    try {
+      const token = await ensureAuthToken();
+      
+      // Set up headers
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      } else {
+        console.warn('No auth token available for payment confirmation');
       }
-    };
-
-    // Ensure we have the auth token before proceeding
-    await ensureAuthToken();
-
-    // Confirm payment with Stripe
-    const { error: paymentError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-      payment_method: {
-        card: cardElement,
-        billing_details: billingDetails
-      }
-    });
-
-    if (paymentError) {
-      setError(`Payment failed: ${paymentError.message}`);
-      setProcessing(false);
-    } else if (paymentIntent.status === 'succeeded') {
-      // Payment succeeded, now confirm with your backend
-      try {
-        const token = await ensureAuthToken();
+      
+      // Call confirm-payment endpoint with just the orderId as specified
+      const response = await fetch(`${API_BASE_URL}payments/confirm-payment`, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({ orderId })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Save order ID to localStorage
+        localStorage.setItem('completedOrderId', orderId);
+        console.log('Order ID saved to localStorage (success path):', orderId);
         
-        // Set up headers
-        const headers = {
-          'Content-Type': 'application/json'
-        };
+        setError(null);
+        setSucceeded(true);
+        onPaymentComplete(orderId);
+      } else {
+        // If backend confirmation fails but Stripe succeeded,
+        // still consider it successful from user's perspective
+        console.log('Payment confirmation with backend failed, but Stripe processed payment successfully');
         
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        } else {
-          console.warn('No auth token available for payment confirmation');
-        }
+        // Save order ID to localStorage even in this fallback path
+        localStorage.setItem('completedOrderId', orderId);
+        console.log('Order ID saved to localStorage (backend failure path):', orderId);
         
-        // Call confirm-payment endpoint with just the orderId as specified
-        const response = await fetch(`${API_BASE_URL}payments/confirm-payment`, {
-          method: 'POST',
-          headers: headers,
-          body: JSON.stringify({ orderId })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-          setError(null);
-          setSucceeded(true);
-          onPaymentComplete(orderId);
-        } else {
-          // If backend confirmation fails but Stripe succeeded,
-          // still consider it successful from user's perspective
-          console.log('Payment confirmation with backend failed, but Stripe processed payment successfully');
-          setError(null);
-          setSucceeded(true);
-          onPaymentComplete(orderId);
-        }
-      } catch (err) {
-        console.error('Error confirming payment:', err);
-        // Even if confirmation fails, Stripe processed the payment
         setError(null);
         setSucceeded(true);
         onPaymentComplete(orderId);
       }
-      setProcessing(false);
-    } else {
-      setError(`Payment status: ${paymentIntent.status}. Please try again.`);
-      setProcessing(false);
+    } catch (err) {
+      console.error('Error confirming payment:', err);
+      
+      // Even if confirmation fails, Stripe processed the payment
+      // Save order ID to localStorage in the error path as well
+      localStorage.setItem('completedOrderId', orderId);
+      console.log('Order ID saved to localStorage (error path):', orderId);
+      
+      setError(null);
+      setSucceeded(true);
+      onPaymentComplete(orderId);
     }
-  };
+    setProcessing(false);
+  } else {
+    setError(`Payment status: ${paymentIntent.status}. Please try again.`);
+    setProcessing(false);
+  }
+};
 
   // Handle manual payment retry
   const handleRetryPayment = () => {

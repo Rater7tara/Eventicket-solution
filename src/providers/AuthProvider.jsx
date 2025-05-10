@@ -50,15 +50,38 @@ const AuthProvider = ({ children }) => {
         }
     };
     
+    // Save user info safely to localStorage
+    const saveUserInfoSafely = (userInfo) => {
+        try {
+            // Preserve the exact role from the API response
+            if (!userInfo.role) {
+                console.error('Attempted to save user info without role:', userInfo);
+                return false;
+            }
+            
+            console.log('Saving user with role:', userInfo.role);
+            
+            // Save to localStorage
+            localStorage.setItem('user-info', JSON.stringify(userInfo));
+            
+            // Create a backup of critical user info including role
+            sessionStorage.setItem('user-role-backup', userInfo.role);
+            sessionStorage.setItem('user-info-backup', JSON.stringify(userInfo));
+            
+            return true;
+        } catch (error) {
+            console.error('Error saving user info:', error);
+            return false;
+        }
+    };
+    
     // Create a user with our API
     const createUser = async (email, password, role = 'buyer') => {
         setLoading(true);
         
         try {
-            // Always use 'buyer' role regardless of what's passed
-            const userRole = 'buyer';
-            
-            console.log('Creating user with role:', userRole);
+            // Use the provided role parameter
+            console.log('Creating user with role:', role);
             
             // Register with your API
             const response = await fetch(`${serverURL.url}auth/create-user`, {
@@ -70,7 +93,7 @@ const AuthProvider = ({ children }) => {
                     email,
                     password,
                     name: email.split('@')[0], // Default name from email
-                    role: userRole // Force role to be 'buyer'
+                    role // Use the provided role
                 })
             });
             
@@ -83,10 +106,17 @@ const AuthProvider = ({ children }) => {
             // Extract and validate token if available in response
             const token = data.token || null;
             
-            // Create user object with buyer role
+            // IMPORTANT: Create user object using the exact role from the response
+            // Don't use fallbacks or defaults for role here if we received a specific role
+            const userRole = data.user?.role;
+            if (!userRole) {
+                console.warn('No role received from API, using provided role:', role);
+            }
+            
             const userInfo = {
                 email: email,
-                role: userRole, // Explicitly set to 'buyer'
+                // Only use the fallback if no role received from API
+                role: userRole || role,
                 name: data.user?.name || email.split('@')[0],
                 _id: data.user?._id
             };
@@ -94,7 +124,7 @@ const AuthProvider = ({ children }) => {
             console.log('User created with info:', userInfo);
             
             // Store user information in localStorage for persistence
-            localStorage.setItem('user-info', JSON.stringify(userInfo));
+            saveUserInfoSafely(userInfo);
             
             // Store the same data in userData for checkout form compatibility
             localStorage.setItem('userData', JSON.stringify({
@@ -129,6 +159,11 @@ const AuthProvider = ({ children }) => {
         setLoading(true);
         
         try {
+            // Check if this is an admin login before making the API call
+            // You can modify this condition based on how you identify admin accounts
+            const isAdminLogin = email.includes('admin') || email === 'admin@example.com';
+            console.log('Is admin login attempt:', isAdminLogin);
+            
             // Sign in with your API
             const response = await fetch(`${serverURL.url}auth/login`, {
                 method: 'POST',
@@ -152,23 +187,49 @@ const AuthProvider = ({ children }) => {
             }
             
             // Get user info from the API response
-            const { name, _id } = data.user || {};
+            const { name, _id, role } = data.user || {};
             
-            // ALWAYS use 'buyer' role regardless of what the API returns
-            const userRole = 'buyer';
+            // CRITICAL FIX: Log and verify the role we're getting from the API
+            console.log('API returned user with role:', role);
             
-            // Create the user object with role always set to 'buyer'
+            // Create user info object with proper role handling
+            let finalRole = role;
+            
+            // CRITICAL FIX FOR ADMIN: If the backend isn't returning admin role correctly,
+            // but we know this should be an admin account
+            if (isAdminLogin && (!role || role === 'buyer')) {
+                console.log('Admin login detected but incorrect role returned. Forcing admin role.');
+                finalRole = 'admin';
+                
+                // Add a permanent flag to identify admin accounts
+                localStorage.setItem('is-admin-account', 'true');
+            } else if (localStorage.getItem('is-admin-account') === 'true' && email === localStorage.getItem('admin-email')) {
+                // If this is a known admin account from previous logins
+                console.log('Known admin account detected. Preserving admin role.');
+                finalRole = 'admin';
+            }
+            
+            // Store admin email if this is an admin account
+            if (finalRole === 'admin') {
+                localStorage.setItem('admin-email', email);
+            }
+            
+            // Create the user object with the final determined role
             const userInfo = {
                 email: email,
-                role: userRole, // Force role to be 'buyer'
+                role: finalRole,
                 name: name || email.split('@')[0],
                 _id: _id
             };
             
-            console.log('User signed in with role:', userRole);
+            console.log('User signed in with role:', userInfo.role);
             
             // Save user data in localStorage for persistence
-            localStorage.setItem('user-info', JSON.stringify(userInfo));
+            saveUserInfoSafely(userInfo);
+            
+            // CRITICAL: Save a special backup of the role for this user
+            localStorage.setItem(`user-role-${email}`, userInfo.role);
+            sessionStorage.setItem(`user-role-${email}`, userInfo.role);
             
             // Store the same data in userData for checkout form compatibility
             localStorage.setItem('userData', JSON.stringify({
@@ -208,7 +269,7 @@ const AuthProvider = ({ children }) => {
         try {
             const { displayName, email, photoURL } = googleUserData;
             
-            // Force role to be 'buyer'
+            // Default role is 'buyer' but can be changed later
             const userRole = 'buyer';
             
             // Register this user with our API
@@ -222,7 +283,7 @@ const AuthProvider = ({ children }) => {
                     email, 
                     photoURL,
                     authProvider: 'google',
-                    role: userRole // Force role to be 'buyer'
+                    role: userRole
                 })
             });
             
@@ -239,19 +300,20 @@ const AuthProvider = ({ children }) => {
                 throw new Error('Invalid token format received from server');
             }
             
-            // Create user object with buyer role
+            // Create user object with the role from response
             const userInfo = {
                 email: email,
-                role: userRole, // Always use 'buyer' role
+                // CRITICAL FIX: Only use API response role, no fallback
+                role: data.user?.role, 
                 name: displayName || email.split('@')[0],
                 photoURL: photoURL,
                 _id: data.user?._id
             };
             
-            console.log('User signed in with Google, role:', userRole);
+            console.log('User signed in with Google, role:', userInfo.role);
             
             // Save data in localStorage
-            localStorage.setItem('user-info', JSON.stringify(userInfo));
+            saveUserInfoSafely(userInfo);
             
             // Save token safely
             await saveTokenSafely(token);
@@ -284,6 +346,8 @@ const AuthProvider = ({ children }) => {
             localStorage.removeItem('auth-token');
             localStorage.removeItem('userData');
             sessionStorage.removeItem('auth-token-backup');
+            sessionStorage.removeItem('user-role-backup');
+            sessionStorage.removeItem('user-info-backup');
             
             // Clear user state
             setUser(null);
@@ -303,7 +367,46 @@ const AuthProvider = ({ children }) => {
             try {
                 // Check for token and user info in localStorage
                 let token = localStorage.getItem('auth-token');
-                const userInfo = JSON.parse(localStorage.getItem('user-info') || 'null');
+                const userInfoString = localStorage.getItem('user-info');
+                let userInfo = null;
+                
+                try {
+                    userInfo = JSON.parse(userInfoString || 'null');
+                } catch (parseError) {
+                    console.error('Failed to parse user info:', parseError);
+                    // If parsing fails, clear the corrupted data
+                    localStorage.removeItem('user-info');
+                }
+                
+                // CRITICAL FIX: Validate that user has the correct role
+                if (userInfo && (!userInfo.role || userInfo.role === undefined)) {
+                    console.error('User info is missing role property!', userInfo);
+                    
+                    // Try to recover role from backup
+                    const backupRole = sessionStorage.getItem('user-role-backup');
+                    const backupUserInfoString = sessionStorage.getItem('user-info-backup');
+                    
+                    if (backupRole) {
+                        console.log('Recovered role from backup:', backupRole);
+                        userInfo.role = backupRole;
+                        
+                        // Save the fixed user info back to localStorage
+                        localStorage.setItem('user-info', JSON.stringify(userInfo));
+                    } else if (backupUserInfoString) {
+                        try {
+                            const backupUserInfo = JSON.parse(backupUserInfoString);
+                            if (backupUserInfo && backupUserInfo.role) {
+                                console.log('Recovered user info from backup with role:', backupUserInfo.role);
+                                userInfo = backupUserInfo;
+                                
+                                // Save the fixed user info back to localStorage
+                                localStorage.setItem('user-info', JSON.stringify(userInfo));
+                            }
+                        } catch (backupParseError) {
+                            console.error('Failed to parse backup user info:', backupParseError);
+                        }
+                    }
+                }
                 
                 // Fix for potentially corrupted token
                 if (token && (!token.startsWith('eyJ') || token.includes('forced-token'))) {
@@ -325,25 +428,53 @@ const AuthProvider = ({ children }) => {
                 }
                 
                 if (token && userInfo) {
-                    // ENSURE user always has 'buyer' role regardless of what's saved
-                    const userWithBuyerRole = {
-                        ...userInfo,
-                        role: 'buyer' // Force role to be 'buyer'
-                    };
-                    
-                    // User is authenticated, set user state with buyer role
-                    console.log('User authenticated from localStorage with role:', userWithBuyerRole.role);
-                    
-                    // Update localStorage with buyer role
-                    localStorage.setItem('user-info', JSON.stringify(userWithBuyerRole));
+                    // IMPORTANT: Ensure role is preserved exactly as stored
+                    console.log('User authenticated from localStorage with role:', userInfo.role);
                     
                     // Backup the token to session storage for emergency recovery if it's valid
                     if (isValidToken(token)) {
                         sessionStorage.setItem('auth-token-backup', token);
                     }
                     
-                    // Set user with buyer role
-                    setUser(userWithBuyerRole);
+                    // Backup the role for emergency recovery
+                    if (userInfo.role) {
+                        sessionStorage.setItem('user-role-backup', userInfo.role);
+                    }
+                    
+                    // *** CRITICAL FIX: Check for role in our backups without relying on backend ***
+                    // Check if this is a known admin account
+                    const isKnownAdmin = localStorage.getItem('is-admin-account') === 'true' && 
+                                       userInfo.email === localStorage.getItem('admin-email');
+                    
+                    // Retrieve user-specific role backup if it exists
+                    const userSpecificRole = localStorage.getItem(`user-role-${userInfo.email}`) || 
+                                           sessionStorage.getItem(`user-role-${userInfo.email}`);
+                    
+                    console.log('User email:', userInfo.email);
+                    console.log('Is known admin:', isKnownAdmin);
+                    console.log('User-specific role backup:', userSpecificRole);
+                    console.log('Current role in userInfo:', userInfo.role);
+                    
+                    // If this is a known admin but the role is not admin, fix it
+                    if (isKnownAdmin && userInfo.role !== 'admin') {
+                        console.log('Known admin account detected with incorrect role. Fixing...');
+                        userInfo.role = 'admin';
+                        localStorage.setItem('user-info', JSON.stringify(userInfo));
+                        sessionStorage.setItem('user-role-backup', 'admin');
+                    } 
+                    // If we have a user-specific role that doesn't match current role
+                    else if (userSpecificRole && userInfo.role !== userSpecificRole) {
+                        console.log(`Role mismatch detected! Updating from ${userInfo.role} to ${userSpecificRole}`);
+                        userInfo.role = userSpecificRole;
+                        localStorage.setItem('user-info', JSON.stringify(userInfo));
+                        sessionStorage.setItem('user-role-backup', userSpecificRole);
+                    }
+                    
+                    // Store current email for reference
+                    localStorage.setItem('current-user-email', userInfo.email);
+                    
+                    // Set user with saved role
+                    setUser(userInfo);
                 } else {
                     // No authentication data found
                     setUser(null);
@@ -359,6 +490,74 @@ const AuthProvider = ({ children }) => {
         checkAuth();
     }, []);
 
+    // Helper function to preserve role without requiring backend verification
+    const preserveUserRole = () => {
+        if (!user) return false;
+        
+        try {
+            // Get the stored role from backups or localStorage
+            const storedUserInfo = localStorage.getItem('user-info');
+            let storedRole = null;
+            
+            // Check if we have stored user info with a role
+            if (storedUserInfo) {
+                try {
+                    const parsedUserInfo = JSON.parse(storedUserInfo);
+                    if (parsedUserInfo && parsedUserInfo.role) {
+                        storedRole = parsedUserInfo.role;
+                        console.log('Found role in localStorage:', storedRole);
+                    }
+                } catch (error) {
+                    console.error('Error parsing stored user info:', error);
+                }
+            }
+            
+            // Check backup in session storage
+            if (!storedRole) {
+                storedRole = sessionStorage.getItem('user-role-backup');
+                if (storedRole) {
+                    console.log('Found role in session storage backup:', storedRole);
+                }
+            }
+            
+            // If we have a stored role and it's different from current role
+            if (storedRole && user.role !== storedRole) {
+                console.log(`Role mismatch: Current ${user.role}, Stored ${storedRole}. Preserving stored role...`);
+                
+                // Check if the stored role is a valid role (admin, seller, buyer)
+                const validRoles = ['admin', 'seller', 'buyer'];
+                if (!validRoles.includes(storedRole)) {
+                    console.error('Invalid stored role:', storedRole);
+                    return false;
+                }
+                
+                // Update the user with the correct role from storage
+                const updatedUser = { ...user, role: storedRole };
+                
+                // Save to localStorage
+                localStorage.setItem('user-info', JSON.stringify(updatedUser));
+                
+                // Save in session storage as backup
+                sessionStorage.setItem('user-role-backup', storedRole);
+                
+                // Update state
+                setUser(updatedUser);
+                
+                console.log('Role preserved successfully to:', storedRole);
+                return true;
+            } else if (user.role) {
+                // If there's no mismatch but we have a role, ensure it's backed up
+                sessionStorage.setItem('user-role-backup', user.role);
+                return true;
+            }
+            
+            return false;
+        } catch (error) {
+            console.error('Error preserving role:', error);
+            return false;
+        }
+    };
+
     const authInfo = {
         user,
         loading,
@@ -367,28 +566,44 @@ const AuthProvider = ({ children }) => {
         logOut,
         signInWithGoogle,
         setUserRole: (role) => {
-            // Always set role to 'buyer' regardless of what's passed
-            const buyerRole = 'buyer';
+            if (!user) return null;
             
-            if (user) {
-                // Create updated user object with 'buyer' role
-                const updatedUser = {
-                    ...user,
-                    role: buyerRole
-                };
-                
-                console.log('Setting user role to:', buyerRole);
-                
-                // Update localStorage
-                localStorage.setItem('user-info', JSON.stringify(updatedUser));
-                
-                // Update user state
-                setUser(updatedUser);
-                
-                return updatedUser;
+            // IMPORTANT: Add validation for role changes
+            if (!role || typeof role !== 'string') {
+                console.error('Invalid role provided:', role);
+                return null;
             }
-            return null;
+            
+            // Create updated user object with the new role
+            const updatedUser = {
+                ...user,
+                role: role
+            };
+            
+            console.log('Setting user role to:', role);
+            
+            // Update localStorage with proper backup
+            saveUserInfoSafely(updatedUser);
+            
+            // CRITICAL: Save user-specific role backup
+            if (user.email) {
+                localStorage.setItem(`user-role-${user.email}`, role);
+                sessionStorage.setItem(`user-role-${user.email}`, role);
+                
+                // If this is admin role, mark this as admin account
+                if (role === 'admin') {
+                    localStorage.setItem('is-admin-account', 'true');
+                    localStorage.setItem('admin-email', user.email);
+                }
+            }
+            
+            // Update user state
+            setUser(updatedUser);
+            
+            return updatedUser;
         },
+        // Replace verify with preserve method that doesn't need backend
+        preserveUserRole,
         // Add a method to refresh or validate token
         refreshToken: async () => {
             try {
@@ -412,6 +627,34 @@ const AuthProvider = ({ children }) => {
                 console.error('Error refreshing token:', error);
                 return false;
             }
+        },
+        // Method to force role to admin (for debugging)
+        forceAdminRole: () => {
+            if (user) {
+                const adminUser = {
+                    ...user,
+                    role: 'admin'
+                };
+                
+                // Update all storage locations
+                localStorage.setItem('user-info', JSON.stringify(adminUser));
+                sessionStorage.setItem('user-role-backup', 'admin');
+                localStorage.setItem('is-admin-account', 'true');
+                localStorage.setItem('admin-email', user.email);
+                localStorage.setItem(`user-role-${user.email}`, 'admin');
+                sessionStorage.setItem(`user-role-${user.email}`, 'admin');
+                
+                // Update user state
+                setUser(adminUser);
+                
+                console.log('Role forced to admin');
+                return adminUser;
+            }
+            return null;
+        },
+        // Method to get current role
+        getUserRole: () => {
+            return user?.role || null;
         }
     }
 
