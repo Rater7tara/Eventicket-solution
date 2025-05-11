@@ -8,15 +8,42 @@ const BASE_URL = 'https://event-ticket-backend.vercel.app/api/v1';
 const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [authToken, setAuthToken] = useState(null);
     
     // Check if user exists in localStorage on initial load
     useEffect(() => {
         const storedUser = localStorage.getItem('user-info');
+        const storedToken = localStorage.getItem('auth-token');
+        
         if (storedUser) {
             setUser(JSON.parse(storedUser));
         }
+        
+        if (storedToken) {
+            setAuthToken(storedToken);
+        }
+        
         setLoading(false);
     }, []);
+    
+    // Refresh token function
+    const refreshToken = async () => {
+        // If we have a user but no token, try to get a new token by logging in again
+        if (user && !authToken) {
+            try {
+                const storedUserData = JSON.parse(localStorage.getItem('userData') || '{}');
+                if (storedUserData.email && storedUserData.password) {
+                    const loginResult = await signIn(storedUserData.email, storedUserData.password, true);
+                    console.log('Token refreshed successfully:', !!loginResult);
+                    return !!loginResult;
+                }
+            } catch (error) {
+                console.error('Failed to refresh token:', error);
+                return false;
+            }
+        }
+        return false;
+    };
     
     // Register user function
     const createUser = async (name, email, phone, password) => {
@@ -59,15 +86,6 @@ const AuthProvider = ({ children }) => {
                 throw new Error(data.message || 'Registration failed');
             }
             
-            // Extract token from response
-            if (data.token) {
-                localStorage.setItem('auth-token', data.token);
-                console.log('Token stored in localStorage:', data.token);
-            } else {
-                console.warn('No token returned from registration API. User will need to login to get a token.');
-                // Note: Not creating a fallback token anymore
-            }
-            
             // Get the user data - in this API, it's in data.data
             const userData = data.data;
             
@@ -80,6 +98,15 @@ const AuthProvider = ({ children }) => {
             setUser(userData);
             console.log('User data stored:', userData);
             
+            // Since registration doesn't return a token, immediately login to get a token
+            try {
+                await signIn(email, password);
+                console.log('Auto-login after registration successful');
+            } catch (loginError) {
+                console.error('Auto-login after registration failed:', loginError);
+                // Continue anyway since registration was successful
+            }
+            
             return userData;
         } catch (error) {
             console.error('Registration error details:', error);
@@ -90,8 +117,10 @@ const AuthProvider = ({ children }) => {
     };
 
     // Sign in with email/password
-    const signIn = async (email, password) => {
-        setLoading(true);
+    const signIn = async (email, password, isRefresh = false) => {
+        if (!isRefresh) {
+            setLoading(true);
+        }
         
         try {
             console.log('Signing in with:', { email, password });
@@ -128,7 +157,10 @@ const AuthProvider = ({ children }) => {
             // Store token if present
             if (data.token) {
                 localStorage.setItem('auth-token', data.token);
-                console.log('Token stored in localStorage:', data.token);
+                // Also store a backup of the token
+                sessionStorage.setItem('auth-token-backup', data.token);
+                setAuthToken(data.token);
+                console.log('Token stored in localStorage and sessionStorage:', data.token);
             } else {
                 console.warn('No token returned from login API.');
             }
@@ -150,7 +182,9 @@ const AuthProvider = ({ children }) => {
             console.error('Login error details:', error);
             throw error;
         } finally {
-            setLoading(false);
+            if (!isRefresh) {
+                setLoading(false);
+            }
         }
     };
 
@@ -159,9 +193,11 @@ const AuthProvider = ({ children }) => {
         // Clear user data and token
         localStorage.removeItem('user-info');
         localStorage.removeItem('auth-token');
+        sessionStorage.removeItem('auth-token-backup');
         
         // Clear user state
         setUser(null);
+        setAuthToken(null);
         
         return true;
     };
@@ -169,9 +205,11 @@ const AuthProvider = ({ children }) => {
     const authInfo = {
         user,
         loading,
+        authToken,
         createUser,
         signIn,
-        logOut
+        logOut,
+        refreshToken
     };
 
     return (

@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import serverURL from '../../../ServerConfig';
 import { AuthContext } from '../../../providers/AuthProvider';
 
 // API base URL
-const API_BASE_URL = serverURL.url;
+const API_BASE_URL = 'https://event-ticket-backend.vercel.app/api/v1';
 
 // Maximum number of token check attempts
 const MAX_TOKEN_ATTEMPTS = 5;
@@ -24,7 +23,40 @@ const CheckoutForm = ({ grandTotal, event, selectedSeats, onPaymentComplete }) =
   const [tokenAttempts, setTokenAttempts] = useState(0);
   
   // Get auth context
-  const authContext = useContext(AuthContext);
+  const { user, loading, token } = useContext(AuthContext);
+
+  // Function to get the auth token from multiple possible sources
+  const getAuthToken = () => {
+    // First try from AuthContext
+    if (token) {
+      return token;
+    }
+    
+    // Then try from localStorage
+    const localToken = localStorage.getItem('auth-token');
+    if (localToken) {
+      return localToken;
+    }
+    
+    // Then try from other possible localStorage keys
+    const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+    if (userData.token) {
+      return userData.token;
+    }
+    
+    // Try user info
+    const userInfo = JSON.parse(localStorage.getItem('user-info') || '{}');
+    if (userInfo.token) {
+      return userInfo.token;
+    }
+    
+    // As a last resort, check if the user object has a token
+    if (user && user.token) {
+      return user.token;
+    }
+    
+    return null;
+  };
 
   // Function to ensure token is available and valid
   const ensureAuthToken = async () => {
@@ -32,33 +64,20 @@ const CheckoutForm = ({ grandTotal, event, selectedSeats, onPaymentComplete }) =
       let attempts = 0;
       
       const checkToken = () => {
-        const token = localStorage.getItem('auth-token');
+        const token = getAuthToken();
         
         // Check if token exists and has valid format (JWT starts with eyJ)
-        if (token && token.startsWith('eyJ')) {
+        if (token && (token.startsWith('eyJ') || token.startsWith('Bearer eyJ'))) {
           console.log('Valid auth token found on attempt', attempts + 1);
-          resolve(token);
+          // Ensure token is saved in localStorage for future use
+          localStorage.setItem('auth-token', token.replace('Bearer ', ''));
+          resolve(token.replace('Bearer ', ''));
         } else if (attempts < MAX_TOKEN_ATTEMPTS) {
           attempts++;
           console.log('Valid auth token not found, attempt', attempts, 'of', MAX_TOKEN_ATTEMPTS);
           
-          // Try to recover from backup if token is missing or invalid
-          if (attempts > 2) {
-            const backupToken = sessionStorage.getItem('auth-token-backup');
-            if (backupToken && backupToken.startsWith('eyJ')) {
-              console.log('Recovered token from backup');
-              localStorage.setItem('auth-token', backupToken);
-              resolve(backupToken);
-              return;
-            }
-            
-            // Try to use authContext to refresh the token
-            if (authContext.refreshToken) {
-              authContext.refreshToken();
-            }
-          }
-          
-          setTimeout(checkToken, 800); // Check again after 800ms
+          // Wait a bit longer between attempts
+          setTimeout(checkToken, 1000); 
         } else {
           console.log('Max token check attempts reached, proceeding without token');
           resolve(null);
@@ -71,80 +90,52 @@ const CheckoutForm = ({ grandTotal, event, selectedSeats, onPaymentComplete }) =
 
   // Create payment intent
   useEffect(() => {
+    // Skip if no grand total or payment already initiated
+    if (grandTotal <= 0 || paymentInitiated || loading) {
+      return;
+    }
+    
     const createPaymentIntent = async () => {
-      // Only proceed if payment hasn't been initiated yet
-      if (paymentInitiated) {
-        return;
-      }
-      
       setPaymentInitiated(true);
       
       try {
         // First, ensure we have the auth token
         const token = await ensureAuthToken();
         
-        // Get userId from authContext if available
-        const userId = authContext.user?._id || null;
+        if (!token) {
+          throw new Error('Unable to authenticate. Please try logging in again.');
+        }
         
-        // Retrieve ticket purchase data from localStorage
-        const ticketPurchasesString = localStorage.getItem('ticketPurchases');
+        // Get userId from context or localStorage
+        const userId = user?._id || JSON.parse(localStorage.getItem('userData') || '{}')._id;
+        
+        if (!userId) {
+          throw new Error('User ID not found. Please log in again.');
+        }
+        
+        // Retrieve current order data
         const currentOrderId = localStorage.getItem('currentOrderId');
         
-        if (!ticketPurchasesString || !currentOrderId) {
-          throw new Error('Ticket purchase information not found in localStorage');
-        }
-        
-        // Parse ticket purchases and find the current order
-        let ticketPurchases;
-        try {
-          ticketPurchases = JSON.parse(ticketPurchasesString);
-        } catch (err) {
-          console.error('Error parsing ticketPurchases:', err);
-          throw new Error('Invalid ticket purchase data in localStorage');
-        }
-        
-        const currentOrder = Array.isArray(ticketPurchases) 
-          ? ticketPurchases.find(order => order.orderId === currentOrderId)
-          : ticketPurchases; // In case it's stored as a single object
-        
-        if (!currentOrder) {
-          throw new Error('Current order not found in ticket purchases');
-        }
-        
-        console.log('Current order from localStorage:', currentOrder);
-        
-        // Extract event ID from the order
-        const eventId = currentOrder.event._id;
-        
-        if (!eventId) {
-          throw new Error('Event ID not found in the current order');
-        }
-        
-        // Prepare payment data according to your API format
+        // Prepare payment data according to API format
         const paymentData = {
-          ticketId: eventId, // Using event ID as the ticket ID
-          quantity: currentOrder.quantity || currentOrder.selectedSeats.length || 1, // Number of tickets
-          userId: userId, // Include userId if available
-          orderId: currentOrderId // Include the order ID for reference
+          ticketId: event._id,
+          quantity: selectedSeats.length || 1,
+          userId: userId,
+          orderId: currentOrderId || 'temp-order-id'
         };
 
         console.log('Payment data being sent:', paymentData);
         
-        // Create headers with token if available
+        // Create headers with token
         const headers = {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         };
-        
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        } else {
-          console.warn('No auth token available for payment request');
-        }
         
         console.log('Making payment request with headers:', headers);
         
-        // Call your payment API
-        const response = await fetch(`${API_BASE_URL}payments/create-ticket-payment`, {
+        // Call payment API
+        const response = await fetch(`${API_BASE_URL}/payments/create-ticket-payment`, {
           method: 'POST',
           headers: headers,
           body: JSON.stringify(paymentData)
@@ -155,17 +146,15 @@ const CheckoutForm = ({ grandTotal, event, selectedSeats, onPaymentComplete }) =
         console.log('API response:', responseData);
         
         if (!response.ok) {
-          // Handle error with more useful info
-          const errorMessage = responseData.message || responseData.error || `Request failed with status ${response.status}`;
-          throw new Error(errorMessage);
+          throw new Error(responseData.message || `Request failed with status ${response.status}`);
         }
         
         // Check for success and set client secret for Stripe
         if (responseData.success) {
           setClientSecret(responseData.clientSecret);
-          setOrderId(responseData.orderId || responseData._id || currentOrderId);
+          setOrderId(responseData.orderId || currentOrderId);
         } else {
-          setError('Could not initialize payment. Please try again.');
+          throw new Error('Could not initialize payment. Please try again.');
         }
       } catch (err) {
         console.error('Payment request error:', err);
@@ -173,128 +162,102 @@ const CheckoutForm = ({ grandTotal, event, selectedSeats, onPaymentComplete }) =
         // Show detailed error info
         setErrorDetails(JSON.stringify({
           message: err.message,
-          status: err.status || 'unknown',
-          tokenAttempts,
-          tokenExists: !!localStorage.getItem('auth-token'),
-          tokenFormat: localStorage.getItem('auth-token')?.substring(0, 10) + '...'
+          token: getAuthToken() ? 'Token exists' : 'No token',
+          userId: user?._id || 'No user ID',
+          timestamp: new Date().toISOString()
         }, null, 2));
         
         setError(`Payment initialization failed: ${err.message}`);
+        setPaymentInitiated(false); // Allow retry
       }
     };
 
-    if (grandTotal > 0) {
-      createPaymentIntent();
-    }
-  }, [grandTotal, event, selectedSeats, authContext.user, paymentInitiated, tokenAttempts, authContext]);
+    createPaymentIntent();
+  }, [grandTotal, event, selectedSeats, user, loading, paymentInitiated, tokenAttempts]);
 
   // Handle form submission
-// Handle form submission
-const handleSubmit = async (event) => {
-  event.preventDefault();
-  setProcessing(true);
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setProcessing(true);
 
-  if (!stripe || !elements || !clientSecret) {
-    setProcessing(false);
-    return;
-  }
-
-  // Get card element
-  const cardElement = elements.getElement(CardElement);
-  
-  // Get user data for better billing details
-  const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-  const userInfo = JSON.parse(localStorage.getItem('user-info') || '{}');
-
-  // Combine userData and userInfo for more complete billing details
-  const billingDetails = {
-    name: userData.name || userInfo.name || 'Guest Checkout',
-    email: userData.email || userInfo.email || '',
-    address: {
-      line1: userData.address || '',
-      city: userData.city || '',
-      postal_code: userData.postalCode || ''
+    if (!stripe || !elements || !clientSecret) {
+      setProcessing(false);
+      return;
     }
+
+    // Get card element
+    const cardElement = elements.getElement(CardElement);
+    
+    // Get user data for better billing details
+    const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+    
+    // Set up billing details
+    const billingDetails = {
+      name: userData.name || 'Guest Checkout',
+      email: userData.email || '',
+      address: {
+        line1: userData.address || '',
+        city: userData.city || '',
+        postal_code: userData.postalCode || ''
+      }
+    };
+
+    // Confirm payment with Stripe
+    const { error: paymentError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+      payment_method: {
+        card: cardElement,
+        billing_details: billingDetails
+      }
+    });
+
+    if (paymentError) {
+      setError(`Payment failed: ${paymentError.message}`);
+      setProcessing(false);
+    } else if (paymentIntent.status === 'succeeded') {
+      // Payment succeeded, now confirm with your backend
+      try {
+        const token = await ensureAuthToken();
+        
+        // Call confirm-payment endpoint
+        const response = await fetch(`${API_BASE_URL}/payments/confirm-payment`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ orderId })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          localStorage.setItem('completedOrderId', orderId);
+          setError(null);
+          setSucceeded(true);
+          onPaymentComplete(orderId);
+        } else {
+          // If backend confirmation fails but Stripe succeeded,
+          // still consider it successful from user's perspective
+          localStorage.setItem('completedOrderId', orderId);
+          setError(null);
+          setSucceeded(true);
+          onPaymentComplete(orderId);
+        }
+      } catch (err) {
+        console.error('Error confirming payment:', err);
+        
+        // Even if confirmation fails, Stripe processed the payment
+        localStorage.setItem('completedOrderId', orderId);
+        setError(null);
+        setSucceeded(true);
+        onPaymentComplete(orderId);
+      }
+    } else {
+      setError(`Payment status: ${paymentIntent.status}. Please try again.`);
+    }
+    
+    setProcessing(false);
   };
-
-  // Ensure we have the auth token before proceeding
-  await ensureAuthToken();
-
-  // Confirm payment with Stripe
-  const { error: paymentError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-    payment_method: {
-      card: cardElement,
-      billing_details: billingDetails
-    }
-  });
-
-  if (paymentError) {
-    setError(`Payment failed: ${paymentError.message}`);
-    setProcessing(false);
-  } else if (paymentIntent.status === 'succeeded') {
-    // Payment succeeded, now confirm with your backend
-    try {
-      const token = await ensureAuthToken();
-      
-      // Set up headers
-      const headers = {
-        'Content-Type': 'application/json'
-      };
-      
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      } else {
-        console.warn('No auth token available for payment confirmation');
-      }
-      
-      // Call confirm-payment endpoint with just the orderId as specified
-      const response = await fetch(`${API_BASE_URL}payments/confirm-payment`, {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify({ orderId })
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        // Save order ID to localStorage
-        localStorage.setItem('completedOrderId', orderId);
-        console.log('Order ID saved to localStorage (success path):', orderId);
-        
-        setError(null);
-        setSucceeded(true);
-        onPaymentComplete(orderId);
-      } else {
-        // If backend confirmation fails but Stripe succeeded,
-        // still consider it successful from user's perspective
-        console.log('Payment confirmation with backend failed, but Stripe processed payment successfully');
-        
-        // Save order ID to localStorage even in this fallback path
-        localStorage.setItem('completedOrderId', orderId);
-        console.log('Order ID saved to localStorage (backend failure path):', orderId);
-        
-        setError(null);
-        setSucceeded(true);
-        onPaymentComplete(orderId);
-      }
-    } catch (err) {
-      console.error('Error confirming payment:', err);
-      
-      // Even if confirmation fails, Stripe processed the payment
-      // Save order ID to localStorage in the error path as well
-      localStorage.setItem('completedOrderId', orderId);
-      console.log('Order ID saved to localStorage (error path):', orderId);
-      
-      setError(null);
-      setSucceeded(true);
-      onPaymentComplete(orderId);
-    }
-    setProcessing(false);
-  } else {
-    setError(`Payment status: ${paymentIntent.status}. Please try again.`);
-    setProcessing(false);
-  }
-};
 
   // Handle manual payment retry
   const handleRetryPayment = () => {
@@ -302,18 +265,6 @@ const handleSubmit = async (event) => {
     setError(null);
     setErrorDetails('');
     setTokenAttempts(tokenAttempts + 1); // Increment token attempts to trigger a retry
-    
-    // Try to refresh token using authContext if available
-    if (authContext.refreshToken) {
-      authContext.refreshToken()
-        .then(success => {
-          if (success) {
-            console.log('Token refreshed successfully');
-          } else {
-            console.warn('Token refresh failed');
-          }
-        });
-    }
   };
 
   // Handle input change
@@ -401,7 +352,7 @@ const handleSubmit = async (event) => {
         ) : succeeded ? (
           "Payment Successful!"
         ) : (
-          `Pay $${grandTotal.toFixed(2)}`
+          `Pay ${grandTotal.toLocaleString()} BDT`
         )}
       </button>
     </form>

@@ -1,5 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { AuthContext } from '../../../../providers/AuthProvider';
+
+
+// Base URL for API calls
+const API_BASE_URL = 'https://event-ticket-backend.vercel.app/api/v1';
 
 const UserDetailsForm = () => {
     const location = useLocation();
@@ -18,12 +23,42 @@ const UserDetailsForm = () => {
     const ticketQuantity = location.state?.quantity || 1;
     const singleTicketType = location.state?.ticketType;
 
+    // Get auth context
+    const { user, loading, createUser, signIn } = useContext(AuthContext);
+
     // Check if we have the event data, if not redirect back to events
     useEffect(() => {
         if (!eventData) {
             navigate('/');
         }
     }, [eventData, navigate]);
+
+    // Check if user is already logged in
+    useEffect(() => {
+        if (user) {
+            console.log('User already logged in:', user);
+            // If we have seat data, go to checkout, otherwise go to seat selection
+            if (selectedSeats && selectedSeats.length > 0) {
+                navigate('/checkout', { 
+                    state: { 
+                        event: eventData,
+                        selectedSeats,
+                        totalPrice,
+                        serviceFee,
+                        grandTotal
+                    } 
+                });
+            } else {
+                navigate('/SeatBook', { 
+                    state: { 
+                        event: eventData,
+                        quantity: ticketQuantity,
+                        ticketType: singleTicketType
+                    } 
+                });
+            }
+        }
+    }, [user, navigate]);
 
     // Get existing user data from localStorage if available
     const savedUserData = JSON.parse(localStorage.getItem('userData') || '{}');
@@ -108,6 +143,49 @@ const UserDetailsForm = () => {
         return Object.keys(newErrors).length === 0;
     };
 
+    // Function to check if user exists and authenticate
+    const authenticateUser = async () => {
+        try {
+            // Try to sign in first
+            console.log('Attempting to login with email:', formData.email);
+            const userData = await signIn(formData.email, formData.password);
+            console.log('Login successful:', userData);
+            
+            // Store the complete user data
+            localStorage.setItem('userData', JSON.stringify({
+                ...formData,
+                ...userData
+            }));
+            
+            return { success: true, data: userData, isNewUser: false };
+        } catch (loginError) {
+            console.log('Login failed, trying to register:', loginError.message);
+            
+            // If login fails, try to register
+            try {
+                console.log('Registering new user with:', formData.name, formData.email);
+                const userData = await createUser(
+                    formData.name, 
+                    formData.email, 
+                    formData.phone, 
+                    formData.password
+                );
+                console.log('Registration successful:', userData);
+                
+                // Store the complete user data
+                localStorage.setItem('userData', JSON.stringify({
+                    ...formData,
+                    ...userData
+                }));
+                
+                return { success: true, data: userData, isNewUser: true };
+            } catch (registerError) {
+                console.error('Registration failed:', registerError.message);
+                throw new Error(registerError.message || 'Failed to register. Please try again.');
+            }
+        }
+    };
+
     // Handle form submission
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -117,17 +195,21 @@ const UserDetailsForm = () => {
             setIsSubmitting(true);
             
             try {
-                // Always ensure role is 'buyer' before storing
+                // Always ensure role is 'buyer' before proceeding
                 const finalData = {
                     ...formData,
                     role: 'buyer' // Force role to be 'buyer'
                 };
                 
-                // Log the data to verify role is 'buyer'
-                console.log('Saving user data with role:', finalData);
+                // Attempt authentication
+                const authResult = await authenticateUser();
+                console.log('Authentication result:', authResult);
                 
-                // Store in localStorage with role explicitly set to 'buyer'
-                localStorage.setItem('userData', JSON.stringify(finalData));
+                // Store additional data in localStorage that might not be in the auth response
+                localStorage.setItem('userData', JSON.stringify({
+                    ...finalData,
+                    ...authResult.data
+                }));
                 
                 // Determine where to navigate next based on whether we came from SeatPlan or EventDetails
                 if (selectedSeats && selectedSeats.length > 0) {
@@ -154,8 +236,8 @@ const UserDetailsForm = () => {
                     });
                 }
             } catch (error) {
-                console.error('Error saving user data:', error);
-                setFormSubmitError('Failed to save your information. Please try again.');
+                console.error('Authentication error:', error);
+                setFormSubmitError(`Authentication failed: ${error.message || 'Please check your credentials and try again.'}`);
             } finally {
                 setIsSubmitting(false);
             }
@@ -243,6 +325,21 @@ const UserDetailsForm = () => {
             );
         }
     };
+
+    // If user is already logged in or page is loading, show loading spinner
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+                <div className="text-orange-500 text-center">
+                    <svg className="animate-spin h-10 w-10 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p className="text-white text-lg">Loading...</p>
+                </div>
+            </div>
+        );
+    }
 
     if (!eventData) {
         return null; // Will redirect in useEffect
