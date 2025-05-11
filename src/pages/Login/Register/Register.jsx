@@ -1,16 +1,18 @@
 import React, { useContext, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { AuthContext } from "../../../providers/AuthProvider";
-import { Mail, Lock, User } from "lucide-react";
+import { Mail, Lock, User, Phone } from "lucide-react";
 import logo from "../../../assets/logo.png";
 
 const Register = () => {
-  const { createUser } = useContext(AuthContext);
+  const { createUser, signIn } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || "/";
   
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -21,26 +23,42 @@ const Register = () => {
     e.preventDefault();
     setError("");
     
-    // Basic validation
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
-    
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters");
-      return;
-    }
-    
-    setLoading(true);
-    
     try {
-      const result = await createUser(email, password);
-      console.log("Registration successful with role:", result.role);
-      navigate(from, { replace: true });
+      // Basic validation
+      if (password !== confirmPassword) {
+        setError("Passwords do not match");
+        return;
+      }
+      
+      if (password.length < 6) {
+        setError("Password must be at least 6 characters");
+        return;
+      }
+      
+      console.log("Form validation passed, attempting registration...");
+      setLoading(true);
+      
+      // Step 1: Create the user account
+      const result = await createUser(name, email, phone, password);
+      console.log("Registration successful:", result);
+      
+      // Step 2: Now login to get a token
+      try {
+        console.log("Automatically logging in to get auth token...");
+        const loginResult = await signIn(email, password);
+        console.log("Auto-login successful:", loginResult);
+        
+        // Navigate to the destination page
+        navigate(from, { replace: true });
+      } catch (loginErr) {
+        console.error("Auto-login failed:", loginErr);
+        setError("Account created but automatic login failed. Please try logging in manually.");
+        // Still navigate to login page since account was created
+        navigate("/login", { replace: true });
+      }
     } catch (err) {
       console.error("Registration error:", err);
-      setError("Failed to create account. Please try again.");
+      setError(err.message || "Failed to create account. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -50,8 +68,10 @@ const Register = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-tr from-gray-900 via-orange-500 to-yellow-400 relative overflow-hidden px-4">
       <div className="absolute top-10 left-10 w-72 h-72 bg-orange-400 opacity-30 rounded-full blur-3xl animate-pulse -z-10"></div>
       <div className="absolute bottom-20 right-20 w-60 h-60 bg-yellow-300 opacity-20 rounded-full blur-2xl -z-10"></div>
+      <div className="absolute top-1/3 right-1/4 w-40 h-40 bg-pink-400 opacity-20 rounded-full blur-2xl -z-10"></div>
+      <div className="absolute bottom-1/3 left-1/4 w-32 h-32 bg-red-400 opacity-10 rounded-full blur-xl -z-10"></div>
       
-      <div className="bg-white/20 backdrop-blur-xl border border-white/30 shadow-2xl rounded-3xl p-8 w-full max-w-md mx-auto">
+      <div className="bg-white/20 backdrop-blur-xl border border-white/30 shadow-2xl rounded-3xl p-8 w-full max-w-md mx-auto my-8">
         <div className="flex flex-col items-center justify-center text-center mb-6">
           <div className="bg-gradient-to-br from-orange-100 to-orange-300 text-white p-4 rounded-full shadow-lg mb-4">
             <img className="w-12 h-12" src={logo} alt="Logo" />
@@ -72,6 +92,27 @@ const Register = () => {
 
         <form onSubmit={handleRegister} className="w-full space-y-4">
           <div className="form-control">
+            <label className="block text-white font-medium mb-2" htmlFor="name">
+              Full Name
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <User className="w-5 h-5 text-orange-500" />
+              </div>
+              <input
+                id="name"
+                name="name"
+                type="text"
+                placeholder="John Doe"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="pl-10 w-full py-3 px-4 rounded-lg bg-white/90 border border-orange-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition duration-300"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="form-control">
             <label className="block text-white font-medium mb-2" htmlFor="email">
               Email Address
             </label>
@@ -86,6 +127,27 @@ const Register = () => {
                 placeholder="your@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                className="pl-10 w-full py-3 px-4 rounded-lg bg-white/90 border border-orange-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition duration-300"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="form-control">
+            <label className="block text-white font-medium mb-2" htmlFor="phone">
+              Phone Number
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <Phone className="w-5 h-5 text-orange-500" />
+              </div>
+              <input
+                id="phone"
+                name="phone"
+                type="tel"
+                placeholder="+1 (234) 567-8910"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
                 className="pl-10 w-full py-3 px-4 rounded-lg bg-white/90 border border-orange-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition duration-300"
                 required
               />
@@ -162,7 +224,7 @@ const Register = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium shadow-lg hover:shadow-orange-500/50 transition-all duration-300 mt-4"
+            className="w-full py-3 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium shadow-lg hover:shadow-orange-500/50 transition-all duration-300 mt-6"
           >
             {loading ? "Creating Account..." : "Create Account"}
           </button>

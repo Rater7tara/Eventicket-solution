@@ -19,11 +19,11 @@ const AuthProvider = ({ children }) => {
     }, []);
     
     // Register user function
-    const createUser = async (email, password) => {
+    const createUser = async (name, email, phone, password) => {
         setLoading(true);
         
         try {
-            console.log('Creating user with:', { email, password });
+            console.log('Creating user with:', { name, email, phone, password });
             
             const response = await fetch(`${BASE_URL}/auth/create-user`, {
                 method: 'POST',
@@ -31,33 +31,58 @@ const AuthProvider = ({ children }) => {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ 
+                    name,
                     email, 
-                    password,
-                    name: email.split('@')[0] 
+                    phone,
+                    password
                 })
             });
             
-            const data = await response.json();
-            console.log('API Response:', data);
+            // Log response status and headers for debugging
+            console.log('API Response status:', response.status);
+            
+            const responseText = await response.text();
+            console.log('API Response text:', responseText);
+            
+            // Parse the response
+            let data;
+            try {
+                data = JSON.parse(responseText);
+                console.log('API Response parsed:', data);
+            } catch (parseError) {
+                console.error('Error parsing response as JSON:', parseError);
+                throw new Error('Invalid response from server. Please try again.');
+            }
             
             if (!data.success) {
+                console.error('API reported failure:', data.message);
                 throw new Error(data.message || 'Registration failed');
             }
             
-            // Store token
+            // Extract token from response
             if (data.token) {
                 localStorage.setItem('auth-token', data.token);
+                console.log('Token stored in localStorage:', data.token);
+            } else {
+                console.warn('No token returned from registration API. User will need to login to get a token.');
+                // Note: Not creating a fallback token anymore
             }
             
-            // Store user information exactly as received from API
-            if (data.user) {
-                localStorage.setItem('user-info', JSON.stringify(data.user));
-                setUser(data.user);
+            // Get the user data - in this API, it's in data.data
+            const userData = data.data;
+            
+            if (!userData) {
+                throw new Error('No user data received from server');
             }
             
-            return data.user;
+            // Store user information
+            localStorage.setItem('user-info', JSON.stringify(userData));
+            setUser(userData);
+            console.log('User data stored:', userData);
+            
+            return userData;
         } catch (error) {
-            console.error('Registration error:', error);
+            console.error('Registration error details:', error);
             throw error;
         } finally {
             setLoading(false);
@@ -71,11 +96,6 @@ const AuthProvider = ({ children }) => {
         try {
             console.log('Signing in with:', { email, password });
             
-            // Development fallback (uncomment if needed)
-            // if (process.env.NODE_ENV === 'development') {
-            //     // Mock login code here
-            // }
-            
             const response = await fetch(`${BASE_URL}/auth/login`, {
                 method: 'POST',
                 headers: {
@@ -84,27 +104,50 @@ const AuthProvider = ({ children }) => {
                 body: JSON.stringify({ email, password })
             });
             
-            const data = await response.json();
-            console.log('API Response:', data);
+            // Log response status for debugging
+            console.log('API Response status:', response.status);
+            
+            const responseText = await response.text();
+            console.log('API Response text:', responseText);
+            
+            // Parse the response
+            let data;
+            try {
+                data = JSON.parse(responseText);
+                console.log('API Response parsed:', data);
+            } catch (parseError) {
+                console.error('Error parsing response as JSON:', parseError);
+                throw new Error('Invalid response from server. Please try again.');
+            }
             
             if (!data.success) {
+                console.error('API reported failure:', data.message);
                 throw new Error(data.message || 'Login failed');
             }
             
-            // Store token
+            // Store token if present
             if (data.token) {
                 localStorage.setItem('auth-token', data.token);
+                console.log('Token stored in localStorage:', data.token);
+            } else {
+                console.warn('No token returned from login API.');
             }
             
-            // Store user information exactly as received from API
-            if (data.user) {
-                localStorage.setItem('user-info', JSON.stringify(data.user));
-                setUser(data.user);
+            // Get the user data
+            const userData = data.user || data.data || {};
+            
+            if (Object.keys(userData).length === 0) {
+                console.warn('No user data found in response');
             }
             
-            return data.user;
+            // Store user information
+            localStorage.setItem('user-info', JSON.stringify(userData));
+            setUser(userData);
+            console.log('User data stored:', userData);
+            
+            return userData;
         } catch (error) {
-            console.error('Login error:', error);
+            console.error('Login error details:', error);
             throw error;
         } finally {
             setLoading(false);

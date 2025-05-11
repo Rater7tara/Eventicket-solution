@@ -34,11 +34,14 @@ const DashboardLayout = () => {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
     
-    // Get role directly from user object
-    const role = user.role || 'buyer';
+    // Get role directly from user object, default to 'buyer' if not present
+    const userRole = user.role || 'buyer';
+    
+    // Treat 'user' role the same as 'buyer' role for dashboard purposes
+    const role = userRole === 'user' ? 'buyer' : userRole;
     
     // Format role for display (capitalize first letter)
-    const formattedRole = role.charAt(0).toUpperCase() + role.slice(1);
+    const formattedRole = userRole.charAt(0).toUpperCase() + userRole.slice(1);
     
     const commonLinks = [
         { to: '/', label: 'Home', icon: <Home size={20} /> },
@@ -63,6 +66,7 @@ const DashboardLayout = () => {
             { to: '/dashboard/my-tickets', label: 'My Tickets', icon: <Ticket size={20} /> },
             { to: '/dashboard/purchase-history', label: 'Purchase History', icon: <ShoppingBag size={20} /> },
         ],
+        // No need for a separate 'user' entry since we're mapping 'user' to 'buyer'
     };
 
     // Use the role to determine which links to show, defaulting to buyer if invalid role

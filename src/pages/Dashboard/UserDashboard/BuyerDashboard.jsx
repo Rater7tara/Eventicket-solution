@@ -157,16 +157,39 @@ const BuyerDashboard = () => {
         );
     }
 
+    // Get the appropriate dashboard title based on role
+    const getDashboardTitle = () => {
+        if (!user || !user.role) return 'My Tickets Dashboard';
+        
+        switch (user.role.toLowerCase()) {
+            case 'admin':
+                return 'Admin Tickets Dashboard';
+            case 'seller':
+                return 'Seller Tickets Dashboard';
+            case 'buyer':
+            case 'user':
+                return 'My Tickets Dashboard';
+            default:
+                return 'My Tickets Dashboard';
+        }
+    };
+
+    // Format user role for display - capitalize first letter
+    const formatRole = (role) => {
+        if (!role) return 'Buyer'; // Default to Buyer if no role
+        return role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
+    };
+
     return (
         <div>
             <h2 className="text-xl font-semibold mb-6">
-                {user?.role === 'admin' ? 'Admin Tickets Dashboard' : 'My Tickets Dashboard'}
+                {getDashboardTitle()}
             </h2>
             
             {/* User role info */}
             <div className="mb-4 p-3 bg-gray-100 rounded-lg">
                 <p>Logged in as: <strong>{user?.name}</strong></p>
-                <p>Role: <strong>{user?.role}</strong></p>
+                <p>Role: <strong>{formatRole(user?.role)}</strong></p>
             </div>
             
             {/* Stats Section */}
