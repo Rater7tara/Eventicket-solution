@@ -1,32 +1,131 @@
 import React, { createContext, useEffect, useState } from 'react';
-import { GoogleAuthProvider, createUserWithEmailAndPassword, getAuth, onAuthStateChanged, signInWithEmailAndPassword, signInWithPopup, signOut } from "firebase/auth";
-import app from '../firebase/firebase.config';
 
 export const AuthContext = createContext(null);
 
-const auth = getAuth(app);
-const googleAuthProvider = new GoogleAuthProvider();
+// Base URL for API calls
+const BASE_URL = 'https://event-ticket-backend.vercel.app/api/v1';
 
 const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
-
-    // Create a user with Firebase authentication and our API
-    const createUser = async (email, password) => {
-        setLoading(true);
+    const [authToken, setAuthToken] = useState(null);
+    
+    // Check if user exists in localStorage on initial load
+    useEffect(() => {
+        const storedUser = localStorage.getItem('user-info');
+        const storedToken = localStorage.getItem('auth-token');
         
-        // We'll continue to use Firebase for authentication
-        // Our custom API handling is in the Register component
-        return createUserWithEmailAndPassword(auth, email, password);
-    }
-
-    // Sign in with our API and Firebase
-    const signIn = async (email, password) => {
+        if (storedUser) {
+            setUser(JSON.parse(storedUser));
+        }
+        
+        if (storedToken) {
+            setAuthToken(storedToken);
+        }
+        
+        setLoading(false);
+    }, []);
+    
+    // Refresh token function
+    const refreshToken = async () => {
+        // If we have a user but no token, try to get a new token by logging in again
+        if (user && !authToken) {
+            try {
+                const storedUserData = JSON.parse(localStorage.getItem('userData') || '{}');
+                if (storedUserData.email && storedUserData.password) {
+                    const loginResult = await signIn(storedUserData.email, storedUserData.password, true);
+                    console.log('Token refreshed successfully:', !!loginResult);
+                    return !!loginResult;
+                }
+            } catch (error) {
+                console.error('Failed to refresh token:', error);
+                return false;
+            }
+        }
+        return false;
+    };
+    
+    // Register user function
+    const createUser = async (name, email, phone, password) => {
         setLoading(true);
         
         try {
-            // First, try to sign in with our API
-            const response = await fetch('http://localhost:5000/api/user/login', {
+            console.log('Creating user with:', { name, email, phone, password });
+            
+            const response = await fetch(`${BASE_URL}/auth/create-user`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    name,
+                    email, 
+                    phone,
+                    password
+                })
+            });
+            
+            // Log response status and headers for debugging
+            console.log('API Response status:', response.status);
+            
+            const responseText = await response.text();
+            console.log('API Response text:', responseText);
+            
+            // Parse the response
+            let data;
+            try {
+                data = JSON.parse(responseText);
+                console.log('API Response parsed:', data);
+            } catch (parseError) {
+                console.error('Error parsing response as JSON:', parseError);
+                throw new Error('Invalid response from server. Please try again.');
+            }
+            
+            if (!data.success) {
+                console.error('API reported failure:', data.message);
+                throw new Error(data.message || 'Registration failed');
+            }
+            
+            // Get the user data - in this API, it's in data.data
+            const userData = data.data;
+            
+            if (!userData) {
+                throw new Error('No user data received from server');
+            }
+            
+            // Store user information
+            localStorage.setItem('user-info', JSON.stringify(userData));
+            setUser(userData);
+            console.log('User data stored:', userData);
+            
+            // Since registration doesn't return a token, immediately login to get a token
+            try {
+                await signIn(email, password);
+                console.log('Auto-login after registration successful');
+            } catch (loginError) {
+                console.error('Auto-login after registration failed:', loginError);
+                // Continue anyway since registration was successful
+            }
+            
+            return userData;
+        } catch (error) {
+            console.error('Registration error details:', error);
+            throw error;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Sign in with email/password
+    const signIn = async (email, password, isRefresh = false) => {
+        if (!isRefresh) {
+            setLoading(true);
+        }
+        
+        try {
+            console.log('Signing in with:', { email, password });
+            
+            const response = await fetch(`${BASE_URL}/auth/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -34,140 +133,84 @@ const AuthProvider = ({ children }) => {
                 body: JSON.stringify({ email, password })
             });
             
-            const data = await response.json();
+            // Log response status for debugging
+            console.log('API Response status:', response.status);
             
-            if (data.token) {
-                // Save token to localStorage
-                localStorage.setItem('access-token', data.token);
-                
-                // Continue with Firebase authentication for consistency
-                return signInWithEmailAndPassword(auth, email, password);
-            } else {
+            const responseText = await response.text();
+            console.log('API Response text:', responseText);
+            
+            // Parse the response
+            let data;
+            try {
+                data = JSON.parse(responseText);
+                console.log('API Response parsed:', data);
+            } catch (parseError) {
+                console.error('Error parsing response as JSON:', parseError);
+                throw new Error('Invalid response from server. Please try again.');
+            }
+            
+            if (!data.success) {
+                console.error('API reported failure:', data.message);
                 throw new Error(data.message || 'Login failed');
             }
-        } catch (error) {
-            console.error('Login error:', error);
-            throw error;
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    // Sign in with Google
-    const signInWithGoogle = async () => {
-        setLoading(true);
-        
-        try {
-            // First sign in with Firebase Google auth
-            const result = await signInWithPopup(auth, googleAuthProvider);
             
-            if (result.user) {
-                const { displayName, email, photoURL } = result.user;
-                
-                // Now register this user with our API
-                const response = await fetch('http://localhost:5000/api/user/google-auth', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ 
-                        name: displayName, 
-                        email, 
-                        photoURL,
-                        // Add any additional required fields
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.token) {
-                    // Save token to localStorage
-                    localStorage.setItem('access-token', data.token);
-                    return result;
-                } else {
-                    throw new Error(data.message || 'Google sign-in failed');
-                }
+            // Store token if present
+            if (data.token) {
+                localStorage.setItem('auth-token', data.token);
+                // Also store a backup of the token
+                sessionStorage.setItem('auth-token-backup', data.token);
+                setAuthToken(data.token);
+                console.log('Token stored in localStorage and sessionStorage:', data.token);
+            } else {
+                console.warn('No token returned from login API.');
             }
             
-            return result;
-        } catch (error) {
-            console.error('Google sign-in error:', error);
-            throw error;
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    // Log out from both Firebase and clear the token
-    const logOut = async () => {
-        setLoading(true);
-        
-        try {
-            // Clear the token from localStorage
-            localStorage.removeItem('access-token');
+            // Get the user data
+            const userData = data.user || data.data || {};
             
-            // Also sign out from Firebase
-            return signOut(auth);
-        } catch (error) {
-            console.error('Logout error:', error);
-            throw error;
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    // Check if the user is authenticated on component mount
-    useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, loggedUser => {
-            console.log('Logged in user inside auth state observer', loggedUser);
-            setUser(loggedUser);
-            setLoading(false);
-        });
-
-        return () => {
-            unsubscribe();
-        }
-    }, []);
-
-    // Check token validity
-    useEffect(() => {
-        const verifyToken = async () => {
-            const token = localStorage.getItem('access-token');
-            
-            if (token) {
-                try {
-                    // Optional: verify token with your API
-                    const response = await fetch('http://localhost:5000/api/user/verify-token', {
-                        method: 'GET',
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (!data.valid) {
-                        // Token is invalid, log out
-                        localStorage.removeItem('access-token');
-                        signOut(auth);
-                    }
-                } catch (error) {
-                    console.error('Token verification error:', error);
-                }
+            if (Object.keys(userData).length === 0) {
+                console.warn('No user data found in response');
             }
-        };
+            
+            // Store user information
+            localStorage.setItem('user-info', JSON.stringify(userData));
+            setUser(userData);
+            console.log('User data stored:', userData);
+            
+            return userData;
+        } catch (error) {
+            console.error('Login error details:', error);
+            throw error;
+        } finally {
+            if (!isRefresh) {
+                setLoading(false);
+            }
+        }
+    };
+
+    // Log out
+    const logOut = () => {
+        // Clear user data and token
+        localStorage.removeItem('user-info');
+        localStorage.removeItem('auth-token');
+        sessionStorage.removeItem('auth-token-backup');
         
-        verifyToken();
-    }, []);
+        // Clear user state
+        setUser(null);
+        setAuthToken(null);
+        
+        return true;
+    };
 
     const authInfo = {
         user,
         loading,
+        authToken,
         createUser,
         signIn,
         logOut,
-        signInWithGoogle
-    }
+        refreshToken
+    };
 
     return (
         <AuthContext.Provider value={authInfo}>

@@ -1,26 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-
-// Try multiple paths to find data.json
-let eventData = [];
-try {
-  // Try to dynamically import the data
-  eventData = require('../../../data.json');
-} catch (e) {
-  console.error("Failed to load data.json from first path:", e);
-  try {
-    eventData = require('../../../../public/data.json');
-  } catch (e) {
-    console.error("Failed to load data.json from second path:", e);
-    try {
-      eventData = require('../../../../../public/data.json');
-    } catch (e) {
-      console.error("Failed to load data.json from third path:", e);
-      // Continue with empty array if no data found
-      eventData = [];
-    }
-  }
-}
+import serverURL from '../../../../ServerConfig'; // adjust path as needed
 
 const EventDetails = () => {
     const { id } = useParams();
@@ -34,6 +14,7 @@ const EventDetails = () => {
     const [ticketQuantity, setTicketQuantity] = useState(1);
     const [selectedTicketType, setSelectedTicketType] = useState(0);
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState(null);
     
     // Scroll to top when component mounts
     useEffect(() => {
@@ -44,64 +25,67 @@ const EventDetails = () => {
         console.log("EventDetails: URL ID param:", id);
         console.log("EventDetails: Location state:", location.state);
         
-        // First, try to use the event from navigation state
-        if (eventFromState) {
-            console.log("Using event from navigation state:", eventFromState);
-            setEvent(eventFromState);
-            
-            // Set default ticket types with updated prices
-            if (!eventFromState.ticketTypes) {
-                eventFromState.ticketTypes = [
-                    { id: 1, name: "Regular", price: 60 },
-                    { id: 2, name: "VIP", price: 0, contactOnly: true }
-                ];
+        const fetchEventData = async () => {
+            // First, try to use the event from navigation state if available
+            if (eventFromState) {
+                console.log("Using event from navigation state:", eventFromState);
+                prepareEventData(eventFromState);
+                setIsLoading(false);
+                return;
             }
             
-            // Set default organizer if not provided
-            if (!eventFromState.organizer) {
-                eventFromState.organizer = {
-                    name: "Event Organizer",
-                    phone: "+880 1XX XXX XXXX",
-                    email: "contact@eventorganizer.com"
-                };
-            }
-        } 
-        // Otherwise, try to find it in the loaded data
-        else if (eventData && eventData.length > 0) {
-            console.log("Loaded event data:", eventData.length, "events");
-            
-            // Convert both to strings to ensure proper comparison
-            const foundEvent = eventData.find(event => String(event.id) === String(id));
-            console.log("Found event by ID:", foundEvent);
-            
-            if (foundEvent) {
-                setEvent(foundEvent);
+            // Otherwise, fetch from API
+            try {
+                const response = await fetch(`${serverURL.url}ticket/tickets/${id}`);
                 
-                // Set default ticket types with updated prices
-                if (!foundEvent.ticketTypes) {
-                    foundEvent.ticketTypes = [
-                        { id: 1, name: "Regular", price: 60 },
-                        { id: 2, name: "VIP", price: 0, contactOnly: true }
-                    ];
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch event: ${response.status}`);
                 }
                 
-                // Set default organizer if not provided
-                if (!foundEvent.organizer) {
-                    foundEvent.organizer = {
-                        name: "Event Organizer",
-                        phone: "+880 1XX XXX XXXX",
-                        email: "contact@eventorganizer.com"
-                    };
+                const data = await response.json();
+                console.log("Fetched event data:", data);
+                
+                // Check if we got an event or an array of events
+                const eventData = data.ticket || data;
+                
+                if (eventData) {
+                    prepareEventData(eventData);
+                } else {
+                    console.error("Event not found with ID:", id);
+                    setError("Event not found");
                 }
-            } else {
-                console.error("Event not found with ID:", id);
+            } catch (err) {
+                console.error("Error fetching event:", err);
+                setError(err.message || "Failed to load event details");
+            } finally {
+                setIsLoading(false);
             }
-        } else {
-            console.error("No event data available");
+        };
+        
+        fetchEventData();
+    }, [id, eventFromState]);
+    
+    // Helper function to prepare event data with default values if needed
+    const prepareEventData = (eventData) => {
+        // Set default ticket types if not provided
+        if (!eventData.ticketTypes) {
+            eventData.ticketTypes = [
+                { id: 1, name: "Regular", price: eventData.price || "800", contactOnly: false },
+                { id: 2, name: "VIP", price: "0", contactOnly: true }
+            ];
         }
         
-        setIsLoading(false);
-    }, [id, eventFromState]);
+        // Set default organizer if not provided
+        if (!eventData.organizer) {
+            eventData.organizer = {
+                name: "Event Organizer",
+                phone: "+880 1XX XXX XXXX",
+                email: "contact@eventorganizer.com"
+            };
+        }
+        
+        setEvent(eventData);
+    };
 
     const handleGoBack = () => {
         navigate('/');
@@ -109,7 +93,7 @@ const EventDetails = () => {
 
     const handleBookNow = () => {
         // Navigate to your seat booking page
-        navigate('/SeatBook', { 
+        navigate('/SeatPlan', { 
             state: { 
                 event,
                 quantity: ticketQuantity,
@@ -132,6 +116,22 @@ const EventDetails = () => {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-900">
                 <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-orange-500 border-opacity-50"></div>
+            </div>
+        );
+    }
+    
+    if (error) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-900 text-white">
+                <h2 className="text-2xl font-bold mb-4">Error Loading Event</h2>
+                <p className="text-gray-300 mb-4">{error}</p>
+                <p className="text-gray-400 mb-8">Event ID from URL: {id}</p>
+                <button 
+                    onClick={handleGoBack}
+                    className="bg-gradient-to-r from-orange-500 to-red-600 text-white py-2.5 px-6 rounded-lg font-medium shadow-md"
+                >
+                    Go Back
+                </button>
             </div>
         );
     }
@@ -178,12 +178,6 @@ const EventDetails = () => {
                             <div className="flex flex-wrap items-center gap-4 text-sm md:text-base">
                                 <div className="flex items-center">
                                     <svg className="w-5 h-5 mr-1 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                    </svg>
-                                    {event.date}
-                                </div>
-                                <div className="flex items-center">
-                                    <svg className="w-5 h-5 mr-1 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
                                     {event.time}
@@ -199,7 +193,17 @@ const EventDetails = () => {
                                     <svg className="w-5 h-5 mr-1 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
                                     </svg>
-                                    <span className="font-semibold">{event.price}</span>
+                                    <span className="font-semibold">{event.price} BDT</span>
+                                </div>
+                                <div className="flex items-center">
+                                    <svg className="w-5 h-5 mr-1 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    {new Date(event.createdAt).toLocaleDateString('en-US', {
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric'
+                                    })}
                                 </div>
                             </div>
                         </div>
@@ -277,11 +281,45 @@ const EventDetails = () => {
                                                 <div className="font-bold text-orange-400">
                                                     {type.contactOnly 
                                                         ? 'Contact for price' 
-                                                        : `$${type.price}`}
+                                                        : `${type.price} BDT`}
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
+                                    
+                                    {/* Quantity selector for non-contact-only tickets */}
+                                    {!isContactOnly && (
+                                        <div className="mb-6">
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">
+                                                Number of Tickets
+                                            </label>
+                                            <div className="flex items-center">
+                                                <button
+                                                    onClick={() => setTicketQuantity(Math.max(1, ticketQuantity - 1))}
+                                                    className="bg-gray-700 text-white p-2 rounded-l-lg hover:bg-gray-600"
+                                                >
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4" />
+                                                    </svg>
+                                                </button>
+                                                <div className="bg-gray-700 text-white py-2 px-4 text-center w-20">
+                                                    {ticketQuantity}
+                                                </div>
+                                                <button
+                                                    onClick={() => setTicketQuantity(Math.min(event.ticketsAvailable, ticketQuantity + 1))}
+                                                    disabled={ticketQuantity >= event.ticketsAvailable}
+                                                    className="bg-gray-700 text-white p-2 rounded-r-lg hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
+                                                >
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                            <div className="mt-2 text-right text-sm text-orange-400 font-medium">
+                                                Total: {totalPrice} BDT
+                                            </div>
+                                        </div>
+                                    )}
                                     
                                     {/* Action buttons */}
                                     <div className="space-y-3">

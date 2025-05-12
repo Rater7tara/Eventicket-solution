@@ -1,50 +1,47 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation, Navigate } from 'react-router-dom';
 import { Home, UserCircle, LayoutDashboard, Ticket, LogOut, Menu, X, Calendar, Settings, FileText, ShoppingBag } from 'lucide-react';
 import { AuthContext } from '../providers/AuthProvider'; // Adjust the path as needed
 
 const DashboardLayout = () => {
-    const { user, logOut } = useContext(AuthContext);
-    const [isSidebarOpen, setSidebarOpen] = useState(true);
-    const location = useLocation();
+    const { user, loading, logOut } = useContext(AuthContext);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [userName, setUserName] = useState('User');
+    const location = useLocation();
     
-    // Get user data from AuthContext and localStorage
-    // Updated key name to match what we saved in the Register component
-    const [role, setRole] = useState('buyer'); // Default to buyer
-    
-    // Load role from localStorage when component mounts
     useEffect(() => {
-        const storedRole = localStorage.getItem('user-role');
-        if (storedRole) {
-            console.log("Found role in localStorage:", storedRole);
-            setRole(storedRole);
-        } else {
-            console.log("No role found in localStorage, using default: buyer");
-        }
-    }, []);
-    
-    // Update userName when user object changes - with improved logging
-    useEffect(() => {
-        console.log("User object changed:", user); // Add debugging to see what's in the user object
         if (user) {
-            if (user.displayName) {
-                setUserName(user.displayName);
-                console.log("Setting userName from displayName:", user.displayName);
-            } else if (user.name) {
-                // Try alternative property if displayName doesn't exist
+            // Set user name from available properties
+            if (user.name) {
                 setUserName(user.name);
-                console.log("Setting userName from name:", user.name);
             } else if (user.email) {
-                // Fallback to email if no name is available
                 setUserName(user.email.split('@')[0]);
-                console.log("Setting userName from email:", user.email);
             }
         }
     }, [user]);
     
+    // Show loading spinner while checking authentication
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center min-h-screen bg-orange-50">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
+            </div>
+        );
+    }
+    
+    // If not logged in, redirect to login
+    if (!user) {
+        return <Navigate to="/login" state={{ from: location }} replace />;
+    }
+    
+    // Get role directly from user object, default to 'buyer' if not present
+    const userRole = user.role || 'buyer';
+    
+    // Treat 'user' role the same as 'buyer' role for dashboard purposes
+    const role = userRole === 'user' ? 'buyer' : userRole;
+    
     // Format role for display (capitalize first letter)
-    const formattedRole = role.charAt(0).toUpperCase() + role.slice(1);
+    const formattedRole = userRole.charAt(0).toUpperCase() + userRole.slice(1);
     
     const commonLinks = [
         { to: '/', label: 'Home', icon: <Home size={20} /> },
@@ -54,7 +51,10 @@ const DashboardLayout = () => {
     const roleLinks = {
         admin: [
             { to: '/dashboard/manage-users', label: 'Manage Users', icon: <UserCircle size={20} /> },
+            { to: '/dashboard/manage-sellers', label: 'Manage Seller', icon: <UserCircle size={20} /> },
+            { to: '/dashboard/create-events', label: 'Create Events', icon: <Calendar size={20} /> },
             { to: '/dashboard/manage-events', label: 'Manage Events', icon: <Calendar size={20} /> },
+            { to: '/dashboard/sold-tickets', label: 'Sold Tickets', icon: <Calendar size={20} /> },
             { to: '/dashboard/reports', label: 'Reports', icon: <FileText size={20} /> },
             { to: '/dashboard/settings', label: 'Settings', icon: <Settings size={20} /> },
         ],
@@ -62,16 +62,16 @@ const DashboardLayout = () => {
             { to: '/dashboard/my-events', label: 'My Events', icon: <Calendar size={20} /> },
             { to: '/dashboard/add-event', label: 'Add Event', icon: <FileText size={20} /> },
             { to: '/dashboard/sales-report', label: 'Sales Report', icon: <ShoppingBag size={20} /> },
-            // { to: '/dashboard/settings', label: 'Settings', icon: <Settings size={20} /> },
         ],
         buyer: [
             { to: '/dashboard/my-tickets', label: 'My Tickets', icon: <Ticket size={20} /> },
             { to: '/dashboard/purchase-history', label: 'Purchase History', icon: <ShoppingBag size={20} /> },
         ],
+        // No need for a separate 'user' entry since we're mapping 'user' to 'buyer'
     };
 
-    // Use the role to determine which links to show
-    const links = [...commonLinks, ...(roleLinks[role] || [])];
+    // Use the role to determine which links to show, defaulting to buyer if invalid role
+    const links = [...commonLinks, ...(roleLinks[role] || roleLinks.buyer)];
     
     // Check if a link is active
     const isActive = (path) => {
@@ -82,10 +82,6 @@ const DashboardLayout = () => {
     const handleLogout = async () => {
         try {
             await logOut();
-            // Clear role from localStorage on logout
-            localStorage.removeItem('user-role');
-            localStorage.removeItem('access-token');
-            // Navigate to home page will be handled by the auth provider
         } catch (error) {
             console.error('Logout error:', error);
         }
@@ -93,15 +89,8 @@ const DashboardLayout = () => {
 
     // Toggle sidebar visibility (for mobile)
     const toggleSidebar = () => {
-        setSidebarOpen(!isSidebarOpen);
+        setIsSidebarOpen(!isSidebarOpen);
     };
-
-    // Debugging helper - render this somewhere hidden if needed
-    const debugOutput = process.env.NODE_ENV === 'development' ? (
-        <div className="hidden">
-            <pre>{JSON.stringify({ user, userName, role }, null, 2)}</pre>
-        </div>
-    ) : null;
 
     return (
         <div className="flex h-screen bg-orange-50">
@@ -123,15 +112,7 @@ const DashboardLayout = () => {
                 <div className="p-6 border-b border-orange-400">
                     <div className="flex items-center space-x-3 mb-4">
                         <div className="w-14 h-14 rounded-full bg-orange-300 flex items-center justify-center border-2 border-white shadow-md">
-                            {user && user.photoURL ? (
-                                <img 
-                                    src={user.photoURL} 
-                                    alt="Profile" 
-                                    className="w-full h-full rounded-full object-cover"
-                                />
-                            ) : (
-                                <UserCircle size={32} className="text-white" />
-                            )}
+                            <UserCircle size={32} className="text-white" />
                         </div>
                         <div>
                             <h2 className="font-bold text-lg text-white">{userName}</h2>
@@ -175,7 +156,7 @@ const DashboardLayout = () => {
             {/* Main content */}
             <main className="flex-1 overflow-y-auto p-6 lg:p-8">
                 <div className="max-w-6xl mx-auto">
-                    {/* Breadcrumb & page title could be added here */}
+                    {/* Page header */}
                     <div className="mb-6">
                         <h1 className="text-2xl font-bold text-gray-800">Welcome back, {userName}!</h1>
                         <p className="text-gray-800">
@@ -185,7 +166,6 @@ const DashboardLayout = () => {
                     
                     {/* Dashboard content */}
                     <div className="bg-white rounded-xl shadow-lg p-6">
-                        {debugOutput}
                         <Outlet />
                     </div>
                 </div>
