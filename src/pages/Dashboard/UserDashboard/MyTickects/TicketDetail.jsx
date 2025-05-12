@@ -42,7 +42,7 @@ const TicketDetail = () => {
   const downloadTicket = async (seatIndex) => {
     setDownloadStatus({ loading: true, error: null });
     try {
-      const response = await axios.get(`${serverURL}/user/download-tickets`, {
+      const response = await axios.get(`${serverURL.url}user/download-tickets`, {
         params: { 
           ticketId: ticketId,
           seatIndex: typeof seatIndex === 'number' ? seatIndex : undefined

@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../../../providers/AuthProvider';
+import serverURL from '../../../../ServerConfig';
 
 
 // Base URL for API calls
-const API_BASE_URL = 'https://event-ticket-backend.vercel.app/api/v1';
+const API_BASE_URL = serverURL.url;
 
 const UserDetailsForm = () => {
     const location = useLocation();

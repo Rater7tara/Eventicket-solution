@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { toast } from 'react-toastify'; // Assuming you use react-toastify for notifications
+import serverURL from '../../../../ServerConfig';
 
 const BecomeSeller = () => {
   const [showModal, setShowModal] = useState(false);
@@ -27,7 +28,7 @@ const BecomeSeller = () => {
     setLoading(true);
     
     try {
-      const response = await fetch('https://event-ticket-backend.vercel.app/api/v1/seller-request/request', {
+      const response = await fetch(`${serverURL.url}seller-request/request`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
