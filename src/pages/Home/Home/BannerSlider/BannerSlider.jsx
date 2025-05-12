@@ -6,7 +6,7 @@ import banner1 from "../../../../assets/banner/banner5.jpg";
 import banner2 from "/src/assets/banner/banner2.jpg";
 import banner3 from "/src/assets/banner/banner6.jpg";
 import banner4 from "/src/assets/banner/banner7.jpg";
-
+import BecomeSeller from '../BecomeSeller/BecomeSeller';
 
 const slides = [
     {
@@ -109,6 +109,9 @@ const BannerSlider = () => {
                     </div>
                 </div>
             </div> */}
+            
+            {/* Become Seller Button */}
+            <BecomeSeller />
             
             <Slider {...settings} className="banner-slider">
                 {slides.map((slide, index) => (

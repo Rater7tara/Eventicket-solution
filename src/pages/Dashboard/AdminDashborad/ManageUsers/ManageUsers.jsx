@@ -10,10 +10,12 @@ import {
   RefreshCw,
   AlertCircle,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Store
 } from 'lucide-react';
 import serverURL from '../../../../ServerConfig';
-import { AuthContext } from '../../../../providers/AuthProvider'; // Adjust the path as needed
+import { AuthContext } from '../../../../providers/AuthProvider';
+import ManageSellerRequests from '../SellerRequest/ManageSellerRequests';
 
 // Add these styles to your global CSS or component
 const fadeInUp = `
@@ -45,6 +47,7 @@ const ManageUsers = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [showSellerRequests, setShowSellerRequests] = useState(false);
 
   // Get auth token from localStorage
   const getAuthToken = () => {
@@ -180,6 +183,15 @@ const ManageUsers = () => {
     setCurrentPage(pageNumber);
   };
 
+  // Toggle between users and seller requests management
+  const toggleSellerRequestsView = () => {
+    setShowSellerRequests(!showSellerRequests);
+    // Reset any relevant state when switching views
+    setSearchTerm('');
+    setCurrentPage(1);
+    setError(null);
+  };
+
   // Role Update Modal
   const RoleUpdateModal = () => {
     if (!selectedUser) return null;
@@ -266,14 +278,32 @@ const ManageUsers = () => {
     );
   };
 
+  // If showing seller requests, render the seller requests component
+  if (showSellerRequests) {
+    return (
+      <ManageSellerRequests onBack={toggleSellerRequestsView} />
+    );
+  }
+
   return (
     <div className="bg-gray-50 min-h-screen p-6">
       <div className="max-w-7xl mx-auto">
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           {/* Header */}
           <div className="p-6 border-b border-gray-200">
-            <h1 className="text-2xl font-bold text-gray-800">Manage Users</h1>
-            <p className="text-gray-600 mt-1">View and manage all users in the system</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-800">Manage Users</h1>
+                <p className="text-gray-600 mt-1">View and manage all users in the system</p>
+              </div>
+              <button
+                onClick={toggleSellerRequestsView}
+                className="mt-4 sm:mt-0 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors duration-200 shadow-md flex items-center justify-center"
+              >
+                <Store className="mr-2" size={18} />
+                Manage Seller Requests
+              </button>
+            </div>
           </div>
           
           {/* User role check */}
@@ -381,7 +411,7 @@ const ManageUsers = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer ${
                           user.isBlocked 
                             ? 'bg-red-100 text-red-800' 
                             : 'bg-green-100 text-green-800'
@@ -402,10 +432,10 @@ const ManageUsers = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {new Date(user.createdAt).toLocaleDateString()}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center cursor-pointer">
                         <div className="flex justify-center space-x-2">
                           <button
-                            className={`p-1.5 rounded-md ${
+                            className={`p-1.5 rounded-md cursor-pointer ${
                               user.isBlocked 
                                 ? 'text-green-600 hover:bg-green-100' 
                                 : 'text-red-600 hover:bg-red-100'
@@ -416,7 +446,7 @@ const ManageUsers = () => {
                             {user.isBlocked ? <CheckCircle size={18} /> : <XCircle size={18} />}
                           </button>
                           <button
-                            className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-md"
+                            className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-md cursor-pointer"
                             onClick={() => {
                               setSelectedUser(user);
                               setIsRoleModalOpen(true);
@@ -426,7 +456,7 @@ const ManageUsers = () => {
                             <UserCog size={18} />
                           </button>
                           <button
-                            className="p-1.5 text-red-600 hover:bg-red-100 rounded-md"
+                            className="p-1.5 text-red-600 hover:bg-red-100 rounded-md cursor-pointer"
                             onClick={() => {
                               setSelectedUser(user);
                               setIsDeleteModalOpen(true);
@@ -446,13 +476,13 @@ const ManageUsers = () => {
           
           {/* Pagination */}
           {!loading && filteredUsers.length > 0 && (
-            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between ">
               <div className="text-sm text-gray-600">
                 Showing {indexOfFirstUser + 1} to {Math.min(indexOfLastUser, filteredUsers.length)} of {filteredUsers.length} users
               </div>
               <div className="flex space-x-2">
                 <button
-                  className="px-3 py-1 rounded-md border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 py-1 rounded-md border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 1}
                 >
@@ -491,7 +521,7 @@ const ManageUsers = () => {
                     );
                   })}
                 <button
-                  className="px-3 py-1 rounded-md border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 py-1 rounded-md border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages}
                 >
@@ -506,6 +536,11 @@ const ManageUsers = () => {
       {/* Modals */}
       {isRoleModalOpen && <RoleUpdateModal />}
       {isDeleteModalOpen && <DeleteConfirmationModal />}
+      
+      {/* Add CSS for animations */}
+      <style jsx global>{`
+        ${fadeInUp}
+      `}</style>
     </div>
   );
 };

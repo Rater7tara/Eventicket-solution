@@ -220,7 +220,7 @@ const BuyerDashboard = () => {
             </div>
 
             {/* Upcoming Events Section */}
-            <div className="mb-8">
+            {/* <div className="mb-8">
                 <h3 className="text-lg font-semibold mb-4">My Upcoming Events</h3>
                 <div className="grid grid-cols-1 gap-4">
                     {upcomingTickets && upcomingTickets.length > 0 ? (
@@ -268,10 +268,10 @@ const BuyerDashboard = () => {
                         </div>
                     )}
                 </div>
-            </div>
+            </div> */}
 
             {/* Recommended Events Section */}
-            <div>
+            {/* <div>
                 <h3 className="text-lg font-semibold mb-4">Recommended for You</h3>
                 {recommendedEvents && recommendedEvents.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -312,7 +312,7 @@ const BuyerDashboard = () => {
                         </Link>
                     </div>
                 )}
-            </div>
+            </div> */}
         </div>
     );
 };

@@ -321,7 +321,7 @@ const MyTickets = () => {
             </div>
             
             {/* Status message */}
-            {statusMessage && (
+            {/* {statusMessage && (
                 <div className="bg-blue-50 border border-blue-500 text-blue-700 px-4 py-3 rounded mb-4 flex items-start">
                     <div className="mr-2 mt-0.5">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -330,17 +330,17 @@ const MyTickets = () => {
                     </div>
                     <div>{statusMessage}</div>
                 </div>
-            )}
+            )} */}
             
             {/* Error message */}
-            {error && (
+            {/* {error && (
                 <div className="bg-red-50 border border-red-500 text-red-700 px-4 py-3 rounded mb-4 flex items-start">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
                     <div>{error}</div>
                 </div>
-            )}
+            )} */}
             
             {/* No tickets message */}
             {!loading && tickets.length === 0 && (
@@ -484,7 +484,7 @@ const MyTickets = () => {
             
             {/* Ticket details modal */}
             {selectedTicket && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
                         {/* Modal header */}
                         <div className="bg-gradient-to-r from-orange-700 to-orange-500 p-4 flex justify-between items-center">
