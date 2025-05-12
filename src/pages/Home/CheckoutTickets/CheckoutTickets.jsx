@@ -165,7 +165,7 @@ const CheckoutTickets = () => {
   const handleViewTickets = () => {
     const savedOrderId = localStorage.getItem('completedOrderId') || orderData?.orderId;
 
-    navigate("dashboard/my-tickets", {
+    navigate("/dashboard/my-tickets", {
       state: {
         event,
         selectedSeats,
