@@ -18,7 +18,7 @@ const EventCard = ({ event }) => {
     return (
         <div onClick={handleClick} className="max-w-sm mx-auto">
             {/* Main card container with 3D-like effect */}
-            <div className="group relative w-full cursor-pointer transition-all duration-500 hover:rotate-1 transform perspective-1000">
+            <div className="group relative w-80 cursor-pointer transition-all duration-500 hover:rotate-1 transform perspective-1000">
                 {/* Background gradient layer */}
                 <div className="absolute inset-0 bg-gradient-to-br from-orange-300 via-orange-400 to-orange-500 rounded-xl shadow-2xl opacity-80 group-hover:opacity-90 transition-opacity duration-300"></div>
                 
@@ -69,7 +69,7 @@ const EventCard = ({ event }) => {
                                 {event.title}
                             </h3>
                             
-                            <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                            <p className="text-gray-600 text-sm mb-4 line-clamp-2 h-9">
                                 {event.description}
                             </p>
                             
