@@ -16,9 +16,9 @@ const EventCard = ({ event }) => {
     };
 
     return (
-        <div onClick={handleClick} className="max-w-sm mx-auto">
+        <div onClick={handleClick} className="w-80 h-full"> {/* Added h-full for consistent height */}
             {/* Main card container with 3D-like effect */}
-            <div className="group relative w-80 cursor-pointer transition-all duration-500 hover:rotate-1 transform perspective-1000">
+            <div className="group relative cursor-pointer transition-all duration-500 hover:rotate-1 transform perspective-1000">
                 {/* Background gradient layer */}
                 <div className="absolute inset-0 bg-gradient-to-br from-orange-300 via-orange-400 to-orange-500 rounded-xl shadow-2xl opacity-80 group-hover:opacity-90 transition-opacity duration-300"></div>
                 
@@ -65,7 +65,7 @@ const EventCard = ({ event }) => {
                         
                         {/* Content section */}
                         <div className="p-4">
-                            <h3 className="text-lg font-bold text-gray-800 mb-2 group-hover:text-orange-600 transition-colors duration-300">
+                            <h3 className="text-lg font-bold text-gray-800 mb-2 group-hover:text-orange-600 transition-colors duration-300 truncate">
                                 {event.title}
                             </h3>
                             
@@ -86,7 +86,7 @@ const EventCard = ({ event }) => {
                             <button 
                                 onClick={handleGetTickets}
                                 disabled={event.ticketsAvailable <= 0}
-                                className={`w-full py-2.5 px-4 rounded-lg font-medium shadow-md hover:shadow-xl transform group-hover:translate-y-0 translate-y-0 transition-all duration-300 ${
+                                className={`w-full py-2.5 px-4 rounded-lg font-medium shadow-md hover:shadow-xl transform cursor-pointer group-hover:translate-y-0 translate-y-0 transition-all duration-300 ${
                                     event.ticketsAvailable <= 0 
                                     ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
                                     : 'bg-gradient-to-r from-orange-500 to-red-600 text-white group-hover:scale-105'

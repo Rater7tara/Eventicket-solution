@@ -3,30 +3,48 @@ import { Link } from 'react-router-dom';
 import { Calendar, Users, FileText, Home, Phone, Mail, MapPin, Instagram, Facebook, Twitter, Music, Ticket, Heart, ChevronRight, Code } from 'lucide-react';
 import logo from '../../../assets/logo.png';
 
+// Define keyframe animations in a regular CSS class
+const animationStyles = {
+  floatAnimation: {
+    animation: 'float 6s ease-in-out infinite',
+  },
+  floatDelayedAnimation: {
+    animation: 'floatDelayed 7s ease-in-out infinite',
+    animationDelay: '2s',
+  },
+  floatSlowAnimation: {
+    animation: 'float 8s ease-in-out infinite',
+  },
+  floatDelayedSlowAnimation: {
+    animation: 'floatDelayed 9s ease-in-out infinite',
+    animationDelay: '1s',
+  },
+};
+
 const Footer = () => {
   return (
     <footer className="bg-gradient-to-br from-orange-100 via-orange-50 to-white pt-16 overflow-hidden relative">
       {/* Animated music notes decoration */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-10">
-        <div className="animate-float absolute top-20 left-10">
+        <div style={animationStyles.floatAnimation} className="absolute top-20 left-10">
           <Music size={32} className="text-orange-600" />
         </div>
-        <div className="animate-float-delayed absolute top-40 right-[10%]">
+        <div style={animationStyles.floatDelayedAnimation} className="absolute top-40 right-[10%]">
           <Music size={24} className="text-orange-500" />
         </div>
-        <div className="animate-float-slow absolute bottom-40 left-[20%]">
+        <div style={animationStyles.floatSlowAnimation} className="absolute bottom-40 left-[20%]">
           <Music size={28} className="text-orange-400" />
         </div>
-        <div className="animate-float-delayed-slow absolute bottom-20 right-[25%]">
+        <div style={animationStyles.floatDelayedSlowAnimation} className="absolute bottom-20 right-[25%]">
           <Music size={20} className="text-orange-300" />
         </div>
-        <div className="animate-float absolute top-[30%] left-[30%]">
+        <div style={animationStyles.floatAnimation} className="absolute top-[30%] left-[30%]">
           <Music size={22} className="text-orange-400" />
         </div>
-        <div className="animate-float-slow absolute top-[25%] right-[18%]">
+        <div style={animationStyles.floatSlowAnimation} className="absolute top-[25%] right-[18%]">
           <Ticket size={28} className="text-orange-500" />
         </div>
-        <div className="animate-float-delayed absolute bottom-[35%] left-[15%]">
+        <div style={animationStyles.floatDelayedAnimation} className="absolute bottom-[35%] left-[15%]">
           <Ticket size={24} className="text-orange-300" />
         </div>
       </div>
@@ -195,31 +213,19 @@ const Footer = () => {
         </div>
       </div>
       
-      {/* Custom animations */}
-      <style jsx>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-15px); }
-        }
-        @keyframes floatDelayed {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-10px); }
-        }
-        .animate-float {
-          animation: float 6s ease-in-out infinite;
-        }
-        .animate-float-delayed {
-          animation: floatDelayed 7s ease-in-out infinite;
-          animation-delay: 2s;
-        }
-        .animate-float-slow {
-          animation: float 8s ease-in-out infinite;
-        }
-        .animate-float-delayed-slow {
-          animation: floatDelayed 9s ease-in-out infinite;
-          animation-delay: 1s;
-        }
-      `}</style>
+      {/* Define animation keyframes using plain CSS */}
+      <style>
+        {`
+          @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+          }
+          @keyframes floatDelayed {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+          }
+        `}
+      </style>
     </footer>
   );
 };

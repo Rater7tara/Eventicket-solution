@@ -60,7 +60,7 @@ const NavBar = () => {
             const currentUserInfo = {
                 name: user.displayName || 'User',
                 email: user.email,
-                avatar: user.photoURL || 'https://i.pravatar.cc/100' // Default avatar if none provided
+                avatar: user.photoURL || null // Changed to null instead of fake image generator
             };
             
             // Save user info to localStorage for persistence
@@ -161,7 +161,7 @@ const NavBar = () => {
                             {/* Login/Logout Button */}
                             {!user ? (
                                 <Link to="/login">
-                                    <button className="hidden sm:flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium rounded-full hover:shadow-md hover:shadow-orange-300 transition-all duration-300 transform hover:-translate-y-0.5">
+                                    <button className="hidden sm:flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium rounded-full hover:shadow-md hover:shadow-orange-300 transition-all duration-300 transform hover:-translate-y-0.5 cursor-pointer">
                                         <LogIn size={18} />
                                         <span>Login</span>
                                     </button>
@@ -169,7 +169,7 @@ const NavBar = () => {
                             ) : (
                                 <button 
                                     onClick={handleLogout}
-                                    className="hidden sm:flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium rounded-full hover:shadow-md hover:shadow-orange-300 transition-all duration-300 transform hover:-translate-y-0.5"
+                                    className="hidden sm:flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium rounded-full hover:shadow-md hover:shadow-orange-300 transition-all duration-300 transform hover:-translate-y-0.5 cursor-pointer"
                                 >
                                     <LogOut size={18} />
                                     <span>Logout</span>
@@ -180,11 +180,17 @@ const NavBar = () => {
                             {user && userInfo ? (
                                 <div className="relative cursor-pointer group">
                                     <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-orange-500 transform transition-transform duration-300 group-hover:scale-110">
-                                        <img 
-                                            src={userInfo.avatar || "https://i.pravatar.cc/100"} 
-                                            alt="User" 
-                                            className="w-full h-full object-cover" 
-                                        />
+                                        {userInfo.avatar ? (
+                                            <img 
+                                                src={userInfo.avatar} 
+                                                alt="User" 
+                                                className="w-full h-full object-cover" 
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-orange-100">
+                                                <User size={20} className="text-orange-500" />
+                                            </div>
+                                        )}
                                     </div>
                                     
                                     {/* Dropdown menu for avatar */}
@@ -238,11 +244,17 @@ const NavBar = () => {
                         {user && userInfo && (
                             <div className="flex items-center space-x-3 p-3 bg-orange-50 rounded-lg mb-3">
                                 <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-orange-500">
-                                    <img 
-                                        src={userInfo.avatar || "https://i.pravatar.cc/100"} 
-                                        alt="User" 
-                                        className="w-full h-full object-cover" 
-                                    />
+                                    {userInfo.avatar ? (
+                                        <img 
+                                            src={userInfo.avatar} 
+                                            alt="User" 
+                                            className="w-full h-full object-cover" 
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-orange-100">
+                                            <User size={24} className="text-orange-500" />
+                                        </div>
+                                    )}
                                 </div>
                                 <div>
                                     <p className="font-medium text-gray-800">{userInfo.name}</p>

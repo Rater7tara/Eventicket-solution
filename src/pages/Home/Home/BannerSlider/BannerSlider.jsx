@@ -39,6 +39,11 @@ const slides = [
     },
 ];
 
+// Define the animation styles
+const fadeInAnimation = {
+    animation: 'fadeIn 1s ease-in-out'
+};
+
 const BannerSlider = () => {
     const [activeSlide, setActiveSlide] = useState(0);
     
@@ -47,7 +52,7 @@ const BannerSlider = () => {
         const { onClick } = props;
         return (
             <button 
-                className="absolute right-6 top-1/2 -translate-y-1/2 z-10 bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white rounded-full w-12 h-12 flex items-center justify-center transition-all duration-300 focus:outline-none transform hover:scale-110"
+                className="absolute right-6 top-1/2 -translate-y-1/2 z-10 bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white rounded-full w-12 h-12 flex items-center justify-center transition-all duration-300 focus:outline-none transform hover:scale-110 cursor-pointer"
                 onClick={onClick}
             >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -61,7 +66,7 @@ const BannerSlider = () => {
         const { onClick } = props;
         return (
             <button 
-                className="absolute left-6 top-1/2 -translate-y-1/2 z-10 bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white rounded-full w-12 h-12 flex items-center justify-center transition-all duration-300 focus:outline-none transform hover:scale-110"
+                className="absolute left-6 top-1/2 -translate-y-1/2 z-10 bg-white/20 hover:bg-white/40 backdrop-blur-sm text-white rounded-full w-12 h-12 flex items-center justify-center transition-all duration-300 focus:outline-none transform hover:scale-110 cursor-pointer"
                 onClick={onClick}
             >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -128,7 +133,7 @@ const BannerSlider = () => {
                         
                         {/* Content positioned to the side */}
                         <div className="absolute inset-0 z-20 flex flex-col justify-center max-w-5xl mx-auto px-8 md:px-12">
-                            <div className="animate-fade-in" style={{animationDelay: '0.3s'}}>
+                            <div style={{...fadeInAnimation, animationDelay: '0.3s'}}>
                                 <span className="inline-block bg-orange-500 text-white px-3 py-1 rounded-full text-sm mb-4 font-medium tracking-wider">
                                     {slide.category}
                                 </span>
@@ -159,26 +164,24 @@ const BannerSlider = () => {
                 ))}
             </Slider>
             
-            {/* Add this CSS to your global styles or component */}
-            <style jsx>{`
-                .animate-fade-in {
-                    animation: fadeIn 1s ease-in-out;
-                }
-                
-                @keyframes fadeIn {
-                    from { opacity: 0; transform: translateY(20px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
-                
-                /* Fix for Slick Slider dots positioning */
-                .banner-slider .slick-dots {
-                    bottom: 30px;
-                }
-                
-                .banner-slider .slick-dots li button:before {
-                    display: none;
-                }
-            `}</style>
+            {/* Add global CSS keyframes */}
+            <style>
+                {`
+                    @keyframes fadeIn {
+                        from { opacity: 0; transform: translateY(20px); }
+                        to { opacity: 1; transform: translateY(0); }
+                    }
+                    
+                    /* Fix for Slick Slider dots positioning */
+                    .banner-slider .slick-dots {
+                        bottom: 30px;
+                    }
+                    
+                    .banner-slider .slick-dots li button:before {
+                        display: none;
+                    }
+                `}
+            </style>
         </div>
     );
 };

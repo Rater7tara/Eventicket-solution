@@ -288,7 +288,7 @@ const EventDetails = () => {
                                     </div>
                                     
                                     {/* Quantity selector for non-contact-only tickets */}
-                                    {!isContactOnly && (
+                                    {/* {!isContactOnly && (
                                         <div className="mb-6">
                                             <label className="block text-sm font-medium text-gray-300 mb-2">
                                                 Number of Tickets
@@ -319,7 +319,7 @@ const EventDetails = () => {
                                                 Total: {totalPrice} BDT
                                             </div>
                                         </div>
-                                    )}
+                                    )} */}
                                     
                                     {/* Action buttons */}
                                     <div className="space-y-3">
@@ -327,7 +327,7 @@ const EventDetails = () => {
                                             <button 
                                                 onClick={handleBookNow}
                                                 disabled={event.ticketsAvailable <= 0}
-                                                className={`w-full py-3 px-4 rounded-lg font-bold shadow-md text-center ${
+                                                className={`w-full py-3 px-4 rounded-lg font-bold shadow-md text-center cursor-pointer ${
                                                     event.ticketsAvailable <= 0
                                                     ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                                                     : 'bg-gradient-to-r from-orange-500 to-red-600 text-white hover:shadow-lg transform transition-all duration-300 hover:translate-y-0 hover:scale-105'
@@ -347,7 +347,7 @@ const EventDetails = () => {
                                         {!isContactOnly && (
                                             <button 
                                                 onClick={handleContactOrganizer}
-                                                className="w-full bg-transparent border-2 border-orange-500 text-orange-400 py-3 px-4 rounded-lg font-medium hover:bg-orange-500/10 transition-colors"
+                                                className="w-full bg-transparent border-2 border-orange-500 text-orange-400 py-3 px-4 rounded-lg font-medium hover:bg-orange-500/10 transition-colors cursor-pointer"
                                             >
                                                 Contact Organizer
                                             </button>

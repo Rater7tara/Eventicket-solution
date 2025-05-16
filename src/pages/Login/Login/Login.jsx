@@ -140,9 +140,9 @@ const Login = () => {
         </form>
       </div>
       
-      <div className="absolute bottom-4 text-center text-xs text-white/60 w-full">
+      {/* <div className="absolute bottom-4 text-center text-xs text-white/60 w-full">
         © 2025 Event n Ticket. All rights reserved.
-      </div>
+      </div> */}
     </div>
   );
 };

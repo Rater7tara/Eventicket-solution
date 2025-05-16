@@ -554,7 +554,7 @@ const UserDetailsForm = () => {
                             <button
                                 type="submit"
                                 disabled={isSubmitting}
-                                className={`w-full bg-gradient-to-r from-orange-500 to-red-600 text-white py-3 px-4 rounded-lg font-bold shadow-md ${
+                                className={`w-full bg-gradient-to-r from-orange-500 to-red-600 text-white py-3 px-4 rounded-lg font-bold shadow-md cursor-pointer ${
                                     isSubmitting 
                                     ? 'opacity-70 cursor-not-allowed' 
                                     : 'hover:shadow-lg transform transition-all duration-300 hover:translate-y-0 hover:scale-[1.02]'
@@ -581,7 +581,7 @@ const UserDetailsForm = () => {
                             <button
                                 type="button"
                                 onClick={() => navigate(-1)}
-                                className="text-orange-400 hover:text-orange-300 text-sm"
+                                className="text-orange-400 hover:text-orange-300 text-sm cursor-pointer"
                             >
                                 ← Back
                             </button>

@@ -66,7 +66,7 @@ const BecomeSeller = () => {
       {/* Become Seller Button */}
       <button 
         onClick={() => setShowModal(true)}
-        className="absolute top-8 right-8 z-20 bg-white text-orange-500 hover:bg-orange-500 hover:text-white px-4 py-2 rounded-lg font-medium transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center gap-2"
+        className="absolute top-8 right-8 z-20 bg-white text-orange-500 hover:bg-orange-500 hover:text-white px-4 py-2 rounded-lg font-medium transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center gap-2 cursor-pointer"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />

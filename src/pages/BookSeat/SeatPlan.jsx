@@ -273,7 +273,7 @@ const SeatPlan = () => {
           <div className="flex items-center justify-between mb-4">
             <button
               onClick={handleGoBack}
-              className="flex items-center text-white hover:text-orange-200 transition-colors"
+              className="flex items-center text-white hover:text-orange-200 transition-colors cursor-pointer"
             >
               <svg
                 className="w-5 h-5 mr-1"
@@ -377,7 +377,7 @@ const SeatPlan = () => {
             {sections.map((section) => (
               <button
                 key={section.id}
-                className={`px-3 py-1 rounded-full text-sm font-medium transition-all duration-200 ${
+                className={`px-3 py-1 rounded-full text-sm font-medium transition-all duration-200 cursor-pointer ${
                   activeSection === section.id
                     ? "bg-orange-600 text-white shadow-md"
                     : "bg-gray-700 text-gray-300 hover:bg-gray-600"
@@ -440,7 +440,7 @@ const SeatPlan = () => {
                         </div>
                         <button
                           onClick={() => handleContactOrganizer(sections[0])}
-                          className="ml-auto bg-red-600 hover:bg-red-500 text-white py-2 px-4 rounded-lg text-sm font-medium"
+                          className="ml-auto bg-red-600 hover:bg-red-500 text-white cursor-pointer py-2 px-4 rounded-lg text-sm font-medium"
                         >
                           Contact for VIP Booking
                         </button>
@@ -566,7 +566,7 @@ const SeatPlan = () => {
                                               number: seatNumber,
                                             })
                                           }
-                                          className={`w-6 h-6 rounded flex items-center justify-center text-xs font-medium transition-all ${
+                                          className={`w-6 h-6 rounded flex items-center justify-center text-xs font-medium transition-all cursor-pointer ${
                                             isBooked
                                               ? "bg-gray-700 opacity-50 cursor-not-allowed"
                                               : isSelected
@@ -672,7 +672,7 @@ const SeatPlan = () => {
                                               number: seatNumber,
                                             })
                                           }
-                                          className={`w-6 h-6 rounded flex items-center justify-center text-xs font-medium transition-all ${
+                                          className={`w-6 h-6 rounded flex items-center justify-center text-xs font-medium transition-all cursor-pointer ${
                                             isBooked
                                               ? "bg-gray-700 opacity-50 cursor-not-allowed"
                                               : isSelected
@@ -784,7 +784,7 @@ const SeatPlan = () => {
                                               number: seatNumber,
                                             })
                                           }
-                                          className={`w-6 h-6 rounded flex items-center justify-center text-xs font-medium transition-all ${
+                                          className={`w-6 h-6 rounded flex items-center justify-center text-xs font-medium transition-all cursor-pointer ${
                                             isBooked
                                               ? "bg-gray-700 opacity-50 cursor-not-allowed"
                                               : isSelected
@@ -893,7 +893,7 @@ const SeatPlan = () => {
                                               number: seatNumber,
                                             })
                                           }
-                                          className={`w-6 h-6 rounded flex items-center justify-center text-xs font-medium transition-all ${
+                                          className={`w-6 h-6 rounded flex items-center justify-center text-xs font-medium transition-all cursor-pointer ${
                                             isBooked
                                               ? "bg-gray-700 opacity-50 cursor-not-allowed"
                                               : isSelected
@@ -986,7 +986,7 @@ const SeatPlan = () => {
                                               number: seatNumber,
                                             })
                                           }
-                                          className={`w-5 h-5 rounded flex items-center justify-center text-xs font-medium transition-all ${
+                                          className={`w-5 h-5 rounded flex items-center justify-center text-xs font-medium transition-all cursor-pointer ${
                                             isBooked
                                               ? "bg-gray-700 opacity-50 cursor-not-allowed"
                                               : isSelected
@@ -1101,7 +1101,7 @@ const SeatPlan = () => {
                           <div className="font-bold">${seat.price}</div>
                           <button
                             onClick={() => toggleSeat(seat)}
-                            className="text-xs text-orange-400 hover:text-orange-300"
+                            className="text-xs text-orange-400 hover:text-orange-300 cursor-pointer"
                           >
                             Remove
                           </button>
@@ -1130,7 +1130,7 @@ const SeatPlan = () => {
                   <button
                     onClick={handleCheckout}
                     disabled={selectedSeats.length === 0}
-                    className={`w-full py-3 ${
+                    className={`w-full py-3 cursor-pointer ${
                       selectedSeats.length === 0
                         ? "bg-gray-600 cursor-not-allowed"
                         : "bg-gradient-to-r from-purple-600 to-purple-700 hover:shadow-purple-500/30 transform hover:-translate-y-0.5"
@@ -1143,7 +1143,7 @@ const SeatPlan = () => {
 
                   <button
                     onClick={() => setSelectedSeats([])}
-                    className="w-full mt-2 py-2 border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors"
+                    className="w-full mt-2 py-2 border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors cursor-pointer"
                   >
                     Clear Selection
                   </button>
@@ -1195,7 +1195,7 @@ const SeatPlan = () => {
                       },
                     })
                   }
-                  className="w-full py-2 bg-transparent border border-purple-500 text-purple-400 rounded-lg text-sm hover:bg-purple-500/10 transition-colors"
+                  className="w-full py-2 bg-transparent border border-purple-500 text-purple-400 rounded-lg text-sm hover:bg-purple-500/10 transition-colors cursor-pointer"
                 >
                   Contact Event Organizer
                 </button>

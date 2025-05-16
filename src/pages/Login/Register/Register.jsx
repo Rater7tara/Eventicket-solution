@@ -9,7 +9,7 @@ const Register = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || "/";
-  
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -22,43 +22,49 @@ const Register = () => {
   const handleRegister = async (e) => {
     e.preventDefault();
     setError("");
-    
+
     try {
       // Basic validation
       if (password !== confirmPassword) {
         setError("Passwords do not match");
         return;
       }
-      
+
       if (password.length < 6) {
         setError("Password must be at least 6 characters");
         return;
       }
-      
+
       console.log("Form validation passed, attempting registration...");
       setLoading(true);
-      
+
       // Step 1: Create the user account
       const result = await createUser(name, email, phone, password);
       console.log("Registration successful:", result);
-      
+
       // Step 2: Now login to get a token
       try {
         console.log("Automatically logging in to get auth token...");
         const loginResult = await signIn(email, password);
         console.log("Auto-login successful:", loginResult);
-        
+
         // Navigate to the destination page
         navigate(from, { replace: true });
       } catch (loginErr) {
         console.error("Auto-login failed:", loginErr);
-        setError("Account created but automatic login failed. Please try logging in manually.");
+        setError(
+          "Account created but automatic login failed. Please try logging in manually."
+        );
         // Still navigate to login page since account was created
         navigate("/login", { replace: true });
       }
     } catch (err) {
       console.error("Registration error:", err);
-      setError(err.message || "Failed to create account. Please try again.");
+      if (err.code === "auth/email-already-in-use") {
+        setError("This email is already registered. Please log in instead.");
+      } else {
+        setError(err.message || "Failed to create account. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -70,7 +76,7 @@ const Register = () => {
       <div className="absolute bottom-20 right-20 w-60 h-60 bg-yellow-300 opacity-20 rounded-full blur-2xl -z-10"></div>
       <div className="absolute top-1/3 right-1/4 w-40 h-40 bg-pink-400 opacity-20 rounded-full blur-2xl -z-10"></div>
       <div className="absolute bottom-1/3 left-1/4 w-32 h-32 bg-red-400 opacity-10 rounded-full blur-xl -z-10"></div>
-      
+
       <div className="bg-white/20 backdrop-blur-xl border border-white/30 shadow-2xl rounded-3xl p-8 w-full max-w-md mx-auto my-8">
         <div className="flex flex-col items-center justify-center text-center mb-6">
           <div className="bg-gradient-to-br from-orange-100 to-orange-300 text-white p-4 rounded-full shadow-lg mb-4">
@@ -113,7 +119,10 @@ const Register = () => {
           </div>
 
           <div className="form-control">
-            <label className="block text-white font-medium mb-2" htmlFor="email">
+            <label
+              className="block text-white font-medium mb-2"
+              htmlFor="email"
+            >
               Email Address
             </label>
             <div className="relative">
@@ -134,7 +143,10 @@ const Register = () => {
           </div>
 
           <div className="form-control">
-            <label className="block text-white font-medium mb-2" htmlFor="phone">
+            <label
+              className="block text-white font-medium mb-2"
+              htmlFor="phone"
+            >
               Phone Number
             </label>
             <div className="relative">
@@ -155,7 +167,10 @@ const Register = () => {
           </div>
 
           <div className="form-control">
-            <label className="block text-white font-medium mb-2" htmlFor="password">
+            <label
+              className="block text-white font-medium mb-2"
+              htmlFor="password"
+            >
               Password
             </label>
             <div className="relative">
@@ -176,7 +191,10 @@ const Register = () => {
           </div>
 
           <div className="form-control">
-            <label className="block text-white font-medium mb-2" htmlFor="confirmPassword">
+            <label
+              className="block text-white font-medium mb-2"
+              htmlFor="confirmPassword"
+            >
               Confirm Password
             </label>
             <div className="relative">
@@ -197,27 +215,37 @@ const Register = () => {
           </div>
 
           <div className="flex items-center">
-            <input 
-              id="show-password" 
-              type="checkbox" 
+            <input
+              id="show-password"
+              type="checkbox"
               checked={showPassword}
               onChange={() => setShowPassword(!showPassword)}
               className="w-4 h-4 rounded border-orange-300 text-orange-600 focus:ring-orange-500"
             />
-            <label htmlFor="show-password" className="ml-2 block text-sm text-white">
+            <label
+              htmlFor="show-password"
+              className="ml-2 block text-sm text-white"
+            >
               Show password
             </label>
           </div>
 
           <div className="flex items-center mt-4">
-            <input 
-              id="terms" 
-              type="checkbox" 
+            <input
+              id="terms"
+              type="checkbox"
               required
               className="w-4 h-4 rounded border-orange-300 text-orange-600 focus:ring-orange-500"
             />
             <label htmlFor="terms" className="ml-2 block text-sm text-white">
-              I agree to the <a href="/terms" className="underline hover:text-yellow-200">Terms of Service</a> and <a href="/privacy" className="underline hover:text-yellow-200">Privacy Policy</a>
+              I agree to the{" "}
+              <a href="/terms" className="underline hover:text-yellow-200">
+                Terms of Service
+              </a>{" "}
+              and{" "}
+              <a href="/privacy" className="underline hover:text-yellow-200">
+                Privacy Policy
+              </a>
             </label>
           </div>
 
@@ -231,16 +259,19 @@ const Register = () => {
 
           <div className="text-center text-sm text-white mt-4">
             Already have an account?{" "}
-            <a href="/login" className="font-medium text-yellow-300 hover:text-yellow-200 underline">
+            <a
+              href="/login"
+              className="font-medium text-yellow-300 hover:text-yellow-200 underline"
+            >
               Sign in
             </a>
           </div>
         </form>
       </div>
-      
-      <div className="absolute bottom-4 text-center text-xs text-white/60 w-full">
+
+      {/* <div className="absolute bottom-4 text-center text-xs text-white/60 w-full">
         © 2025 Event n Ticket. All rights reserved.
-      </div>
+      </div> */}
     </div>
   );
 };
