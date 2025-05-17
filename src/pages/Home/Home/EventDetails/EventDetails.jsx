@@ -11,7 +11,6 @@ const EventDetails = () => {
     const eventFromState = location.state?.event;
     
     const [event, setEvent] = useState(null);
-    const [ticketQuantity, setTicketQuantity] = useState(1);
     const [selectedTicketType, setSelectedTicketType] = useState(0);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -36,7 +35,7 @@ const EventDetails = () => {
             
             // Otherwise, fetch from API
             try {
-                const response = await fetch(`${serverURL.url}ticket/tickets/${id}`);
+                const response = await fetch(`${serverURL.url}event/events/${id}`);
                 
                 if (!response.ok) {
                     throw new Error(`Failed to fetch event: ${response.status}`);
@@ -49,6 +48,7 @@ const EventDetails = () => {
                 const eventData = data.ticket || data;
                 
                 if (eventData) {
+                    console.log("Event data before preparation:", eventData);
                     prepareEventData(eventData);
                 } else {
                     console.error("Event not found with ID:", id);
@@ -67,24 +67,38 @@ const EventDetails = () => {
     
     // Helper function to prepare event data with default values if needed
     const prepareEventData = (eventData) => {
+        // Make a copy of the data to avoid modifying the original directly
+        const preparedData = { ...eventData };
+        
         // Set default ticket types if not provided
-        if (!eventData.ticketTypes) {
-            eventData.ticketTypes = [
-                { id: 1, name: "Regular", price: eventData.price || "800", contactOnly: false },
+        if (!preparedData.ticketTypes || preparedData.ticketTypes.length === 0) {
+            preparedData.ticketTypes = [
+                { id: 1, name: "Regular", price: preparedData.price || "800", contactOnly: false },
                 { id: 2, name: "VIP", price: "0", contactOnly: true }
             ];
         }
         
         // Set default organizer if not provided
-        if (!eventData.organizer) {
-            eventData.organizer = {
+        if (!preparedData.organizer) {
+            preparedData.organizer = {
                 name: "Event Organizer",
                 phone: "+880 1XX XXX XXXX",
                 email: "contact@eventorganizer.com"
             };
         }
         
-        setEvent(eventData);
+        // Set default values for other potential undefined properties
+        preparedData.title = preparedData.title || "Event";
+        preparedData.image = preparedData.image || "https://placehold.co/600x400?text=Event+Image";
+        preparedData.description = preparedData.description || "No description available.";
+        preparedData.time = preparedData.time || "TBD";
+        preparedData.location = preparedData.location || "TBD";
+        preparedData.price = preparedData.price || "0";
+        preparedData.ticketsAvailable = preparedData.ticketsAvailable || 0;
+        preparedData.createdAt = preparedData.createdAt || new Date().toISOString();
+        
+        setEvent(preparedData);
+        console.log("Prepared event data:", preparedData);
     };
 
     const handleGoBack = () => {
@@ -96,7 +110,6 @@ const EventDetails = () => {
         navigate('/SeatPlan', { 
             state: { 
                 event,
-                quantity: ticketQuantity,
                 ticketType: event.ticketTypes[selectedTicketType] 
             } 
         });
@@ -152,10 +165,25 @@ const EventDetails = () => {
         );
     }
 
-    // Calculate the price based on selected ticket type
-    const ticketPrice = event.ticketTypes[selectedTicketType].price;
-    const totalPrice = ticketPrice * ticketQuantity;
-    const isContactOnly = event.ticketTypes[selectedTicketType].contactOnly;
+    // Defensive check before rendering
+    if (event && (!event.ticketTypes || !Array.isArray(event.ticketTypes) || event.ticketTypes.length === 0)) {
+        console.error("Event is missing ticket types after preparation:", event);
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-900 text-white">
+                <h2 className="text-2xl font-bold mb-4">Error Loading Event</h2>
+                <p className="text-gray-300 mb-4">The event data is incomplete. Missing ticket information.</p>
+                <p className="text-gray-400 mb-8">Event ID from URL: {id}</p>
+                <button 
+                    onClick={handleGoBack}
+                    className="bg-gradient-to-r from-orange-500 to-red-600 text-white py-2.5 px-6 rounded-lg font-medium shadow-md"
+                >
+                    Go Back
+                </button>
+            </div>
+        );
+    }
+
+    const isContactOnly = event.ticketTypes[selectedTicketType]?.contactOnly || false;
 
     return (
         <div className="min-h-screen bg-gray-900 py-8 px-4 sm:px-6 lg:px-8 text-white">
@@ -188,12 +216,6 @@ const EventDetails = () => {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                                     </svg>
                                     {event.location}
-                                </div>
-                                <div className="flex items-center">
-                                    <svg className="w-5 h-5 mr-1 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
-                                    </svg>
-                                    <span className="font-semibold">{event.price} BDT</span>
                                 </div>
                                 <div className="flex items-center">
                                     <svg className="w-5 h-5 mr-1 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -274,52 +296,13 @@ const EventDetails = () => {
                                                     <div className="font-medium text-white">{type.name}</div>
                                                     <div className="text-xs text-gray-400">
                                                         {type.contactOnly 
-                                                            ? 'Contact organizer for pricing'
+                                                            ? 'Contact organizer for details'
                                                             : 'Includes all event access'}
                                                     </div>
-                                                </div>
-                                                <div className="font-bold text-orange-400">
-                                                    {type.contactOnly 
-                                                        ? 'Contact for price' 
-                                                        : `${type.price} BDT`}
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
-                                    
-                                    {/* Quantity selector for non-contact-only tickets */}
-                                    {/* {!isContactOnly && (
-                                        <div className="mb-6">
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">
-                                                Number of Tickets
-                                            </label>
-                                            <div className="flex items-center">
-                                                <button
-                                                    onClick={() => setTicketQuantity(Math.max(1, ticketQuantity - 1))}
-                                                    className="bg-gray-700 text-white p-2 rounded-l-lg hover:bg-gray-600"
-                                                >
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4" />
-                                                    </svg>
-                                                </button>
-                                                <div className="bg-gray-700 text-white py-2 px-4 text-center w-20">
-                                                    {ticketQuantity}
-                                                </div>
-                                                <button
-                                                    onClick={() => setTicketQuantity(Math.min(event.ticketsAvailable, ticketQuantity + 1))}
-                                                    disabled={ticketQuantity >= event.ticketsAvailable}
-                                                    className="bg-gray-700 text-white p-2 rounded-r-lg hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-500"
-                                                >
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                                                    </svg>
-                                                </button>
-                                            </div>
-                                            <div className="mt-2 text-right text-sm text-orange-400 font-medium">
-                                                Total: {totalPrice} BDT
-                                            </div>
-                                        </div>
-                                    )} */}
                                     
                                     {/* Action buttons */}
                                     <div className="space-y-3">

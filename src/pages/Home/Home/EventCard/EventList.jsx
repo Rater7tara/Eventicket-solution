@@ -12,7 +12,7 @@ const EventList = () => {
       try {
         setLoading(true);
         const response = await fetch(
-          `${serverURL.url}ticket/published-tickets`
+          `${serverURL.url}event/events`
         );
 
         if (!response.ok) {

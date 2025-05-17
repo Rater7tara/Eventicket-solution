@@ -1,9 +1,10 @@
 import React, { createContext, useEffect, useState } from 'react';
+import ServerURL from '../ServerConfig';
 
 export const AuthContext = createContext(null);
 
 // Base URL for API calls
-const BASE_URL = 'https://event-ticket-backend.vercel.app/api/v1';
+const BASE_URL = ServerURL.url;
 
 const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
@@ -52,7 +53,7 @@ const AuthProvider = ({ children }) => {
         try {
             console.log('Creating user with:', { name, email, phone, password });
             
-            const response = await fetch(`${BASE_URL}/auth/create-user`, {
+            const response = await fetch(`${BASE_URL}auth/create-user`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -125,7 +126,7 @@ const AuthProvider = ({ children }) => {
         try {
             console.log('Signing in with:', { email, password });
             
-            const response = await fetch(`${BASE_URL}/auth/login`, {
+            const response = await fetch(`${BASE_URL}auth/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
