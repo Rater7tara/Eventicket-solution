@@ -135,7 +135,7 @@ const MyTickets = () => {
       }
 
       // Call the purchased tickets API
-      const response = await fetch(`${API_BASE_URL}user/purchased-tickets`, {
+      const response = await fetch(`${API_BASE_URL}orders/my-orders`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -152,16 +152,82 @@ const MyTickets = () => {
         );
       }
 
-      // Check if tickets array exists and has items
-      if (
-        data.tickets &&
-        Array.isArray(data.tickets) &&
-        data.tickets.length > 0
-      ) {
-        setTickets(data.tickets);
+      // Check if the data structure matches what we expect
+      if (data.success && data.data && Array.isArray(data.data)) {
+        // Map the API data to match our component's expected format
+        const formattedTickets = await Promise.all(
+          data.data.map(async (order) => {
+            // Try to fetch event details if needed
+            let eventDetails = {};
+            try {
+              // You can add an API call here to fetch event details using order.eventId
+              // For now, we'll create a placeholder
+              eventDetails = {
+                title: "Event #" + order.eventId.substring(0, 6),
+                date: order.orderTime || order.createdAt,
+                time: "TBA",
+                location: "Event Venue",
+              };
+            } catch (err) {
+              console.warn("Could not fetch event details:", err);
+            }
+
+            return {
+              _id: order._id,
+              orderId: order._id,
+              bookingId: order.bookingId,
+              event: eventDetails,
+              selectedSeats: order.seats.map((seat) => ({
+                section: seat.section,
+                row: seat.row,
+                number: seat.seatNumber,
+                price: seat.price,
+                name: `${seat.section} ${seat.row}${seat.seatNumber}`,
+              })),
+              quantity: order.quantity,
+              totalPrice: order.totalAmount,
+              grandTotal: order.totalAmount,
+              purchaseDate: order.orderTime || order.createdAt,
+              createdAt: order.createdAt,
+              paymentStatus: order.paymentStatus,
+            };
+          })
+        );
+
+        setTickets(formattedTickets);
         setStatusMessage("Your tickets have been loaded successfully.");
+      } else if (data.success && data.data) {
+        // Handle non-array responses (single ticket)
+        const order = data.data;
+        const formattedTicket = {
+          _id: order._id,
+          orderId: order._id,
+          bookingId: order.bookingId,
+          event: {
+            title: "Event #" + order.eventId.substring(0, 6),
+            date: order.orderTime || order.createdAt,
+            time: "TBA",
+            location: "Event Venue",
+          },
+          selectedSeats: order.seats.map((seat) => ({
+            section: seat.section,
+            row: seat.row,
+            number: seat.seatNumber,
+            price: seat.price,
+            name: `${seat.section} ${seat.row}${seat.seatNumber}`,
+          })),
+          quantity: order.quantity,
+          totalPrice: order.totalAmount,
+          grandTotal: order.totalAmount,
+          purchaseDate: order.orderTime || order.createdAt,
+          createdAt: order.createdAt,
+          paymentStatus: order.paymentStatus,
+        };
+
+        setTickets([formattedTicket]);
+        setStatusMessage("Your ticket has been loaded successfully.");
       } else {
-        // If API returns empty array, try localStorage as fallback
+        // If API returns empty or incorrect data, try localStorage as fallback
         const foundLocalTickets = loadLocalTickets();
 
         if (!foundLocalTickets) {
@@ -214,9 +280,9 @@ const MyTickets = () => {
         throw new Error("Authentication token not found. Please log in again.");
       }
 
-      // Call the ticket details API
+      // Call the ticket details API with the correct endpoint
       const response = await fetch(
-        `${API_BASE_URL}user/buy-ticket/${ticketId}`,
+        `${API_BASE_URL}orders/my-orders/${ticketId}`,
         {
           method: "GET",
           headers: {
@@ -233,9 +299,35 @@ const MyTickets = () => {
         throw new Error(data.message || "Failed to fetch ticket details");
       }
 
-      // Set selected ticket in state
-      if (data.ticket) {
-        setSelectedTicket(data.ticket);
+      // Set selected ticket in state based on the API structure
+      if (data.success && data.data) {
+        const order = data.data;
+        const formattedTicket = {
+          _id: order._id,
+          orderId: order._id,
+          bookingId: order.bookingId,
+          event: {
+            title: "Event #" + order.eventId.substring(0, 6),
+            date: order.orderTime || order.createdAt,
+            time: "TBA",
+            location: "Event Venue",
+          },
+          selectedSeats: order.seats.map((seat) => ({
+            section: seat.section,
+            row: seat.row,
+            number: seat.seatNumber,
+            price: seat.price,
+            name: `${seat.section} ${seat.row}${seat.seatNumber}`,
+          })),
+          quantity: order.quantity,
+          totalPrice: order.totalAmount,
+          grandTotal: order.totalAmount,
+          purchaseDate: order.orderTime || order.createdAt,
+          createdAt: order.createdAt,
+          paymentStatus: order.paymentStatus,
+        };
+
+        setSelectedTicket(formattedTicket);
       } else {
         throw new Error("No ticket data returned from server");
       }
@@ -258,275 +350,334 @@ const MyTickets = () => {
     }
   };
 
-
-// Simplified PDF generator with reliable fonts
-const generateLocalTicketPDF = (ticketId) => {
+  // Simplified PDF generator with reliable fonts
+  const generateLocalTicketPDF = (ticketId) => {
     // Find the ticket in our state
-    const ticket = tickets.find(t => (t._id === ticketId || t.orderId === ticketId));
-    
+    const ticket = tickets.find(
+      (t) => t._id === ticketId || t.orderId === ticketId
+    );
+
     if (!ticket) {
-        setError('Could not find ticket data for local generation');
-        return;
+      setError("Could not find ticket data for local generation");
+      return;
     }
-    
+
     try {
-        // Create new PDF document
-        const doc = new jsPDF();
-        
-        // Set up dimensions
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const margin = 15;
-        const contentWidth = pageWidth - (margin * 2);
-        
-        // ----- TICKET CARD STYLING -----
-        
-        // Card background
-        doc.setFillColor(255, 255, 255);
-        doc.roundedRect(margin, margin, contentWidth, 180, 3, 3, 'F');
-        
-        // Card border
-        doc.setDrawColor(230, 230, 230);
-        doc.setLineWidth(0.5);
-        doc.roundedRect(margin, margin, contentWidth, 180, 3, 3, 'S');
-        
-        // ----- HEADER SECTION -----
-        
-        // Orange gradient header
-        doc.setFillColor(224, 88, 41); // Close to your orange color
-        doc.rect(margin, margin, contentWidth, 25, 'F');
-        
-        // Event title
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        
-        // Truncate long event titles
-        const title = ticket.event?.title || 'Untitled Event';
-        let displayTitle = title;
-        if (title.length > 40) {
-            displayTitle = title.substring(0, 37) + '...';
-        }
-        
-        doc.text(displayTitle, margin + 5, margin + 15);
-        
-        // Ticket count badge
-        const ticketCount = ticket.quantity || ticket.selectedSeats?.length || 1;
-        const ticketText = `${ticketCount} Ticket${ticketCount !== 1 ? 's' : ''}`;
-        
-        // Draw badge
-        doc.setFillColor(180, 71, 35, 0.5);
-        const badgeWidth = doc.getStringUnitWidth(ticketText) * 10 / doc.internal.scaleFactor + 10;
-        doc.roundedRect(margin + contentWidth - badgeWidth - 5, margin + 7, badgeWidth, 12, 2, 2, 'F');
-        
-        // Badge text
-        doc.setFontSize(10);
-        doc.text(ticketText, margin + contentWidth - badgeWidth/2 - 5, margin + 15, { align: 'center' });
-        
-        // ----- TICKET BODY -----
-        
-        // Set up layout
-        const bodyTop = margin + 35;
-        const leftColWidth = contentWidth * 0.65;
-        const rightColStart = margin + leftColWidth + 5;
-        
-        // Body text styling
-        doc.setTextColor(70, 70, 70);
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'normal');
-        
-        // ----- LEFT COLUMN -----
-        let currentY = bodyTop + 10;
-        
-        // Date
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(224, 88, 41); // Orange for icons
-        doc.text("• ", margin + 5, currentY);
-        doc.setTextColor(70, 70, 70);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Date: ${formatDate(ticket.event?.date || ticket.purchaseDate)}`, margin + 12, currentY);
-        currentY += 15;
-        
-        // Time
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(224, 88, 41);
-        doc.text("• ", margin + 5, currentY);
-        doc.setTextColor(70, 70, 70);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Time: ${ticket.event?.time || 'Time TBA'}`, margin + 12, currentY);
-        currentY += 15;
-        
-        // Location
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(224, 88, 41);
-        doc.text("• ", margin + 5, currentY);
-        doc.setTextColor(70, 70, 70);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Location: ${ticket.event?.location || 'Location TBA'}`, margin + 12, currentY);
-        currentY += 20;
-        
-        // Seats section (if available)
-        if (ticket.selectedSeats && ticket.selectedSeats.length > 0) {
-            doc.setFontSize(11);
-            doc.setFont('helvetica', 'bold');
-            doc.text('Selected Seats:', margin + 5, currentY);
-            currentY += 10;
-            
-            // Reset to normal style for seats
-            doc.setFont('helvetica', 'normal');
-            
-            // Show seats in a list format
-            const maxSeatsToShow = Math.min(4, ticket.selectedSeats.length);
-            
-            for (let i = 0; i < maxSeatsToShow; i++) {
-                const seat = ticket.selectedSeats[i];
-                const seatName = seat.name || `Seat ${i + 1}`;
-                doc.text(`- ${seatName}`, margin + 10, currentY);
-                currentY += 7;
-            }
-            
-            // Add "more" indicator if needed
-            if (ticket.selectedSeats.length > 4) {
-                doc.text(`+ ${ticket.selectedSeats.length - 4} more seats`, margin + 10, currentY);
-                currentY += 7;
-            }
-            
-            currentY += 5;
-        }
-        
-        // Order info
+      // Create new PDF document
+      const doc = new jsPDF();
+
+      // Set up dimensions
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 15;
+      const contentWidth = pageWidth - margin * 2;
+
+      // ----- TICKET CARD STYLING -----
+
+      // Card background
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(margin, margin, contentWidth, 180, 3, 3, "F");
+
+      // Card border
+      doc.setDrawColor(230, 230, 230);
+      doc.setLineWidth(0.5);
+      doc.roundedRect(margin, margin, contentWidth, 180, 3, 3, "S");
+
+      // ----- HEADER SECTION -----
+
+      // Orange gradient header
+      doc.setFillColor(224, 88, 41); // Close to your orange color
+      doc.rect(margin, margin, contentWidth, 25, "F");
+
+      // Event title
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+
+      // Truncate long event titles
+      const title = ticket.event?.title || "Untitled Event";
+      let displayTitle = title;
+      if (title.length > 40) {
+        displayTitle = title.substring(0, 37) + "...";
+      }
+
+      doc.text(displayTitle, margin + 5, margin + 15);
+
+      // Ticket count badge
+      const ticketCount = ticket.quantity || ticket.selectedSeats?.length || 1;
+      const ticketText = `${ticketCount} Ticket${ticketCount !== 1 ? "s" : ""}`;
+
+      // Draw badge
+      doc.setFillColor(180, 71, 35, 0.5);
+      const badgeWidth =
+        (doc.getStringUnitWidth(ticketText) * 10) / doc.internal.scaleFactor +
+        10;
+      doc.roundedRect(
+        margin + contentWidth - badgeWidth - 5,
+        margin + 7,
+        badgeWidth,
+        12,
+        2,
+        2,
+        "F"
+      );
+
+      // Badge text
+      doc.setFontSize(10);
+      doc.text(
+        ticketText,
+        margin + contentWidth - badgeWidth / 2 - 5,
+        margin + 15,
+        { align: "center" }
+      );
+
+      // ----- TICKET BODY -----
+
+      // Set up layout
+      const bodyTop = margin + 35;
+      const leftColWidth = contentWidth * 0.65;
+      const rightColStart = margin + leftColWidth + 5;
+
+      // Body text styling
+      doc.setTextColor(70, 70, 70);
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "normal");
+
+      // ----- LEFT COLUMN -----
+      let currentY = bodyTop + 10;
+
+      // Date
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(224, 88, 41); // Orange for icons
+      doc.text("• ", margin + 5, currentY);
+      doc.setTextColor(70, 70, 70);
+      doc.setFont("helvetica", "normal");
+      doc.text(
+        `Date: ${formatDate(ticket.event?.date || ticket.purchaseDate)}`,
+        margin + 12,
+        currentY
+      );
+      currentY += 15;
+
+      // Time
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(224, 88, 41);
+      doc.text("• ", margin + 5, currentY);
+      doc.setTextColor(70, 70, 70);
+      doc.setFont("helvetica", "normal");
+      doc.text(
+        `Time: ${ticket.event?.time || "Time TBA"}`,
+        margin + 12,
+        currentY
+      );
+      currentY += 15;
+
+      // Location
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(224, 88, 41);
+      doc.text("• ", margin + 5, currentY);
+      doc.setTextColor(70, 70, 70);
+      doc.setFont("helvetica", "normal");
+      doc.text(
+        `Location: ${ticket.event?.location || "Location TBA"}`,
+        margin + 12,
+        currentY
+      );
+      currentY += 20;
+
+      // Seats section (if available)
+      if (ticket.selectedSeats && ticket.selectedSeats.length > 0) {
         doc.setFontSize(11);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(224, 88, 41);
-        doc.text("• ", margin + 5, currentY);
-        doc.setTextColor(70, 70, 70);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Order ID: ${ticket._id || ticket.orderId || 'N/A'}`, margin + 12, currentY);
-        
-        // ----- RIGHT COLUMN -----
-        
-        // Add right column border
-        doc.setDrawColor(229, 231, 235);
-        doc.setLineWidth(0.5);
-        doc.line(rightColStart - 5, bodyTop, rightColStart - 5, bodyTop + 110);
-        
-        // Price info
-        currentY = bodyTop + 15;
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(224, 88, 41);
-        doc.text(`$${(ticket.grandTotal || ticket.totalPrice || 0).toFixed(2)}`, rightColStart + 10, currentY);
-        
-        // Purchase date
-        currentY += 15;
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(100, 100, 100);
-        doc.text(`Purchased on ${new Date(ticket.purchaseDate || ticket.createdAt || Date.now()).toLocaleDateString()}`, 
-            rightColStart + 10, currentY);
-        
-        // Barcode
-        currentY += 25;
-        doc.setFillColor(229, 231, 235);
-        doc.rect(rightColStart + 10, currentY, contentWidth * 0.25, 15, 'F');
-        
-        // Draw barcode lines
+        doc.setFont("helvetica", "bold");
+        doc.text("Selected Seats:", margin + 5, currentY);
+        currentY += 10;
+
+        // Reset to normal style for seats
+        doc.setFont("helvetica", "normal");
+
+        // Show seats in a list format
+        const maxSeatsToShow = Math.min(4, ticket.selectedSeats.length);
+
+        for (let i = 0; i < maxSeatsToShow; i++) {
+          const seat = ticket.selectedSeats[i];
+          const seatName = seat.name || `Seat ${i + 1}`;
+          doc.text(`- ${seatName}`, margin + 10, currentY);
+          currentY += 7;
+        }
+
+        // Add "more" indicator if needed
+        if (ticket.selectedSeats.length > 4) {
+          doc.text(
+            `+ ${ticket.selectedSeats.length - 4} more seats`,
+            margin + 10,
+            currentY
+          );
+          currentY += 7;
+        }
+
+        currentY += 5;
+      }
+
+      // Order info
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(224, 88, 41);
+      doc.text("• ", margin + 5, currentY);
+      doc.setTextColor(70, 70, 70);
+      doc.setFont("helvetica", "normal");
+      doc.text(
+        `Order ID: ${ticket._id || ticket.orderId || "N/A"}`,
+        margin + 12,
+        currentY
+      );
+
+      // ----- RIGHT COLUMN -----
+
+      // Add right column border
+      doc.setDrawColor(229, 231, 235);
+      doc.setLineWidth(0.5);
+      doc.line(rightColStart - 5, bodyTop, rightColStart - 5, bodyTop + 110);
+
+      // Price info
+      currentY = bodyTop + 15;
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(224, 88, 41);
+      doc.text(
+        `$${(ticket.grandTotal || ticket.totalPrice || 0).toFixed(2)}`,
+        rightColStart + 10,
+        currentY
+      );
+
+      // Purchase date
+      currentY += 15;
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 100, 100);
+      doc.text(
+        `Purchased on ${new Date(
+          ticket.purchaseDate || ticket.createdAt || Date.now()
+        ).toLocaleDateString()}`,
+        rightColStart + 10,
+        currentY
+      );
+
+      // Barcode
+      currentY += 25;
+      doc.setFillColor(229, 231, 235);
+      doc.rect(rightColStart + 10, currentY, contentWidth * 0.25, 15, "F");
+
+      // Draw barcode lines
+      doc.setFillColor(17, 24, 39);
+
+      for (let i = 0; i < 30; i++) {
+        const barX = rightColStart + 10 + i * 1.5;
+        const barHeight = 6 + Math.random() * 14;
         doc.setFillColor(17, 24, 39);
-        
-        for (let i = 0; i < 30; i++) {
-            const barX = rightColStart + 10 + (i * 1.5);
-            const barHeight = 6 + Math.random() * 14;
-            doc.setFillColor(17, 24, 39);
-            doc.rect(barX, currentY + (15 - barHeight)/2, 0.5, barHeight, 'F');
-        }
-        
-        // Barcode ID
-        currentY += 20;
-        doc.setFontSize(9);
-        doc.setTextColor(150, 150, 150);
-        const ticketNumber = ticket.orderId ? 
-            ticket.orderId.substring(0, 12) : 
-            `TIX-${Math.floor(Math.random() * 1000000)}`;
-        doc.text(ticketNumber, rightColStart + 10 + (contentWidth * 0.25)/2, currentY, { align: 'center' });
-        
-        // ----- FOOTER -----
-        const footerY = margin + 155;
-        
-        // Footer text
-        doc.setFillColor(245, 245, 245);
-        doc.rect(margin, footerY, contentWidth, 20, 'F');
-        
-        doc.setDrawColor(229, 231, 235);
-        doc.setLineWidth(0.5);
-        doc.line(margin, footerY, margin + contentWidth, footerY);
-        
-        doc.setFontSize(9);
-        doc.setTextColor(100, 100, 100);
-        doc.text('This ticket is valid for entry. Please present this at the event.', 
-            margin + contentWidth/2, footerY + 12, { align: 'center' });
-        
-        // Save the PDF
-        const shortId = (ticket._id || ticket.orderId || 'ticket').substring(0, 8);
-        doc.save(`ticket-${shortId}.pdf`);
-        
-        setStatusMessage('Ticket PDF generated successfully!');
+        doc.rect(barX, currentY + (15 - barHeight) / 2, 0.5, barHeight, "F");
+      }
+
+      // Barcode ID
+      currentY += 20;
+      doc.setFontSize(9);
+      doc.setTextColor(150, 150, 150);
+      const ticketNumber = ticket.orderId
+        ? ticket.orderId.substring(0, 12)
+        : `TIX-${Math.floor(Math.random() * 1000000)}`;
+      doc.text(
+        ticketNumber,
+        rightColStart + 10 + (contentWidth * 0.25) / 2,
+        currentY,
+        { align: "center" }
+      );
+
+      // ----- FOOTER -----
+      const footerY = margin + 155;
+
+      // Footer text
+      doc.setFillColor(245, 245, 245);
+      doc.rect(margin, footerY, contentWidth, 20, "F");
+
+      doc.setDrawColor(229, 231, 235);
+      doc.setLineWidth(0.5);
+      doc.line(margin, footerY, margin + contentWidth, footerY);
+
+      doc.setFontSize(9);
+      doc.setTextColor(100, 100, 100);
+      doc.text(
+        "This ticket is valid for entry. Please present this at the event.",
+        margin + contentWidth / 2,
+        footerY + 12,
+        { align: "center" }
+      );
+
+      // Save the PDF
+      const shortId = (ticket._id || ticket.orderId || "ticket").substring(
+        0,
+        8
+      );
+      doc.save(`ticket-${shortId}.pdf`);
+
+      setStatusMessage("Ticket PDF generated successfully!");
     } catch (err) {
-        console.error('Error generating PDF:', err);
-        
-        // Fallback to simple text file
-        try {
-            const ticketText = `TICKET DETAILS
-Event: ${ticket.event?.title || 'Untitled Event'}
+      console.error("Error generating PDF:", err);
+
+      // Fallback to simple text file
+      try {
+        const ticketText = `TICKET DETAILS
+Event: ${ticket.event?.title || "Untitled Event"}
 Date: ${formatDate(ticket.event?.date || ticket.purchaseDate)}
-Time: ${ticket.event?.time || 'Time TBA'}
-Location: ${ticket.event?.location || 'Location TBA'}
-Order ID: ${ticket._id || ticket.orderId || 'N/A'}
-Purchased: ${new Date(ticket.purchaseDate || ticket.createdAt || Date.now()).toLocaleString()}
+Time: ${ticket.event?.time || "Time TBA"}
+Location: ${ticket.event?.location || "Location TBA"}
+Order ID: ${ticket._id || ticket.orderId || "N/A"}
+Purchased: ${new Date(
+          ticket.purchaseDate || ticket.createdAt || Date.now()
+        ).toLocaleString()}
 Price: $${(ticket.grandTotal || ticket.totalPrice || 0).toFixed(2)}
 
 This is a locally generated ticket file as the PDF generation failed.
 `;
 
-            // Create a Blob containing the ticket text
-            const blob = new Blob([ticketText], { type: 'text/plain' });
-            const url = window.URL.createObjectURL(blob);
-            
-            // Create and click a download link
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            a.download = `ticket-${ticketId}.txt`;
-            document.body.appendChild(a);
-            a.click();
-            
-            // Clean up
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-            
-            setStatusMessage('Ticket text file created as fallback');
-        } catch (fallbackErr) {
-            console.error('Error in text fallback:', fallbackErr);
-            setError('Failed to generate ticket file');
-        }
-    }
-};
+        // Create a Blob containing the ticket text
+        const blob = new Blob([ticketText], { type: "text/plain" });
+        const url = window.URL.createObjectURL(blob);
 
-// Modified downloadTicket function that prioritizes local generation
-const downloadTicket = async (ticketId) => {
+        // Create and click a download link
+        const a = document.createElement("a");
+        a.style.display = "none";
+        a.href = url;
+        a.download = `ticket-${ticketId}.txt`;
+        document.body.appendChild(a);
+        a.click();
+
+        // Clean up
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        setStatusMessage("Ticket text file created as fallback");
+      } catch (fallbackErr) {
+        console.error("Error in text fallback:", fallbackErr);
+        setError("Failed to generate ticket file");
+      }
+    }
+  };
+
+  // Modified downloadTicket function that prioritizes local generation
+  const downloadTicket = async (ticketId) => {
     setDownloadLoading(true);
-    setError('');
-    
+    setError("");
+
     try {
-        // Generate the PDF locally first to avoid API errors
-        console.log('Generating ticket PDF locally');
-        generateLocalTicketPDF(ticketId);
-        setDownloadLoading(false);
-        return;
-        
-        /* The code below is kept for reference but is commented out because
+      // Generate the PDF locally first to avoid API errors
+      console.log("Generating ticket PDF locally");
+      generateLocalTicketPDF(ticketId);
+      setDownloadLoading(false);
+      return;
+
+      /* The code below is kept for reference but is commented out because
            the API endpoints are not working correctly. If you fix the API endpoints
            later, you can uncomment this section. */
-           
-        /*
+
+      /*
         // Ensure we have a valid token
         if (typeof refreshToken === 'function') {
             await refreshToken();
@@ -633,20 +784,22 @@ const downloadTicket = async (ticketId) => {
         setStatusMessage('Ticket downloaded successfully!');
         */
     } catch (err) {
-        console.error('Error downloading ticket:', err);
-        setError(`Failed to download ticket: ${err.message}`);
-        
-        // Try the fallback local generation method
-        try {
-            console.log('Attempting local ticket generation as fallback after error');
-            generateLocalTicketPDF(ticketId);
-        } catch (fallbackErr) {
-            console.error('Fallback generation also failed:', fallbackErr);
-        }
+      console.error("Error downloading ticket:", err);
+      setError(`Failed to download ticket: ${err.message}`);
+
+      // Try the fallback local generation method
+      try {
+        console.log(
+          "Attempting local ticket generation as fallback after error"
+        );
+        generateLocalTicketPDF(ticketId);
+      } catch (fallbackErr) {
+        console.error("Fallback generation also failed:", fallbackErr);
+      }
     } finally {
-        setDownloadLoading(false);
+      setDownloadLoading(false);
     }
-};
+  };
 
   // Function to close modal
   const closeModal = () => {
