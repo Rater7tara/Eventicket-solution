@@ -11,9 +11,7 @@ const EventList = () => {
     const fetchEvents = async () => {
       try {
         setLoading(true);
-        const response = await fetch(
-          `${serverURL.url}event/events`
-        );
+        const response = await fetch(`${serverURL.url}event/events`);
 
         if (!response.ok) {
           throw new Error(`Error: ${response.status}`);
@@ -150,7 +148,7 @@ const EventList = () => {
   }
 
   return (
-    <div className=" mx-auto px-4 py-8">
+    <div className="mx-auto px-4 py-8">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 justify-items-center">
         {events.map((event) => (
           <EventCard key={event._id} event={event} />

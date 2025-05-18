@@ -103,6 +103,10 @@ const CheckoutTickets = () => {
   useEffect(() => {
     window.scrollTo(0, 0);
 
+    if (location.state?.bookingId) {
+      localStorage.setItem("bookingId", location.state.bookingId);
+    }
+
     // Generate a random confirmation number if not set
     if (!confirmationNumber) {
       const random = Math.floor(100000 + Math.random() * 900000);
@@ -120,7 +124,7 @@ const CheckoutTickets = () => {
         );
       }
     }
-  }, [confirmationNumber, navigate, event, selectedSeats]);
+  }, [confirmationNumber, navigate, event, selectedSeats, location.state]);
 
   // Handle payment completion
   const handlePaymentComplete = async (orderId) => {
@@ -163,7 +167,8 @@ const CheckoutTickets = () => {
 
   // Handle completion and redirect to tickets
   const handleViewTickets = () => {
-    const savedOrderId = localStorage.getItem('completedOrderId') || orderData?.orderId;
+    const savedOrderId =
+      localStorage.getItem("completedOrderId") || orderData?.orderId;
 
     navigate("/dashboard/my-tickets", {
       state: {
@@ -466,6 +471,7 @@ const CheckoutTickets = () => {
                   event={event}
                   selectedSeats={selectedSeats || []}
                   onPaymentComplete={handlePaymentComplete}
+                  bookingId={location.state?.bookingId} // Pass the bookingId from location state
                 />
               </Elements>
 

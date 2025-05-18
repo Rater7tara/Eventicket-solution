@@ -1,24 +1,38 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import serverURL from "../../ServerConfig";
 
 const SeatPlan = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [selectedSeats, setSelectedSeats] = useState([]);
+  const [selectedSeats, setSelectedSeats] = useState(
+    location.state?.selectedSeats || []
+  );
   const [activeSection, setActiveSection] = useState(null);
+  const [isBooking, setIsBooking] = useState(false);
+  const [bookingError, setBookingError] = useState("");
   const eventDetails = location.state?.event || {};
   const ticketType = location.state?.ticketType || {};
   const quantity = location.state?.quantity || 1;
 
-  // Generate a unique order ID
-  const generateOrderId = () => {
-    return `TKT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-  };
+  const userData = location.state?.userData;
 
   // Scroll to top when component mounts
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  useEffect(() => {
+    if (!eventDetails || Object.keys(eventDetails).length === 0) {
+      console.error("No event details found in location state");
+      navigate("/");
+    }
+
+    // Log that we received userData if it exists
+    if (userData) {
+      console.log("Received user data in SeatPlan:", userData);
+    }
+  }, [eventDetails, userData, navigate]);
 
   // Define seating sections with their configurations
   const sections = [
@@ -121,72 +135,72 @@ const SeatPlan = () => {
     navigate(-1);
   };
 
-  // Handle proceed to checkout - UPDATED to save to localStorage
-  // Updated handleCheckout function for the SeatPlan component
   const handleCheckout = async () => {
     if (selectedSeats.length === 0) return;
 
-    // Generate a unique order ID for this ticket purchase
-    const orderId = generateOrderId();
+    setIsBooking(true);
+    setBookingError("");
 
-    // Create ticket details object
-    const ticketDetails = {
-      orderId,
-      event: eventDetails,
-      ticketType,
-      selectedSeats,
-      quantity: selectedSeats.length,
-      totalPrice,
-      serviceFee,
-      grandTotal: totalPrice + serviceFee,
-      purchaseDate: new Date().toISOString(),
-    };
-
-    // Save to localStorage
     try {
-      // Get existing tickets array or initialize a new one
-      const existingTickets =
-        JSON.parse(localStorage.getItem("ticketPurchases")) || [];
+      // Get buyerId from userData or localStorage
+      const buyerId =
+        userData?._id ||
+        JSON.parse(localStorage.getItem("userData") || "{}")._id;
 
-      // Add new ticket purchase
-      existingTickets.push(ticketDetails);
-
-      // Save back to localStorage
-      localStorage.setItem("ticketPurchases", JSON.stringify(existingTickets));
-
-      // Also save the current order ID separately for easy access
-      localStorage.setItem("currentOrderId", orderId);
-
-      console.log("Ticket details saved to localStorage:", ticketDetails);
-
-      // Make sure authentication token is properly set
-      const token = localStorage.getItem("auth-token");
-      if (!token) {
-        console.warn(
-          "No authentication token found. Attempting to retrieve from localStorage..."
-        );
-
-        // Try to find user info and use it to set the token if needed
-        const userInfo = JSON.parse(localStorage.getItem("user-info") || "{}");
-        if (userInfo && userInfo._id) {
-          console.log(
-            "User info found, but token missing. This may cause payment issues."
-          );
-        }
-      } else {
-        console.log(
-          "Authentication token is available for checkout:",
-          token ? "Yes" : "No"
-        );
+      if (!buyerId) {
+        console.error("No buyer ID found");
+        setBookingError("User authentication required. Please login first.");
+        // Navigate to user details page
+        navigate("/user-Details", {
+          state: {
+            event: eventDetails,
+            ticketType,
+            quantity: selectedSeats.length,
+          },
+        });
+        return;
       }
 
-      // Add a small delay to ensure localStorage updates are complete
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Format the selected seats as required by the API
+      const formattedSeats = selectedSeats.map((seat) => ({
+        section: seat.name.split(" ")[0] + (seat.name.split(" ")[1] || ""), // Get section name
+        row: seat.row,
+        seatNumber: seat.number,
+        price: seat.price,
+      }));
 
-      // Navigate to checkout page with ticket details
-      navigate("/user-Details", {
+      // Prepare request payload
+      const bookingData = {
+        eventId: eventDetails.id || eventDetails._id,
+        buyerId: buyerId,
+        seats: formattedSeats,
+        totalAmount: totalPrice,
+      };
+
+      console.log("Sending booking request:", bookingData);
+
+      // Make API call to book seats
+      const response = await fetch(`${serverURL.url}bookings/book`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("auth-token")}`,
+        },
+        body: JSON.stringify(bookingData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to book seats");
+      }
+
+      console.log("Booking successful:", data);
+
+      // Navigate to checkout with booking information
+      navigate("/checkout", {
         state: {
-          orderId,
+          bookingId: data.bookingId,
           event: eventDetails,
           selectedSeats,
           totalPrice,
@@ -197,10 +211,13 @@ const SeatPlan = () => {
         },
       });
     } catch (error) {
-      console.error("Error saving ticket details to localStorage:", error);
-      alert(
-        "There was an error saving your ticket information. Please try again."
+      console.error("Error booking seats:", error);
+      setBookingError(
+        error.message ||
+          "There was an error processing your booking. Please try again."
       );
+    } finally {
+      setIsBooking(false);
     }
   };
 
@@ -1082,6 +1099,13 @@ const SeatPlan = () => {
             {/* Booking Summary */}
             <div className="lg:col-span-1 bg-gray-900 rounded-lg p-4 border border-gray-700 h-fit sticky top-4">
               <h2 className="text-xl font-bold mb-4">Your Selection</h2>
+
+              {/* Error message for booking errors */}
+              {bookingError && (
+                <div className="bg-red-900 bg-opacity-30 border border-red-500 text-red-200 p-3 rounded-md mb-4">
+                  <p className="text-sm">{bookingError}</p>
+                </div>
+              )}
 
               {selectedSeats.length > 0 ? (
                 <>

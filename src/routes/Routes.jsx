@@ -1,7 +1,4 @@
-import {
-  Navigate,
-  createBrowserRouter,
-} from "react-router-dom";
+import { Navigate, createBrowserRouter } from "react-router-dom";
 import Main from "../layouts/Main";
 import ErrorPage from "../layouts/ErrorPage";
 import Home from "../pages/Home/Home/Home";
@@ -33,136 +30,136 @@ import SoldTickets from "../pages/Dashboard/AdminDashborad/SoldTickets/SoldTicke
 import ManageSellerRequests from "../pages/Dashboard/AdminDashborad/SellerRequest/ManageSellerRequests";
 
 export const router = createBrowserRouter([
-{
-  path: '/',
-  element: <Main />,
-  errorElement: <ErrorPage />,
-  children: [
-    {
-      path: '/',
-      element: <Home />
-    },
-    {
-      path: '/events/:id', 
-      element: <EventDetails />,
-    },
-    {
-      path: '/checkout', 
-      element: <CheckoutTickets />,
-    },
-    {
-      path: '/terms',
-      element: <TermsAndConditions/>
-    },
-    {
-      path: '/privacy-policy',
-      element: <PrivacyPolicy />
-    },
-    {
-      path: '/contact',
-      element: <ContactUs />
-    },
-    {
-      path: '/about',
-      element: <AboutUs />
-    },
-    {
-      path: '/refund-policy',
-      element: <RefundPolicy />
-    },
-    {
-      path: '/disclaimer',
-      element: <Disclaimer />
-    },
-    {
-      path: '/user-details',
-      element: <UserDetailsForm />,
-    },
-    {
-      path: 'login',
-      element: <Login />
-    },
-    {
-      path: '/register',
-      element: <Register />
-    },
-  ]
-},
-{
-  path: '/dashboard',
-  element: <DashboardLayout />,
-  children: [
-    {
-      index: true, // Default dashboard route
-      element: <BuyerDashboard /> // Default to user dashboard directly
-    },
-    // User specific routes
-    {
-      path: 'my-tickets',
-      element: <MyTickets />
-    },
-    {
-      path: 'purchase-history',
-      element: <div>Purchase History coming soon</div> // Placeholder
-    },
-    
-    // Admin specific routes
-    {
-      path: 'admin',
-      element: <AdminDashboard />
-    },
-    {
-      path: 'manage-users',
-      element: <ManageUsers />
-    },
-    {
-      path: 'manage-sellers',
-      element: <ManageSellerRequests />,
-    },
-    {
-      path: 'create-events',
-      element: <CreateEvent />
-    },
-    {
-      path: 'manage-events',
-      element: <ManageEvents />
-    },
-    {
-      path: 'sold-tickets',
-      element: <SoldTickets />,
-    },
-    {
-      path: 'reports',
-      element: <div>Reports coming soon</div> // Placeholder
-    },
-    
-    // Seller specific routes
-    {
-      path: 'seller',
-      element: <SellerDashboard />
-    },
-    {
-      path: 'my-events',
-      element: <MyEvents />
-    },
-    {
-      path: 'add-event',
-      element: <AddEvents />
-    },
-    {
-      path: 'sales-report',
-      element: <TicketSellReport />
-    },
-    
-    // Common routes
-    {
-      path: 'settings',
-      element: <div>Settings coming soon</div> // Placeholder
-    }
-  ]
-},
-{
-  path: 'SeatPlan',
-  element: <SeatPlan />
-}
+  {
+    path: "/",
+    element: <Main />,
+    errorElement: <ErrorPage />,
+    children: [
+      {
+        path: "/",
+        element: <Home />,
+      },
+      {
+        path: "/events/:id",
+        element: <EventDetails />,
+      },
+      {
+        path: "/checkout",
+        element: <CheckoutTickets />,
+      },
+      {
+        path: "/terms",
+        element: <TermsAndConditions />,
+      },
+      {
+        path: "/privacy-policy",
+        element: <PrivacyPolicy />,
+      },
+      {
+        path: "/contact",
+        element: <ContactUs />,
+      },
+      {
+        path: "/about",
+        element: <AboutUs />,
+      },
+      {
+        path: "/refund-policy",
+        element: <RefundPolicy />,
+      },
+      {
+        path: "/disclaimer",
+        element: <Disclaimer />,
+      },
+      {
+        path: "/user-details",
+        element: <UserDetailsForm />,
+      },
+      {
+        path: "login",
+        element: <Login />,
+      },
+      {
+        path: "/register",
+        element: <Register />,
+      },
+    ],
+  },
+  {
+    path: "/dashboard",
+    element: <DashboardLayout />,
+    children: [
+      {
+        index: true, // Default dashboard route
+        element: <BuyerDashboard />, // Default to user dashboard directly
+      },
+      // User specific routes
+      {
+        path: "my-tickets",
+        element: <MyTickets />,
+      },
+      {
+        path: "purchase-history",
+        element: <div>Purchase History coming soon</div>, // Placeholder
+      },
+
+      // Admin specific routes
+      {
+        path: "admin",
+        element: <AdminDashboard />,
+      },
+      {
+        path: "manage-users",
+        element: <ManageUsers />,
+      },
+      {
+        path: "manage-sellers",
+        element: <ManageSellerRequests />,
+      },
+      {
+        path: "create-events",
+        element: <CreateEvent />,
+      },
+      {
+        path: "manage-events",
+        element: <ManageEvents />,
+      },
+      {
+        path: "sold-tickets",
+        element: <SoldTickets />,
+      },
+      {
+        path: "reports",
+        element: <div>Reports coming soon</div>, // Placeholder
+      },
+
+      // Seller specific routes
+      {
+        path: "seller",
+        element: <SellerDashboard />,
+      },
+      {
+        path: "my-events",
+        element: <MyEvents />,
+      },
+      {
+        path: "add-event",
+        element: <AddEvents />,
+      },
+      {
+        path: "sales-report",
+        element: <TicketSellReport />,
+      },
+
+      // Common routes
+      {
+        path: "settings",
+        element: <div>Settings coming soon</div>, // Placeholder
+      },
+    ],
+  },
+  {
+    path: "SeatPlan",
+    element: <SeatPlan />,
+  },
 ]);

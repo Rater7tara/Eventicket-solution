@@ -9,7 +9,7 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || "/";
-  
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -20,19 +20,21 @@ const Login = () => {
     e.preventDefault();
     setError("");
     setLoading(true);
-    
+
     try {
       // Validate input
       if (!email || !password) {
         throw new Error("Email and password are required");
       }
-      
+
       const result = await signIn(email, password);
       console.log("Login successful with role:", result.role);
       navigate(from, { replace: true });
     } catch (err) {
       console.error("Login error:", err);
-      setError(err.message || "Failed to login. Please check your credentials.");
+      setError(
+        err.message || "Failed to login. Please check your credentials."
+      );
     } finally {
       setLoading(false);
     }
@@ -42,7 +44,7 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-tr from-gray-900 via-orange-500 to-yellow-400 relative overflow-hidden px-4">
       <div className="absolute top-10 left-10 w-72 h-72 bg-orange-400 opacity-30 rounded-full blur-3xl animate-pulse -z-10"></div>
       <div className="absolute bottom-20 right-20 w-60 h-60 bg-yellow-300 opacity-20 rounded-full blur-2xl -z-10"></div>
-      
+
       <div className="bg-white/20 backdrop-blur-xl border border-white/30 shadow-2xl rounded-3xl p-8 w-full max-w-md mx-auto">
         <div className="flex flex-col items-center justify-center text-center mb-6">
           <div className="bg-gradient-to-br from-orange-100 to-orange-300 text-white p-4 rounded-full shadow-lg mb-4">
@@ -64,7 +66,10 @@ const Login = () => {
 
         <form onSubmit={handleLogin} className="w-full space-y-5">
           <div className="form-control">
-            <label className="block text-white font-medium mb-2" htmlFor="email">
+            <label
+              className="block text-white font-medium mb-2"
+              htmlFor="email"
+            >
               Email Address
             </label>
             <div className="relative">
@@ -86,10 +91,16 @@ const Login = () => {
 
           <div className="form-control">
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-white font-medium" htmlFor="password">
+              <label
+                className="block text-white font-medium"
+                htmlFor="password"
+              >
                 Password
               </label>
-              <a href="/forgot-password" className="text-xs text-orange-100 hover:text-white">
+              <a
+                href="/forgot-password"
+                className="text-xs text-orange-100 hover:text-white"
+              >
                 Forgot Password?
               </a>
             </div>
@@ -111,14 +122,17 @@ const Login = () => {
           </div>
 
           <div className="flex items-center">
-            <input 
-              id="show-password" 
-              type="checkbox" 
+            <input
+              id="show-password"
+              type="checkbox"
               checked={showPassword}
               onChange={() => setShowPassword(!showPassword)}
               className="w-4 h-4 rounded border-orange-300 text-orange-600 focus:ring-orange-500"
             />
-            <label htmlFor="show-password" className="ml-2 block text-sm text-white">
+            <label
+              htmlFor="show-password"
+              className="ml-2 block text-sm text-white"
+            >
               Show password
             </label>
           </div>
@@ -133,13 +147,16 @@ const Login = () => {
 
           <div className="text-center text-sm text-white mt-6">
             Don't have an account?{" "}
-            <a href="/register" className="font-medium text-yellow-300 hover:text-yellow-200 underline">
+            <a
+              href="/register"
+              className="font-medium text-yellow-300 hover:text-yellow-200 underline"
+            >
               Sign up
             </a>
           </div>
         </form>
       </div>
-      
+
       {/* <div className="absolute bottom-4 text-center text-xs text-white/60 w-full">
         © 2025 Event n Ticket. All rights reserved.
       </div> */}
