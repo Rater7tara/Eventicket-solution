@@ -19,6 +19,8 @@ import {
   Users,
   Globe,
   CircleSlash,
+  Save,
+  X,
 } from "lucide-react";
 import serverURL from "../../../../ServerConfig";
 import { AuthContext } from "../../../../providers/AuthProvider";
@@ -54,7 +56,19 @@ const ManageEvents = () => {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false); // Add state for edit modal
   const [isPublishingEvent, setIsPublishingEvent] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    title: "",
+    description: "",
+    date: "",
+    time: "",
+    location: "",
+    image: "",
+    price: 0,
+    ticketsAvailable: 0,
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Get auth token from localStorage
   const getAuthToken = () => {
@@ -82,7 +96,7 @@ const ManageEvents = () => {
 
       // Make API request with auth headers
       const response = await axios.get(
-        `${serverURL.url}ticket/tickets`,
+        `${serverURL.url}admin/events`,
         authHeaders
       );
 
@@ -110,15 +124,72 @@ const ManageEvents = () => {
   const handleDeleteEvent = async (eventId) => {
     try {
       await axios.delete(
-        `${serverURL.url}ticket/tickets/${eventId}`,
+        `${serverURL.url}event/delete/${eventId}`,
         getAuthHeaders()
       );
       setEvents(events.filter((event) => event._id !== eventId));
       setIsDeleteModalOpen(false);
       setSelectedEvent(null);
+      toast.success("Event deleted successfully!");
     } catch (err) {
       console.error("Error deleting event:", err);
       setError(err.response?.data?.message || "Failed to delete event");
+      toast.error("Failed to delete event. Please try again.");
+    }
+  };
+
+  // Handle event update
+  const handleUpdateEvent = async (e) => {
+    e.preventDefault();
+    if (!selectedEvent) return;
+
+    setIsSubmitting(true);
+    try {
+      // Construct the update URL based on the format you provided
+      const updateUrl = `${serverURL.url}event/update/${selectedEvent._id}`;
+      console.log("Updating event at:", updateUrl);
+
+      // Make sure the request body matches exactly the example you provided
+      const updateData = {
+        title: editFormData.title,
+        description: editFormData.description,
+        date: editFormData.date,
+        time: editFormData.time,
+        location: editFormData.location,
+        image: editFormData.image,
+        price: Number(editFormData.price),
+        ticketsAvailable: Number(editFormData.ticketsAvailable),
+      };
+
+      console.log("Update payload:", updateData);
+
+      const response = await axios.put(updateUrl, updateData, getAuthHeaders());
+
+      console.log("Update API response:", response.data);
+
+      toast.success("Event updated successfully!");
+
+      // Refresh the events list
+      fetchEvents();
+
+      // Close the modal
+      setIsEditModalOpen(false);
+      setSelectedEvent(null);
+    } catch (err) {
+      console.error("Error updating event:", err);
+      toast.error(
+        err.response?.data?.message ||
+          `Update failed with status ${err.response?.status || "unknown"}`
+      );
+
+      console.log("Error details:", {
+        endpoint: `${serverURL.url}event/update/${selectedEvent._id}`,
+        status: err.response?.status,
+        message: err.message,
+        responseData: err.response?.data,
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -135,7 +206,7 @@ const ManageEvents = () => {
       console.log("📌 Current publish status:", currentStatus);
 
       const response = await axios.put(
-        `${serverURL.url}admin/tickets/${eventId}/publish`,
+        `${serverURL.url}admin/events/${eventId}/publish`,
         { isPublished: !currentStatus },
         {
           headers: {
@@ -167,6 +238,41 @@ const ManageEvents = () => {
 
       toast.error(errMsg);
     }
+  };
+
+  // Open edit modal and populate form with event data
+  const openEditModal = (event) => {
+    setSelectedEvent(event);
+
+    // Format the date properly for the date input (YYYY-MM-DD)
+    const formattedDate = event.date
+      ? new Date(event.date).toISOString().split("T")[0]
+      : "";
+
+    // Make sure we're setting all expected fields from the API example
+    setEditFormData({
+      title: event.title || "",
+      description: event.description || "",
+      date: formattedDate,
+      time: event.time || "",
+      location: event.location || "",
+      image: event.image || "",
+      price: event.price || 0,
+      ticketsAvailable: event.ticketsAvailable || 0,
+      // Add any other fields that might be required by your API
+    });
+
+    setIsEditModalOpen(true);
+    console.log("Opening edit modal for event:", event._id);
+  };
+
+  // Handle form field changes
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   // Filter and search events
@@ -209,6 +315,7 @@ const ManageEvents = () => {
 
   // Truncate text
   const truncateText = (text, maxLength) => {
+    if (!text) return "";
     if (text.length <= maxLength) return text;
     return text.slice(0, maxLength) + "...";
   };
@@ -332,6 +439,207 @@ const ManageEvents = () => {
               </button>
             </div>
           </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Edit Event Modal
+  const EditEventModal = () => {
+    if (!selectedEvent) return null;
+
+    return (
+      <div className="fixed inset-0 bg-gray-500/30 backdrop-blur-md flex items-center justify-center z-50 transition-opacity duration-300 ease-in-out">
+        <div
+          className="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto transform transition-all duration-300 ease-out animate-fade-in-up"
+          style={{ animation: "fadeInUp 0.3s ease-out" }}
+        >
+          <div className="flex justify-between items-center p-6 border-b border-gray-200">
+            <h2 className="text-xl font-bold text-gray-800">Edit Event</h2>
+            <button
+              className="text-gray-500 hover:text-gray-700"
+              onClick={() => {
+                setIsEditModalOpen(false);
+                setSelectedEvent(null);
+              }}
+            >
+              <X size={24} />
+            </button>
+          </div>
+
+          <form onSubmit={handleUpdateEvent} className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="col-span-2">
+                <label
+                  htmlFor="title"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Title
+                </label>
+                <input
+                  id="title"
+                  name="title"
+                  type="text"
+                  value={editFormData.title}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div className="col-span-2">
+                <label
+                  htmlFor="description"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Description
+                </label>
+                <textarea
+                  id="description"
+                  name="description"
+                  rows="4"
+                  value={editFormData.description}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                ></textarea>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="date"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Date
+                </label>
+                <input
+                  id="date"
+                  name="date"
+                  type="date"
+                  value={editFormData.date}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="time"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Time
+                </label>
+                <input
+                  id="time"
+                  name="time"
+                  type="text"
+                  value={editFormData.time}
+                  onChange={handleInputChange}
+                  placeholder="Ex: 18:30"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="col-span-2">
+                <label
+                  htmlFor="location"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Location
+                </label>
+                <input
+                  id="location"
+                  name="location"
+                  type="text"
+                  value={editFormData.location}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="col-span-2">
+                <label
+                  htmlFor="image"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Image URL
+                </label>
+                <input
+                  id="image"
+                  name="image"
+                  type="text"
+                  value={editFormData.image}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="price"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Price (৳)
+                </label>
+                <input
+                  id="price"
+                  name="price"
+                  type="number"
+                  value={editFormData.price}
+                  onChange={handleInputChange}
+                  min="0"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="ticketsAvailable"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Available Tickets
+                </label>
+                <input
+                  id="ticketsAvailable"
+                  name="ticketsAvailable"
+                  type="number"
+                  value={editFormData.ticketsAvailable}
+                  onChange={handleInputChange}
+                  min="0"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                type="button"
+                className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 text-gray-800 transition-colors duration-200 font-medium cursor-pointer"
+                onClick={() => {
+                  setIsEditModalOpen(false);
+                  setSelectedEvent(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200 shadow-md font-medium cursor-pointer flex items-center"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <RefreshCw className="animate-spin mr-2" size={16} />
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2" size={16} />
+                    Save Changes
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     );
@@ -559,10 +867,7 @@ const ManageEvents = () => {
                           </button>
                           <button
                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
-                            onClick={() => {
-                              // Handle edit - could redirect to edit page
-                              window.location.href = `/admin/ticket/edit/${event._id}`;
-                            }}
+                            onClick={() => openEditModal(event)}
                             title="Edit Event"
                           >
                             <Edit size={18} />
@@ -580,16 +885,22 @@ const ManageEvents = () => {
                         </div>
 
                         <button
-  onClick={() => togglePublish(event._id, event.isPublished)}
-  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-200 cursor-pointer ${
-    event.isPublished
-      ? "bg-red-100 text-red-700 hover:bg-red-200"
-      : "bg-green-100 text-green-700 hover:bg-green-200"
-  }`}
-  title={event.isPublished ? "Unpublish this event" : "Publish this event"}
->
-  {event.isPublished ? "Unpublish" : "Publish"}
-</button>
+                          onClick={() =>
+                            togglePublish(event._id, event.isPublished)
+                          }
+                          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-200 cursor-pointer ${
+                            event.isPublished
+                              ? "bg-red-100 text-red-700 hover:bg-red-200"
+                              : "bg-green-100 text-green-700 hover:bg-green-200"
+                          }`}
+                          title={
+                            event.isPublished
+                              ? "Unpublish this event"
+                              : "Publish this event"
+                          }
+                        >
+                          {event.isPublished ? "Unpublish" : "Publish"}
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -666,6 +977,7 @@ const ManageEvents = () => {
 
       {/* Modals */}
       {isViewModalOpen && <ViewEventModal />}
+      {isEditModalOpen && <EditEventModal />}
       {isDeleteModalOpen && <DeleteConfirmationModal />}
     </div>
   );

@@ -1,10 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import serverURL from "../../ServerConfig";
+import authServiceInstance from "../../services/AuthService";
+import { AuthContext } from "../../providers/AuthProvider";
 
 const SeatPlan = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const authContext = useContext(AuthContext); // Move this to component top level
+  
   const [selectedSeats, setSelectedSeats] = useState(
     location.state?.selectedSeats || []
   );
@@ -15,12 +19,39 @@ const SeatPlan = () => {
   const ticketType = location.state?.ticketType || {};
   const quantity = location.state?.quantity || 1;
 
-  const userData = location.state?.userData;
+  // Get user data from location state or localStorage
+  const [userData, setUserData] = useState(location.state?.userData || null);
+  const [bookedSeats, setBookedSeats] = useState([]);
 
   // Scroll to top when component mounts
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  // Load user data from localStorage if not available in location state
+  useEffect(() => {
+    if (!userData) {
+      try {
+        // Try to get userData from localStorage
+        const storedUserData = JSON.parse(localStorage.getItem("userData"));
+        
+        // If no userData, try user-info
+        if (!storedUserData) {
+          const userInfo = JSON.parse(localStorage.getItem("user-info"));
+          if (userInfo) {
+            console.log("Loaded user data from user-info:", userInfo);
+            setUserData(userInfo);
+          }
+        } else {
+          console.log("Loaded user data from localStorage:", storedUserData);
+          setUserData(storedUserData);
+        }
+      } catch (error) {
+        console.error("Error loading user data from localStorage:", error);
+      }
+    }
+  }, [userData]);
+
 
   useEffect(() => {
     if (!eventDetails || Object.keys(eventDetails).length === 0) {
@@ -30,7 +61,7 @@ const SeatPlan = () => {
 
     // Log that we received userData if it exists
     if (userData) {
-      console.log("Received user data in SeatPlan:", userData);
+      console.log("User data in SeatPlan:", userData);
     }
   }, [eventDetails, userData, navigate]);
 
@@ -135,35 +166,55 @@ const SeatPlan = () => {
     navigate(-1);
   };
 
-  const handleCheckout = async () => {
+  // Check if a seat is booked
+  const isSeatBooked = (seatId) => {
+    return bookedSeats.includes(seatId);
+  };
+
+ const handleCheckout = async () => {
     if (selectedSeats.length === 0) return;
 
     setIsBooking(true);
     setBookingError("");
 
     try {
-      // Get buyerId from userData or localStorage
-      const buyerId =
-        userData?._id ||
-        JSON.parse(localStorage.getItem("userData") || "{}")._id;
+      // Use the authContext that's already defined at the top level of the component
+      let buyerId = null;
+      
+      // Try to get user ID from context first
+      if (authContext && authContext.user && authContext.user._id) {
+        buyerId = authContext.user._id;
+        console.log("Got buyer ID from AuthContext:", buyerId);
+      } 
+      // If not in context, use AuthService to get buyer ID
+      else {
+        buyerId = authServiceInstance.getBuyerId();
+        console.log("Got buyer ID from AuthService:", buyerId);
+      }
 
       if (!buyerId) {
-        console.error("No buyer ID found");
-        setBookingError("User authentication required. Please login first.");
-        // Navigate to user details page
-        navigate("/user-Details", {
-          state: {
-            event: eventDetails,
-            ticketType,
-            quantity: selectedSeats.length,
-          },
-        });
-        return;
+        // Try one last option - use userData from component state
+        if (userData && userData._id) {
+          buyerId = userData._id;
+          console.log("Got buyer ID from component userData:", buyerId);
+        } else {
+          console.error("No buyer ID found in any source");
+          setBookingError("User authentication required. Please login first.");
+          // Navigate to user details page
+          navigate("/user-Details", {
+            state: {
+              event: eventDetails,
+              ticketType,
+              quantity: selectedSeats.length,
+            },
+          });
+          return;
+        }
       }
 
       // Format the selected seats as required by the API
       const formattedSeats = selectedSeats.map((seat) => ({
-        section: seat.name.split(" ")[0] + (seat.name.split(" ")[1] || ""), // Get section name
+        section: seat.section,
         row: seat.row,
         seatNumber: seat.number,
         price: seat.price,
@@ -179,12 +230,26 @@ const SeatPlan = () => {
 
       console.log("Sending booking request:", bookingData);
 
-      // Make API call to book seats
+      // Make API call to book seats using the most reliable token source
+      const token = authServiceInstance.getToken() || (authContext && authContext.authToken);
+      
+      if (!token) {
+        console.error("No authentication token found");
+        setBookingError("Authentication token required. Please login again.");
+        navigate("/login", {
+          state: {
+            from: location.pathname,
+            message: "Your session has expired. Please login again."
+          }
+        });
+        return;
+      }
+      
       const response = await fetch(`${serverURL.url}bookings/book`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("auth-token")}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(bookingData),
       });
@@ -196,13 +261,19 @@ const SeatPlan = () => {
       }
 
       console.log("Booking successful:", data);
+      
+      // Add selected seats to booked seats
+      setBookedSeats([...bookedSeats, ...selectedSeats.map(seat => seat.id)]);
+      
+      // Clear selection after booking
+      setSelectedSeats([]);
 
       // Navigate to checkout with booking information
       navigate("/checkout", {
         state: {
           bookingId: data.bookingId,
           event: eventDetails,
-          selectedSeats,
+          selectedSeats: selectedSeats,
           totalPrice,
           serviceFee,
           grandTotal: totalPrice + serviceFee,
@@ -221,6 +292,7 @@ const SeatPlan = () => {
     }
   };
 
+
   // Handle contact organizer for VIP seats
   const handleContactOrganizer = (section) => {
     navigate("/contact", {
@@ -232,12 +304,6 @@ const SeatPlan = () => {
         organizer: eventDetails.organizer,
       },
     });
-  };
-
-  // Generate a random number for "booked" seats simulation
-  const isRandomlyBooked = (section, row, seat) => {
-    // Use a deterministic algorithm to create a pattern of booked seats
-    return (section.charCodeAt(0) + row * 3 + seat) % 11 === 0;
   };
 
   // Judges table component
@@ -378,10 +444,8 @@ const SeatPlan = () => {
 
           <div className="mt-2 text-center text-sm md:text-base bg-orange-900 bg-opacity-40 p-2 rounded-lg">
             <p>
-              <span className="font-semibold">Selected Ticket:</span>{" "}
-              {ticketType.name || "Regular"} - ${ticketType.price || "0"} each
+              <span className="font-semibold">Select your seats below</span>
             </p>
-            {/* <p><span className="font-semibold">Quantity:</span> {quantity} {quantity === 1 ? 'ticket' : 'tickets'}</p> */}
           </div>
         </div>
 
@@ -558,12 +622,8 @@ const SeatPlan = () => {
                                         1;
                                       const seatId = `energon-enclave_${idx}_${colIndex}_${seatIndex}`;
 
-                                      // Check if seat is booked (simulated)
-                                      const isBooked = isRandomlyBooked(
-                                        "energon",
-                                        rowIndex,
-                                        seatNumber
-                                      );
+                                      // Check if seat is booked
+                                      const isBooked = isSeatBooked(seatId);
                                       const isSelected = selectedSeats.some(
                                         (s) => s.id === seatId
                                       );
@@ -664,12 +724,8 @@ const SeatPlan = () => {
                                         1;
                                       const seatId = `${sections[2].id}_${rowIndex}_${colIndex}_${seatIndex}`;
 
-                                      // Check if seat is booked (simulated)
-                                      const isBooked = isRandomlyBooked(
-                                        sections[2].id,
-                                        rowIndex,
-                                        seatNumber
-                                      );
+                                      // Check if seat is booked
+                                      const isBooked = isSeatBooked(seatId);
                                       const isSelected = selectedSeats.some(
                                         (s) => s.id === seatId
                                       );
@@ -718,11 +774,6 @@ const SeatPlan = () => {
                       </div>
                     </div>
 
-                    {/* Add Judges' Table at the bottom of HDB House */}
-                    <div className="mt-2 flex justify-center">
-                      <JudgesTable />
-                    </div>
-
                     {/* Section separator */}
                     <div className="w-full h-4 my-3 flex items-center justify-center text-xs text-orange-300">
                       <div className="w-4/5 border-b border-dashed border-orange-500 relative">
@@ -734,7 +785,6 @@ const SeatPlan = () => {
                   </div>
                 )}
 
-                {/* Rest of your component code remains unchanged... */}
                 {/* AusDream Arena */}
                 {(!activeSection || activeSection === "ausdream-arena") && (
                   <div className="mb-8">
@@ -777,11 +827,7 @@ const SeatPlan = () => {
                                       const seatId = `${sections[3].id}_${rowIndex}_${colIndex}_${seatIndex}`;
 
                                       // Check if seat is booked (simulated)
-                                      const isBooked = isRandomlyBooked(
-                                        sections[3].id,
-                                        rowIndex,
-                                        seatNumber
-                                      );
+                                      const isBooked = isSeatBooked(seatId);
                                       const isSelected = selectedSeats.some(
                                         (s) => s.id === seatId
                                       );
@@ -886,11 +932,7 @@ const SeatPlan = () => {
                                       const seatId = `${sections[4].id}_${rowIndex}_${colIndex}_${seatIndex}`;
 
                                       // Check if seat is booked (simulated)
-                                      const isBooked = isRandomlyBooked(
-                                        sections[4].id,
-                                        rowIndex,
-                                        seatNumber
-                                      );
+                                      const isBooked = isSeatBooked(seatId);
                                       const isSelected = selectedSeats.some(
                                         (s) => s.id === seatId
                                       );
@@ -941,6 +983,11 @@ const SeatPlan = () => {
                   </div>
                 )}
 
+                {/* Add Judges' Table at the bottom of HDB House */}
+                <div className="mt-2 flex justify-center">
+                  <JudgesTable />
+                </div>
+
                 {/* Special Gamma Gallery Section */}
                 {(!activeSection || activeSection === "gamma-gallery") && (
                   <div className="mb-4">
@@ -979,11 +1026,7 @@ const SeatPlan = () => {
                                       const seatId = `gamma-gallery_${rowIndex}_${colIndex}_${seatIndex}`;
 
                                       // Check if seat is booked (simulated)
-                                      const isBooked = isRandomlyBooked(
-                                        "gamma",
-                                        rowIndex,
-                                        seatNumber
-                                      );
+                                      const isBooked = isSeatBooked(seatId);
                                       const isSelected = selectedSeats.some(
                                         (s) => s.id === seatId
                                       );

@@ -76,50 +76,50 @@ const ManageSellerRequests = ({ onBack }) => {
   }, []);
 
   // Handle seller request approval
-  const handleApproveSeller = async (sellerId) => {
-    try {
-      await axios.put(
-        `${serverURL.url}admin/seller-requests/approve/${sellerId}`,
-        {}, // Empty body
-        getAuthHeaders()
-      );
-      
-      // Update local state to reflect the change
-      setSellerRequests(sellerRequests.filter(seller => seller._id !== sellerId));
-      
-      if (isViewModalOpen) {
-        setIsViewModalOpen(false);
-        setSelectedSeller(null);
-      }
-      
-    } catch (err) {
-      console.error('Error approving seller:', err);
-      setError(err.response?.data?.message || 'Failed to approve seller request');
+const handleApproveSeller = async (sellerId) => {
+  try {
+    await axios.patch(  // Changed from PUT to PATCH
+      `${serverURL.url}admin/seller-requests/approve/${sellerId}`,
+      {}, // Empty body
+      getAuthHeaders()
+    );
+    
+    // Update local state to reflect the change
+    setSellerRequests(sellerRequests.filter(seller => seller._id !== sellerId));
+    
+    if (isViewModalOpen) {
+      setIsViewModalOpen(false);
+      setSelectedSeller(null);
     }
-  };
+    
+  } catch (err) {
+    console.error('Error approving seller:', err);
+    setError(err.response?.data?.message || 'Failed to approve seller request');
+  }
+};
 
-  // Handle seller request denial
-  const handleDenySeller = async (sellerId) => {
-    try {
-      await axios.put(
-        `${serverURL.url}admin/seller-requests/deny/${sellerId}`,
-        {}, // Empty body
-        getAuthHeaders()
-      );
-      
-      // Update local state to reflect the change
-      setSellerRequests(sellerRequests.filter(seller => seller._id !== sellerId));
-      
-      if (isViewModalOpen) {
-        setIsViewModalOpen(false);
-        setSelectedSeller(null);
-      }
-      
-    } catch (err) {
-      console.error('Error denying seller:', err);
-      setError(err.response?.data?.message || 'Failed to deny seller request');
+// Handle seller request denial
+const handleDenySeller = async (sellerId) => {
+  try {
+    await axios.patch(  // Changed from PUT to PATCH
+      `${serverURL.url}admin/seller-requests/deny/${sellerId}`,
+      {}, // Empty body
+      getAuthHeaders()
+    );
+    
+    // Update local state to reflect the change
+    setSellerRequests(sellerRequests.filter(seller => seller._id !== sellerId));
+    
+    if (isViewModalOpen) {
+      setIsViewModalOpen(false);
+      setSelectedSeller(null);
     }
-  };
+    
+  } catch (err) {
+    console.error('Error denying seller:', err);
+    setError(err.response?.data?.message || 'Failed to deny seller request');
+  }
+};
 
   // Handle seller monitoring
   const handleMonitorSeller = async (sellerId) => {
@@ -440,7 +440,7 @@ const ManageSellerRequests = ({ onBack }) => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
                         <div className="flex justify-center space-x-2">
                           <button
-                            className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-md"
+                            className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-md cursor-pointer"
                             onClick={() => {
                               setSelectedSeller(seller);
                               setIsViewModalOpen(true);
@@ -449,7 +449,7 @@ const ManageSellerRequests = ({ onBack }) => {
                           >
                             <Eye size={18} />
                           </button>
-                          <button
+                          {/* <button
                             className={`p-1.5 rounded-md ${
                               seller.isMonitored 
                                 ? 'text-purple-600 hover:bg-purple-100' 
@@ -459,23 +459,23 @@ const ManageSellerRequests = ({ onBack }) => {
                             title={seller.isMonitored ? 'Stop Monitoring' : 'Monitor Seller'}
                           >
                             {seller.isMonitored ? <Eye size={18} /> : <Eye size={18} />}
-                          </button>
+                          </button> */}
                           <button
-                            className="p-1.5 text-green-600 hover:bg-green-100 rounded-md"
+                            className="p-1.5 text-green-600 hover:bg-green-100 rounded-md cursor-pointer"
                             onClick={() => handleApproveSeller(seller._id)}
                             title="Approve Request"
                           >
                             <CheckCircle size={18} />
                           </button>
                           <button
-                            className="p-1.5 text-red-600 hover:bg-red-100 rounded-md"
+                            className="p-1.5 text-red-600 hover:bg-red-100 rounded-md cursor-pointer"
                             onClick={() => handleDenySeller(seller._id)}
                             title="Deny Request"
                           >
                             <XCircle size={18} />
                           </button>
                           <button
-                            className="p-1.5 text-red-600 hover:bg-red-100 rounded-md"
+                            className="p-1.5 text-red-600 hover:bg-red-100 rounded-md cursor-pointer"
                             onClick={() => {
                               setSelectedSeller(seller);
                               setIsDeleteModalOpen(true);

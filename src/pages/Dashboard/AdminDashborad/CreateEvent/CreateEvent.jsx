@@ -1,71 +1,107 @@
-import React, { useState, useContext, useEffect, useRef } from 'react';
-import { Calendar, Clock, MapPin, DollarSign, TicketIcon, ImageIcon, FileText, Upload } from 'lucide-react';
+import React, { useState, useContext, useEffect } from 'react';
+import { Calendar, Clock, MapPin, DollarSign, TicketIcon, ImageIcon, FileText, CalendarIcon } from 'lucide-react';
 import { AuthContext } from '../../../../providers/AuthProvider';
-import serverURL from '../../../../ServerConfig';
+import serverURL from "../../../../ServerConfig";
 
 const CreateEvent = () => {
     const { user } = useContext(AuthContext);
-    const fileInputRef = useRef(null);
-    
     const [eventData, setEventData] = useState({
         title: '',
         description: '',
         date: '',
         time: '',
         location: '',
+        image: '',
         price: '',
         ticketsAvailable: 0
     });
-    const [selectedFile, setSelectedFile] = useState(null);
-    const [previewUrl, setPreviewUrl] = useState('');
-    const [existingEvents, setExistingEvents] = useState([]);
+    const [loading, setLoading] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [showTimePicker, setShowTimePicker] = useState(false);
+    
+    // Calendar state variables
+    const [currentMonth, setCurrentMonth] = useState(new Date());
+    const [selectedDate, setSelectedDate] = useState(null);
+    
+    // Get auth token from localStorage
+    const getAuthToken = () => {
+        return localStorage.getItem('auth-token');
+    };
 
-    // Time options for dropdown (12-hour format with AM/PM)
-    const timeOptions = [];
-    for (let hour = 1; hour <= 12; hour++) {
-        timeOptions.push(`${hour}:00 AM`);
-        timeOptions.push(`${hour}:30 AM`);
-    }
-    for (let hour = 1; hour <= 12; hour++) {
-        timeOptions.push(`${hour}:00 PM`);
-        timeOptions.push(`${hour}:30 PM`);
-    }
-
-    // Load existing events from server when component mounts
+    // Handle outside click to close pickers
     useEffect(() => {
-        // You can add code here to fetch existing events from the server if needed
-        const storedEvents = localStorage.getItem('events');
-        if (storedEvents) {
-            setExistingEvents(JSON.parse(storedEvents));
-        }
+        const handleOutsideClick = (e) => {
+            if (!e.target.closest('.date-picker-container') && !e.target.closest('.date-input-container')) {
+                setShowDatePicker(false);
+            }
+            if (!e.target.closest('.time-picker-container') && !e.target.closest('.time-input-container')) {
+                setShowTimePicker(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleOutsideClick);
+        return () => {
+            document.removeEventListener('mousedown', handleOutsideClick);
+        };
     }, []);
 
+    // Calendar functions
+    const getDaysInMonth = (year, month) => {
+        return new Date(year, month + 1, 0).getDate();
+    };
+
+    const getFirstDayOfMonth = (year, month) => {
+        return new Date(year, month, 1).getDay();
+    };
+
+    const goToPreviousMonth = () => {
+        setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1));
+    };
+
+    const goToNextMonth = () => {
+        setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1));
+    };
+
+    const handleDateSelect = (day) => {
+        const selectedDate = new Date(
+            currentMonth.getFullYear(),
+            currentMonth.getMonth(),
+            day
+        );
+        
+        // Format date as YYYY-MM-DD
+        const formattedDate = selectedDate.toISOString().split('T')[0];
+        
+        setSelectedDate(selectedDate);
+        setEventData({ ...eventData, date: formattedDate });
+        setShowDatePicker(false);
+    };
+
+    const handleTimeSelect = (hour, minute, period) => {
+        // Convert to 24-hour format for the input
+        let hours24 = parseInt(hour);
+        if (period === 'PM' && hours24 < 12) {
+            hours24 += 12;
+        } else if (period === 'AM' && hours24 === 12) {
+            hours24 = 0;
+        }
+        
+        // Format as HH:MM for the input
+        const formattedTime = `${hours24.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+        
+        setEventData({ ...eventData, time: formattedTime });
+        setShowTimePicker(false);
+    };
+
+    // Form handling functions
     const handleChange = (e) => {
         const { name, value } = e.target;
         setEventData({
             ...eventData,
-            [name]: name === 'ticketsAvailable' ? parseInt(value) || 0 : value
+            [name]: name === 'ticketsAvailable' || name === 'price' ? parseInt(value) || 0 : value
         });
-    };
-
-    const handleFileChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            setSelectedFile(file);
-            // Create a preview URL for the selected image
-            const fileReader = new FileReader();
-            fileReader.onload = () => {
-                setPreviewUrl(fileReader.result);
-            };
-            fileReader.readAsDataURL(file);
-        }
-    };
-
-    const triggerFileInput = () => {
-        fileInputRef.current.click();
     };
 
     const handleSubmit = async (e) => {
@@ -81,70 +117,44 @@ const CreateEvent = () => {
             setErrorMessage('Please fill in all required fields');
             return;
         }
-
-        if (!selectedFile) {
-            setErrorMessage('Image file is required');
-            return;
-        }
         
         try {
-            setIsLoading(true);
+            setLoading(true);
             
-            // Prepare event data for API using FormData for file upload
-            const formData = new FormData();
-            
-            // Add all the event data to FormData
-            formData.append('title', eventData.title);
-            formData.append('description', eventData.description);
-            formData.append('date', eventData.date);
-            formData.append('time', eventData.time);
-            formData.append('location', eventData.location);
-            formData.append('price', eventData.price.startsWith('$') ? eventData.price.substring(1) : eventData.price);
-            formData.append('ticketsAvailable', eventData.ticketsAvailable);
-            formData.append('createdBy', user?._id || user?.email || 'unknown_user');
-            
-            // Append the image file
-            formData.append('image', selectedFile);
-            
-            // Get token from localStorage
-            const token = localStorage.getItem('auth-token') || localStorage.getItem('access-token');
+            // Get auth token
+            const token = getAuthToken();
             
             if (!token) {
-                throw new Error('Authentication token not found. Please log in again.');
+                throw new Error('Authentication required. Please log in.');
             }
             
-            // Send data to server using fetch API with FormData
-            const response = await fetch(`${serverURL.url}ticket/create-ticket`, {
-                method: 'POST',
-                headers: {
-                    // Do not set Content-Type header when using FormData
-                    // FormData automatically sets the appropriate Content-Type with boundary
-                    'Authorization': `Bearer ${token}`
-                },
-                body: formData
-            });
-            
-            const data = await response.json();
-            
-            if (!response.ok) {
-                throw new Error(data.message || 'Failed to create event');
-            }
-            
-            // Update local state with the returned event from server
-            const createdEvent = data.event || {
+            // Prepare data for API
+            const eventPayload = {
                 ...eventData,
-                id: Date.now() // Fallback ID if server doesn't return one
+                price: parseInt(eventData.price),
+                ticketsAvailable: parseInt(eventData.ticketsAvailable),
+                createdBy: user?.email || 'unknown_user'
             };
             
-            // Add to existing events
-            const updatedEvents = [...existingEvents, createdEvent];
-            setExistingEvents(updatedEvents);
+            // Send to API with authentication
+            const response = await fetch(`${serverURL.url}event/create-event`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(eventPayload)
+            });
             
-            // Store in localStorage for persistence
-            localStorage.setItem('events', JSON.stringify(updatedEvents));
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(`Error: ${response.status} - ${errorData.message || response.statusText}`);
+            }
             
-            // Show success message
-            setSuccessMessage('Event created successfully!');
+            const result = await response.json();
+            console.log('Event created:', result);
+            
+            setSuccessMessage('Event added successfully!');
             
             // Reset form
             setEventData({
@@ -153,40 +163,189 @@ const CreateEvent = () => {
                 date: '',
                 time: '',
                 location: '',
+                image: '',
                 price: '',
                 ticketsAvailable: 0
             });
-            setSelectedFile(null);
-            setPreviewUrl('');
-            // Reset file input
-            if (fileInputRef.current) {
-                fileInputRef.current.value = '';
-            }
+            setSelectedDate(null);
         } catch (error) {
             console.error('Error creating event:', error);
-            setErrorMessage(error.message || 'Failed to create event. Please try again.');
+            setErrorMessage(error.message || 'Failed to save event. Please try again.');
         } finally {
-            setIsLoading(false);
+            setLoading(false);
         }
     };
 
-    // Get today's date in YYYY-MM-DD format for min attribute of date input
-    const today = new Date().toISOString().split('T')[0];
+    // Calendar rendering
+    const renderCalendar = () => {
+        const year = currentMonth.getFullYear();
+        const month = currentMonth.getMonth();
+        const daysInMonth = getDaysInMonth(year, month);
+        const firstDayOfMonth = getFirstDayOfMonth(year, month);
+        
+        const days = [];
+        // Add empty cells for days before the first day of the month
+        for (let i = 0; i < firstDayOfMonth; i++) {
+            days.push(<div key={`empty-${i}`} className="w-10 h-10"></div>);
+        }
+        
+        // Add days of the month
+        for (let day = 1; day <= daysInMonth; day++) {
+            const date = new Date(year, month, day);
+            const isSelected = selectedDate && 
+                date.getDate() === selectedDate.getDate() && 
+                date.getMonth() === selectedDate.getMonth() && 
+                date.getFullYear() === selectedDate.getFullYear();
+            
+            const isToday = new Date().toDateString() === date.toDateString();
+            
+            days.push(
+                <div 
+                    key={`day-${day}`} 
+                    onClick={() => handleDateSelect(day)}
+                    className={`w-10 h-10 flex items-center justify-center cursor-pointer rounded-full text-sm
+                    ${isSelected ? 'bg-orange-500 text-white' : ''}
+                    ${!isSelected && isToday ? 'bg-orange-100 text-orange-800' : ''}
+                    ${!isSelected && !isToday ? 'hover:bg-gray-100' : ''}
+                    `}
+                >
+                    {day}
+                </div>
+            );
+        }
+        
+        return days;
+    };
+
+    // Time picker rendering
+    const renderTimePicker = () => {
+        const hours = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+        const minutes = ['00', '15', '30', '45'];
+        const periods = ['AM', 'PM'];
+        
+        return (
+            <div className="p-4 bg-white rounded-lg shadow-lg border border-gray-200">
+                <div className="text-center mb-3 font-medium text-gray-800">Select Time</div>
+                
+                <div className="flex">
+                    {/* Hours */}
+                    <div className="flex flex-col overflow-y-auto h-40 mr-2 pr-2">
+                        {hours.map(hour => (
+                            <div
+                                key={`hour-${hour}`}
+                                onClick={() => {
+                                    // Extract current values
+                                    const [_, currentMinute, currentPeriod] = /(\d+):(\d+)\s*([APM]{2})?/.exec(eventData.time || '12:00 AM') || [null, '00', 'AM'];
+                                    handleTimeSelect(hour, currentMinute, currentPeriod);
+                                }}
+                                className="py-2 px-3 cursor-pointer hover:bg-orange-100 rounded text-center"
+                            >
+                                {hour}
+                            </div>
+                        ))}
+                    </div>
+                    
+                    {/* Minutes */}
+                    <div className="flex flex-col overflow-y-auto h-40 mr-2 pr-2">
+                        {minutes.map(minute => (
+                            <div
+                                key={`minute-${minute}`}
+                                onClick={() => {
+                                    // Extract current values
+                                    const [_, currentHour, __, currentPeriod] = /(\d+):(\d+)\s*([APM]{2})?/.exec(eventData.time || '12:00 AM') || [null, '12', null, 'AM'];
+                                    handleTimeSelect(currentHour, minute, currentPeriod);
+                                }}
+                                className="py-2 px-3 cursor-pointer hover:bg-orange-100 rounded text-center"
+                            >
+                                {minute}
+                            </div>
+                        ))}
+                    </div>
+                    
+                    {/* AM/PM */}
+                    <div className="flex flex-col">
+                        {periods.map(period => (
+                            <div
+                                key={`period-${period}`}
+                                onClick={() => {
+                                    // Extract current values
+                                    const [_, currentHour, currentMinute] = /(\d+):(\d+)\s*([APM]{2})?/.exec(eventData.time || '12:00 AM') || [null, '12', '00'];
+                                    handleTimeSelect(currentHour, currentMinute, period);
+                                }}
+                                className="py-2 px-3 cursor-pointer hover:bg-orange-100 rounded text-center"
+                            >
+                                {period}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    // Format date for display
+    const formatDateForDisplay = (dateString) => {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+        });
+    };
+
+    // Format time for display
+    const formatTimeForDisplay = (timeString) => {
+        if (!timeString) return '';
+        
+        // Parse time from HH:MM format
+        const [hours, minutes] = timeString.split(':').map(num => parseInt(num, 10));
+        
+        // Convert to 12-hour format
+        let period = 'AM';
+        let hours12 = hours;
+        
+        if (hours >= 12) {
+            period = 'PM';
+            hours12 = hours === 12 ? 12 : hours - 12;
+        }
+        
+        if (hours12 === 0) {
+            hours12 = 12;
+        }
+        
+        return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
+    };
 
     return (
-        <div className="max-w-4xl mx-auto">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Add New Event</h2>
+        <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
+            <div className="mb-8">
+                <h2 className="text-3xl font-bold text-gray-800">Add New Event</h2>
+                <div className="w-20 h-1 bg-orange-500 mt-2 rounded-full"></div>
+                <p className="text-gray-600 mt-3">Create a new event for your audience</p>
+            </div>
             
             {/* Success/Error messages */}
             {successMessage && (
-                <div className="bg-green-100 border border-green-500 text-green-700 px-4 py-3 rounded mb-4">
-                    {successMessage}
+                <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6 rounded">
+                    <div className="flex items-center">
+                        <svg className="h-6 w-6 text-green-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <p>{successMessage}</p>
+                    </div>
                 </div>
             )}
             
             {errorMessage && (
-                <div className="bg-red-100 border border-red-500 text-red-700 px-4 py-3 rounded mb-4">
-                    {errorMessage}
+                <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded">
+                    <div className="flex items-center">
+                        <svg className="h-6 w-6 text-red-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <p>{errorMessage}</p>
+                    </div>
                 </div>
             )}
             
@@ -226,46 +385,116 @@ const CreateEvent = () => {
                 
                 {/* Event Date and Time - 2 column layout */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Event Date */}
-                    <div className="space-y-2">
+                    {/* Date with Calendar Picker */}
+                    <div className="space-y-2 relative">
                         <label className="flex items-center gap-2 text-gray-700 font-medium">
                             <Calendar size={18} className="text-orange-500" />
                             Event Date *
                         </label>
-                        <input
-                            type="date"
-                            name="date"
-                            value={eventData.date}
-                            onChange={handleChange}
-                            min={today}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                            required
-                        />
+                        
+                        <div className="relative date-input-container">
+                            <input
+                                type="text"
+                                name="date"
+                                value={formatDateForDisplay(eventData.date)}
+                                readOnly
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
+                                placeholder="Select date"
+                                onClick={() => setShowDatePicker(!showDatePicker)}
+                                required
+                            />
+                            <CalendarIcon 
+                                size={20} 
+                                className="absolute right-3 top-3.5 text-gray-500 pointer-events-none" 
+                            />
+                        </div>
+                        
+                        {/* Calendar Popover */}
+                        {showDatePicker && (
+                            <div className="absolute z-10 mt-1 date-picker-container">
+                                <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-4">
+                                    {/* Calendar Header */}
+                                    <div className="flex justify-between items-center mb-4">
+                                        <button 
+                                            type="button"
+                                            onClick={goToPreviousMonth}
+                                            className="p-1 rounded-full hover:bg-gray-100"
+                                        >
+                                            <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                            </svg>
+                                        </button>
+                                        
+                                        <div className="text-gray-800 font-medium">
+                                            {currentMonth.toLocaleDateString('en-US', {
+                                                month: 'long',
+                                                year: 'numeric'
+                                            })}
+                                        </div>
+                                        
+                                        <button 
+                                            type="button"
+                                            onClick={goToNextMonth}
+                                            className="p-1 rounded-full hover:bg-gray-100"
+                                        >
+                                            <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                    
+                                    {/* Day Labels */}
+                                    <div className="grid grid-cols-7 gap-1 mb-2">
+                                        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
+                                            <div key={day} className="w-10 h-6 flex items-center justify-center text-xs font-medium text-gray-500">
+                                                {day}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    
+                                    {/* Calendar Grid */}
+                                    <div className="grid grid-cols-7 gap-1">
+                                        {renderCalendar()}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                     
-                    {/* Event Time */}
-                    <div className="space-y-2">
+                    {/* Time with Time Picker */}
+                    <div className="space-y-2 relative">
                         <label className="flex items-center gap-2 text-gray-700 font-medium">
                             <Clock size={18} className="text-orange-500" />
                             Event Time *
                         </label>
-                        <select
-                            name="time"
-                            value={eventData.time}
-                            onChange={handleChange}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                            required
-                        >
-                            <option value="">Select a time</option>
-                            {timeOptions.map((time, index) => (
-                                <option key={index} value={time}>
-                                    {time}
-                                </option>
-                            ))}
-                        </select>
+                        
+                        <div className="relative time-input-container">
+                            <input
+                                type="text"
+                                name="time"
+                                value={formatTimeForDisplay(eventData.time)}
+                                readOnly
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
+                                placeholder="Select time"
+                                onClick={() => setShowTimePicker(!showTimePicker)}
+                                required
+                            />
+                            <Clock 
+                                size={20} 
+                                className="absolute right-3 top-3.5 text-gray-500 pointer-events-none" 
+                            />
+                        </div>
+                        
+                        {/* Time Picker Popover */}
+                        {showTimePicker && (
+                            <div className="absolute z-10 mt-1 time-picker-container">
+                                {renderTimePicker()}
+                            </div>
+                        )}
                     </div>
                 </div>
                 
+                {/* The rest of the form remains unchanged */}
                 {/* Event Location */}
                 <div className="space-y-2">
                     <label className="flex items-center gap-2 text-gray-700 font-medium">
@@ -283,50 +512,20 @@ const CreateEvent = () => {
                     />
                 </div>
                 
-                {/* Image Upload */}
+                {/* Image URL */}
                 <div className="space-y-2">
                     <label className="flex items-center gap-2 text-gray-700 font-medium">
                         <ImageIcon size={18} className="text-orange-500" />
-                        Event Image *
+                        Image URL
                     </label>
-                    <div 
-                        className="border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition"
-                        onClick={triggerFileInput}
-                    >
-                        <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleFileChange}
-                            className="hidden"
-                            ref={fileInputRef}
-                            required
-                        />
-                        
-                        {previewUrl ? (
-                            <div className="space-y-4 w-full">
-                                <img 
-                                    src={previewUrl} 
-                                    alt="Event preview" 
-                                    className="max-h-48 mx-auto rounded-lg shadow-md" 
-                                />
-                                <p className="text-sm text-center text-gray-600">
-                                    {selectedFile?.name} ({Math.round(selectedFile?.size / 1024)} KB)
-                                </p>
-                                <p className="text-sm text-center text-blue-600">Click to change image</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-2 text-center">
-                                <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                                <div className="flex text-sm text-gray-600">
-                                    <label className="relative cursor-pointer rounded-md bg-white font-medium text-orange-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-orange-500 focus-within:ring-offset-2 hover:text-orange-500">
-                                        <span>Upload a file</span>
-                                    </label>
-                                    <p className="pl-1">or drag and drop</p>
-                                </div>
-                                <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
-                            </div>
-                        )}
-                    </div>
+                    <input
+                        type="text"
+                        name="image"
+                        value={eventData.image}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        placeholder="https://example.com/image.jpg"
+                    />
                 </div>
                 
                 {/* Price and Tickets - 2 column layout */}
@@ -338,12 +537,13 @@ const CreateEvent = () => {
                             Price (BDT) *
                         </label>
                         <input
-                            type="text"
+                            type="number"
                             name="price"
                             value={eventData.price}
                             onChange={handleChange}
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                            placeholder="300"
+                            placeholder="500"
+                            min="0"
                             required
                         />
                     </div>
@@ -360,29 +560,36 @@ const CreateEvent = () => {
                             value={eventData.ticketsAvailable}
                             onChange={handleChange}
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                            placeholder="200"
-                            min="1"
+                            placeholder="100"
+                            min="0"
                             required
                         />
                     </div>
                 </div>
                 
                 {/* Submit Button */}
-                <div className="flex justify-end">
+                <div className="flex justify-end pt-4">
                     <button
                         type="submit"
-                        className="bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium px-6 py-3 rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
-                        disabled={isLoading}
+                        disabled={loading}
+                        className={`${
+                            loading ? 'bg-gray-400' : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:shadow-lg transform hover:-translate-y-0.5'
+                        } text-white font-medium px-8 py-3 rounded-lg shadow-md transition-all duration-200 flex items-center`}
                     >
-                        {isLoading ? 'Creating...' : 'Add Event'}
+                        {loading ? (
+                            <>
+                                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Processing...
+                            </>
+                        ) : (
+                            'Create Event'
+                        )}
                     </button>
                 </div>
             </form>
-            
-            {/* Events Count */}
-            <div className="mt-8 text-gray-600">
-                <p>Total events: {existingEvents.length}</p>
-            </div>
         </div>
     );
 };

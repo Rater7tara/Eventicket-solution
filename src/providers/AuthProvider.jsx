@@ -1,5 +1,6 @@
 import React, { createContext, useEffect, useState } from "react";
 import ServerURL from "../ServerConfig";
+import AuthService from "../services/AuthService"; // Import the AuthService
 
 export const AuthContext = createContext(null);
 
@@ -198,17 +199,16 @@ const AuthProvider = ({ children }) => {
     }
   };
 
-  // Log out
+  // Enhanced Log out using AuthService
   const logOut = () => {
-    // Clear user data and token
-    localStorage.removeItem("user-info");
-    localStorage.removeItem("auth-token");
-    sessionStorage.removeItem("auth-token-backup");
-
+    // Use the AuthService to properly clean up all storage
+    AuthService.logout();
+    
     // Clear user state
     setUser(null);
     setAuthToken(null);
-
+    
+    console.log("Logged out and cleared all user data");
     return true;
   };
 

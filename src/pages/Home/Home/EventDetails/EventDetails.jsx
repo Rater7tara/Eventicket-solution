@@ -361,34 +361,43 @@ const EventDetails = () => {
 
                 <div className="p-4">
                   {/* Ticket types */}
-                  <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Select Ticket Type
-                    </label>
-                    {event.ticketTypes.map((type, index) => (
-                      <div
-                        key={type.id}
-                        className={`flex items-center justify-between p-3 border ${
-                          selectedTicketType === index
-                            ? "border-orange-500 bg-gray-700"
-                            : "border-gray-700"
-                        } rounded-lg mb-2 hover:border-orange-400 cursor-pointer transition-colors`}
-                        onClick={() => setSelectedTicketType(index)}
-                      >
-                        <div>
-                          <div className="font-medium text-white">
-                            {type.name}
-                          </div>
-                          <div className="text-xs text-gray-400">
-                            {type.contactOnly
-                              ? "Contact organizer for details"
-                              : "Includes all event access"}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
+<div className="mb-6">
+  <label className="block text-sm font-medium text-gray-300 mb-2">
+    Available Seating Sections
+  </label>
+  
+  <div className="grid grid-cols-2 gap-2">
+    <div className="p-3 border border-red-500 bg-gray-700 rounded-lg">
+      <div className="font-medium text-white text-sm">VIP Lounge</div>
+      <div className="text-xs text-gray-400">$200</div>
+    </div>
+    
+    <div className="p-3 border border-orange-500 bg-gray-700 rounded-lg">
+      <div className="font-medium text-white text-sm">Energon Enclave</div>
+      <div className="text-xs text-gray-400">$160</div>
+    </div>
+    
+    <div className="p-3 border border-orange-300 bg-gray-700 rounded-lg">
+      <div className="font-medium text-white text-sm">HDB House</div>
+      <div className="text-xs text-gray-400">$120</div>
+    </div>
+    
+    <div className="p-3 border border-purple-500 bg-gray-700 rounded-lg">
+      <div className="font-medium text-white text-sm">AusDream Arena</div>
+      <div className="text-xs text-gray-400">$80</div>
+    </div>
+    
+    <div className="p-3 border border-blue-500 bg-gray-700 rounded-lg">
+      <div className="font-medium text-white text-sm">Century Circle</div>
+      <div className="text-xs text-gray-400">$70</div>
+    </div>
+    
+    <div className="p-3 border border-purple-700 bg-gray-700 rounded-lg">
+      <div className="font-medium text-white text-sm">Gamma Gallery</div>
+      <div className="text-xs text-gray-400">$60</div>
+    </div>
+  </div>
+</div>
                   {/* Action buttons */}
                   <div className="space-y-3">
                     {!isContactOnly ? (
@@ -412,14 +421,14 @@ const EventDetails = () => {
                       </button>
                     )}
 
-                    {!isContactOnly && (
+                    {/* {!isContactOnly && (
                       <button
                         onClick={handleContactOrganizer}
                         className="w-full bg-transparent border-2 border-orange-500 text-orange-400 py-3 px-4 rounded-lg font-medium hover:bg-orange-500/10 transition-colors cursor-pointer"
                       >
                         Contact Organizer
                       </button>
-                    )}
+                    )} */}
                   </div>
                 </div>
               </div>
