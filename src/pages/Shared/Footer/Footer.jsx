@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, Users, FileText, Home, Phone, Mail, MapPin, Instagram, Facebook, Twitter, Music, Ticket, Heart, ChevronRight, Code } from 'lucide-react';
 import logo from '../../../assets/logo.png';
+import BecomeSeller from '../../Home/Home/BecomeSeller/BecomeSeller';
 
 // Define keyframe animations in a regular CSS class
 const animationStyles = {
@@ -78,6 +79,7 @@ const Footer = () => {
                 <Instagram size={18} />
               </a>
             </div>
+            
           </div>
 
           {/* Column 2 - Quick Links */}
@@ -182,7 +184,7 @@ const Footer = () => {
             </ul>
             
             {/* Newsletter Signup */}
-            <div className="mt-6">
+            <div className="mt-6 mb-4">
               <h4 className="text-sm font-semibold text-gray-700 mb-3">Subscribe to our newsletter</h4>
               <div className="flex">
                 <input 
@@ -195,6 +197,7 @@ const Footer = () => {
                 </button>
               </div>
             </div>
+            <BecomeSeller />
           </div>
         </div>
       </div>

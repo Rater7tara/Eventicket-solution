@@ -116,7 +116,7 @@ const BannerSlider = () => {
             </div> */}
             
             {/* Become Seller Button */}
-            <BecomeSeller />
+            {/* <BecomeSeller /> */}
             
             <Slider {...settings} className="banner-slider">
                 {slides.map((slide, index) => (

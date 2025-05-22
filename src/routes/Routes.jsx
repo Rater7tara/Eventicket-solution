@@ -28,6 +28,7 @@ import ManageEvents from "../pages/Dashboard/AdminDashborad/ManageEvents/ManageE
 import BuyerDashboard from "../pages/Dashboard/UserDashboard/BuyerDashboard";
 import SoldTickets from "../pages/Dashboard/AdminDashborad/SoldTickets/SoldTickets";
 import ManageSellerRequests from "../pages/Dashboard/AdminDashborad/SellerRequest/ManageSellerRequests";
+import AdminProfile from "../pages/Dashboard/AdminDashborad/AdminProfille/AdminProfile";
 
 export const router = createBrowserRouter([
   {
@@ -127,6 +128,10 @@ export const router = createBrowserRouter([
       {
         path: "sold-tickets",
         element: <SoldTickets />,
+      },
+      {
+        path: "admin-profile",
+        element: <AdminProfile />,
       },
       {
         path: "reports",

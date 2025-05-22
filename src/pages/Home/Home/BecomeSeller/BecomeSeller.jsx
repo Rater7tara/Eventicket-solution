@@ -66,7 +66,7 @@ const BecomeSeller = () => {
       {/* Become Seller Button */}
       <button 
         onClick={() => setShowModal(true)}
-        className="absolute top-8 right-8 z-20 bg-white text-orange-500 hover:bg-orange-500 hover:text-white px-4 py-2 rounded-lg font-medium transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center gap-2 cursor-pointer"
+        className="w-full bg-orange-500 text-white hover:bg-orange-600 px-4 py-2 rounded-lg font-medium transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center justify-center gap-2 cursor-pointer"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -76,8 +76,8 @@ const BecomeSeller = () => {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-black/30 z-50 flex items-center justify-center overflow-auto bg-opacity-30 backdrop-blur-sm">
-          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 md:mx-auto animate-fade-in">
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/30 z-[9999] flex items-start justify-center overflow-y-auto p-4 pt-20 pb-8">
+          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-2xl animate-fade-in">
             {/* Modal Header */}
             <div className="py-4 px-6 border-b border-gray-200 flex justify-between items-center">
               <h3 className="text-2xl font-bold text-gray-800">Become a Seller</h3>

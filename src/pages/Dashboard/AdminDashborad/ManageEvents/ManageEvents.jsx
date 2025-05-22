@@ -139,59 +139,59 @@ const ManageEvents = () => {
   };
 
   // Handle event update
-  const handleUpdateEvent = async (e) => {
-    e.preventDefault();
-    if (!selectedEvent) return;
+  // const handleUpdateEvent = async (e) => {
+  //   e.preventDefault();
+  //   if (!selectedEvent) return;
 
-    setIsSubmitting(true);
-    try {
-      // Construct the update URL based on the format you provided
-      const updateUrl = `${serverURL.url}event/update/${selectedEvent._id}`;
-      console.log("Updating event at:", updateUrl);
+  //   setIsSubmitting(true);
+  //   try {
+  //     // Construct the update URL based on the format you provided
+  //     const updateUrl = `${serverURL.url}event/update/${selectedEvent._id}`;
+  //     console.log("Updating event at:", updateUrl);
 
-      // Make sure the request body matches exactly the example you provided
-      const updateData = {
-        title: editFormData.title,
-        description: editFormData.description,
-        date: editFormData.date,
-        time: editFormData.time,
-        location: editFormData.location,
-        image: editFormData.image,
-        price: Number(editFormData.price),
-        ticketsAvailable: Number(editFormData.ticketsAvailable),
-      };
+  //     // Make sure the request body matches exactly the example you provided
+  //     const updateData = {
+  //       title: editFormData.title,
+  //       description: editFormData.description,
+  //       date: editFormData.date,
+  //       time: editFormData.time,
+  //       location: editFormData.location,
+  //       image: editFormData.image,
+  //       price: Number(editFormData.price),
+  //       ticketsAvailable: Number(editFormData.ticketsAvailable),
+  //     };
 
-      console.log("Update payload:", updateData);
+  //     console.log("Update payload:", updateData);
 
-      const response = await axios.put(updateUrl, updateData, getAuthHeaders());
+  //     const response = await axios.put(updateUrl, updateData, getAuthHeaders());
 
-      console.log("Update API response:", response.data);
+  //     console.log("Update API response:", response.data);
 
-      toast.success("Event updated successfully!");
+  //     toast.success("Event updated successfully!");
 
-      // Refresh the events list
-      fetchEvents();
+  //     // Refresh the events list
+  //     fetchEvents();
 
-      // Close the modal
-      setIsEditModalOpen(false);
-      setSelectedEvent(null);
-    } catch (err) {
-      console.error("Error updating event:", err);
-      toast.error(
-        err.response?.data?.message ||
-          `Update failed with status ${err.response?.status || "unknown"}`
-      );
+  //     // Close the modal
+  //     setIsEditModalOpen(false);
+  //     setSelectedEvent(null);
+  //   } catch (err) {
+  //     console.error("Error updating event:", err);
+  //     toast.error(
+  //       err.response?.data?.message ||
+  //         `Update failed with status ${err.response?.status || "unknown"}`
+  //     );
 
-      console.log("Error details:", {
-        endpoint: `${serverURL.url}event/update/${selectedEvent._id}`,
-        status: err.response?.status,
-        message: err.message,
-        responseData: err.response?.data,
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  //     console.log("Error details:", {
+  //       endpoint: `${serverURL.url}event/update/${selectedEvent._id}`,
+  //       status: err.response?.status,
+  //       message: err.message,
+  //       responseData: err.response?.data,
+  //     });
+  //   } finally {
+  //     setIsSubmitting(false);
+  //   }
+  // };
 
   const togglePublish = async (eventId, currentStatus) => {
     const token = localStorage.getItem("auth-token");
@@ -306,11 +306,37 @@ const ManageEvents = () => {
 
   // Format date
   const formatDate = (dateString) => {
+    if (!dateString) return "Not specified";
     return new Date(dateString).toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
       day: "numeric",
     });
+  };
+
+  const formatTime = (timeString) => {
+    if (!timeString) return "Not specified";
+
+    // Handle different time formats
+    try {
+      // If it's already in 12-hour format, return as is
+      if (
+        timeString.toLowerCase().includes("am") ||
+        timeString.toLowerCase().includes("pm")
+      ) {
+        return timeString;
+      }
+
+      // Convert 24-hour format to 12-hour format
+      const [hours, minutes] = timeString.split(":");
+      const hour24 = parseInt(hours, 10);
+      const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+      const ampm = hour24 >= 12 ? "PM" : "AM";
+
+      return `${hour12}:${minutes || "00"} ${ampm}`;
+    } catch (error) {
+      return timeString; // Return original if parsing fails
+    }
   };
 
   // Truncate text
@@ -344,15 +370,14 @@ const ManageEvents = () => {
               </div>
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
-            <div className="absolute bottom-0 left-0 p-6">
-              <h2 className="text-2xl font-bold text-white mb-1">
-                {selectedEvent.title}
-              </h2>
-              <div className="flex items-center text-white/80">
-                <Calendar className="mr-1" size={16} />
-                <span className="text-sm">
-                  {formatDate(selectedEvent.createdAt)}
-                </span>
+            <div className="flex items-start space-x-3">
+              <Clock className="text-gray-500 mt-1 shrink-0" size={18} />
+              <div>
+                <p className="text-sm font-medium text-gray-500">Time</p>
+                <p className="text-gray-900">
+                  {formatTime(selectedEvent.time)}{" "}
+                  {/* Use the new formatTime function */}
+                </p>
               </div>
             </div>
             <div className="absolute top-4 right-4">
@@ -829,10 +854,15 @@ const ManageEvents = () => {
                         )}
                       </p>
 
+                      <div className="flex items-center text-gray-500 text-sm mb-2">
+                        <Calendar className="mr-1" size={14} />
+                        <span>{formatDate(event.date)}</span>
+                      </div>
+
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center text-gray-500 text-sm">
                           <Clock className="mr-1" size={14} />
-                          <span>{event.time || "Not specified"}</span>
+                          <span>{formatTime(event.time)}</span>
                         </div>
                         <div className="text-sm font-medium text-blue-600">
                           {event.price ? `৳${event.price}` : "Free"}
@@ -865,13 +895,13 @@ const ManageEvents = () => {
                           >
                             <Eye size={18} />
                           </button>
-                          <button
+                          {/* <button
                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
                             onClick={() => openEditModal(event)}
                             title="Edit Event"
                           >
                             <Edit size={18} />
-                          </button>
+                          </button> */}
                           <button
                             className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
                             onClick={() => {
@@ -977,7 +1007,7 @@ const ManageEvents = () => {
 
       {/* Modals */}
       {isViewModalOpen && <ViewEventModal />}
-      {isEditModalOpen && <EditEventModal />}
+      {/* {isEditModalOpen && <EditEventModal />} */}
       {isDeleteModalOpen && <DeleteConfirmationModal />}
     </div>
   );
