@@ -168,8 +168,8 @@ const NavBar = () => {
               {/* Notification Bell - Only shown when logged in */}
               {user && (
                 <button className="relative p-2 text-gray-700 hover:text-orange-600 transition-colors hidden sm:block">
-                  <Bell size={20} />
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full"></span>
+                  {/* <Bell size={20} /> */}
+                  {/* <span className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full"></span> */}
                 </button>
               )}
 
@@ -218,12 +218,12 @@ const NavBar = () => {
                         {userInfo.email}
                       </p>
                     </div>
-                    <Link
+                    {/* <Link
                       to="/profile"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50"
                     >
                       Your Profile
-                    </Link>
+                    </Link> */}
                     <Link
                       to="/dashboard"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-orange-50"

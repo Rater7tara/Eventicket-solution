@@ -293,7 +293,7 @@ useEffect(() => {
 
   // Handle go back
   const handleGoBack = () => {
-    navigate(-1);
+    navigate("/");
   };
 
   // Check if a seat is booked - UPDATED to use API data

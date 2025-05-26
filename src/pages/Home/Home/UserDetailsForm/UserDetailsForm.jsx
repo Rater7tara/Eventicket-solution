@@ -269,88 +269,70 @@ const UserDetailsForm = () => {
     setShowPassword(!showPassword);
   };
 
-  // Get summary data based on where we came from
-  const getSummaryContent = () => {
-    if (selectedSeats && selectedSeats.length > 0) {
-      // We came from SeatPlan
-      return (
-        <div className="space-y-3">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-300">Event:</span>
-            <span className="font-medium text-white">{eventData.title}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-300">Date & Time:</span>
-            <span className="font-medium text-white">{eventData.time}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-300">Location:</span>
-            <span className="font-medium text-white">{eventData.location}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-300">Selected Seats:</span>
-            <span className="font-medium text-white">
-              {selectedSeats.length}
-            </span>
-          </div>
-          <div className="border-t border-gray-700 pt-3 mt-3">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-gray-300">Subtotal:</span>
-              <span className="font-medium text-white">{totalPrice} BDT</span>
-            </div>
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-gray-300">Service Fee:</span>
-              <span className="font-medium text-white">{serviceFee} BDT</span>
-            </div>
-            <div className="flex justify-between items-center pt-2 border-t border-gray-700">
-              <span className="text-lg text-gray-300">Total:</span>
-              <span className="text-lg font-bold text-orange-500">
-                {grandTotal} BDT
-              </span>
-            </div>
-          </div>
+// Replace the getSummaryContent function with this simplified version:
+
+const getSummaryContent = () => {
+  if (selectedSeats && selectedSeats.length > 0) {
+    // We came from SeatPlan - keep full details
+    return (
+      <div className="space-y-3">
+        <div className="flex justify-between items-center">
+          <span className="text-gray-300">Event:</span>
+          <span className="font-medium text-white">{eventData.title}</span>
         </div>
-      );
-    } else {
-      // We came from EventDetails
-      return (
-        <div className="space-y-3">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-300">Event:</span>
-            <span className="font-medium text-white">{eventData.title}</span>
+        <div className="flex justify-between items-center">
+          <span className="text-gray-300">Date & Time:</span>
+          <span className="font-medium text-white">{eventData.time}</span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-gray-300">Location:</span>
+          <span className="font-medium text-white">{eventData.location}</span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-gray-300">Selected Seats:</span>
+          <span className="font-medium text-white">
+            {selectedSeats.length}
+          </span>
+        </div>
+        <div className="border-t border-gray-700 pt-3 mt-3">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-gray-300">Subtotal:</span>
+            <span className="font-medium text-white">{totalPrice} BDT</span>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-300">Date & Time:</span>
-            <span className="font-medium text-white">{eventData.time}</span>
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-gray-300">Service Fee:</span>
+            <span className="font-medium text-white">{serviceFee} BDT</span>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-300">Location:</span>
-            <span className="font-medium text-white">{eventData.location}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-300">Ticket Type:</span>
-            <span className="font-medium text-white">
-              {singleTicketType?.name || "Regular"}
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-gray-300">Quantity:</span>
-            <span className="font-medium text-white">{ticketQuantity}</span>
-          </div>
-          <div className="flex justify-between items-center pt-3 border-t border-gray-700">
+          <div className="flex justify-between items-center pt-2 border-t border-gray-700">
             <span className="text-lg text-gray-300">Total:</span>
             <span className="text-lg font-bold text-orange-500">
-              {singleTicketType?.price
-                ? `${(
-                    singleTicketType.price * ticketQuantity
-                  ).toLocaleString()} BDT`
-                : `${eventData.price || "0"} BDT`}
+              {grandTotal} BDT
             </span>
           </div>
         </div>
-      );
-    }
-  };
+      </div>
+    );
+  } else {
+    // We came from EventDetails - REMOVED ticket type, quantity, and total
+    return (
+      <div className="space-y-3">
+        <div className="flex justify-between items-center">
+          <span className="text-gray-300">Event:</span>
+          <span className="font-medium text-white">{eventData.title}</span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-gray-300">Date & Time:</span>
+          <span className="font-medium text-white">{eventData.time}</span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-gray-300">Location:</span>
+          <span className="font-medium text-white">{eventData.location}</span>
+        </div>
+        {/* Removed Ticket Type, Quantity, and Total sections */}
+      </div>
+    );
+  }
+};
 
   // If user is already logged in or page is loading, show loading spinner
   if (loading) {
