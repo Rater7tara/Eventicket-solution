@@ -119,11 +119,11 @@ const NavBar = () => {
   return (
     <>
       <div
-        className={`fixed max-w-screen-2xl top-0 w-full z-50 transition-all duration-300 ${
+        className={`fixed top-0 w-full z-50 transition-all duration-300 ${
           isScrolled ? "py-2 bg-orange-100 shadow-lg" : "py-3 bg-orange-100"
         }`}
       >
-        <div className="mx-auto px-4">
+        <div className="container m-auto px-4">
           <div className="flex items-center justify-between">
             {/* Logo */}
             <div className="flex items-center p-1 shadow-md">
