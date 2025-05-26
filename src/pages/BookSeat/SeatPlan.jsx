@@ -72,6 +72,49 @@ const SeatPlan = () => {
     }
   }, [eventDetails, userData, navigate]);
 
+  // Format date function - show date, month, year
+  const formatEventDate = (dateString) => {
+    if (!dateString) return "Date TBA";
+    
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+    } catch (error) {
+      return dateString;
+    }
+  };
+
+  // Format time function - 12 hour format
+  const formatEventTime = (timeString) => {
+    if (!timeString) return "Time TBA";
+    
+    try {
+      // Handle both time formats (HH:MM and full datetime)
+      let timeToFormat;
+      if (timeString.includes('T')) {
+        // If it's a full datetime string
+        timeToFormat = new Date(timeString);
+      } else {
+        // If it's just time (HH:MM)
+        const [hours, minutes] = timeString.split(':');
+        timeToFormat = new Date();
+        timeToFormat.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      }
+      
+      return timeToFormat.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch (error) {
+      return timeString;
+    }
+  };
+
   // Handle timer expiration
   const handleTimerExpire = () => {
     setTimerActive(false);
@@ -164,9 +207,6 @@ const SeatPlan = () => {
 
   // Calculate total price
   const totalPrice = selectedSeats.reduce((sum, seat) => sum + seat.price, 0);
-
-  // Service fee calculation
-  const serviceFee = Math.max(12, totalPrice * 0.06); // Minimum $12 or 6% of total
 
   // Toggle section view
   const toggleSection = (sectionId) => {
@@ -391,8 +431,7 @@ const SeatPlan = () => {
           event: eventDetails,
           selectedSeats: selectedSeats,
           totalPrice,
-          serviceFee,
-          grandTotal: totalPrice + serviceFee,
+          grandTotal: totalPrice,
           ticketType,
           quantity: selectedSeats.length,
         },
@@ -614,7 +653,7 @@ const SeatPlan = () => {
                   d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                 />
               </svg>
-              {eventDetails.date || "Date TBA"}
+              {formatEventDate(eventDetails.date)}
             </div>
             <div className="flex items-center">
               <svg
@@ -630,7 +669,7 @@ const SeatPlan = () => {
                   d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              {eventDetails.time || "Time TBA"}
+              {formatEventTime(eventDetails.time)}
             </div>
             <div className="flex items-center">
               <svg
@@ -1395,20 +1434,12 @@ const SeatPlan = () => {
                     ))}
                   </div>
 
-                  {mode !== "reserve" && (
+                 {mode !== "reserve" && (
                     <div className="border-t border-gray-700 pt-4 mb-6">
-                      <div className="flex justify-between items-center mb-2">
-                        <p className="text-gray-300">Subtotal</p>
-                        <p className="font-medium">${totalPrice.toFixed(2)}</p>
-                      </div>
-                      <div className="flex justify-between items-center mb-2">
-                        <p className="text-gray-300">Service Fee</p>
-                        <p className="font-medium">${serviceFee.toFixed(2)}</p>
-                      </div>
-                      <div className="flex justify-between items-center text-lg font-bold mt-4">
+                      <div className="flex justify-between items-center text-lg font-bold">
                         <p className="text-purple-400">Total</p>
                         <p className="text-purple-400">
-                          ${(totalPrice + serviceFee).toFixed(2)}
+                          ${totalPrice.toFixed(2)}
                         </p>
                       </div>
                     </div>
