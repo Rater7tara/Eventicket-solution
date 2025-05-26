@@ -34,6 +34,7 @@ import SellerProfile from "../pages/Dashboard/SellerDashboard/SellerProfile/Sell
 import BuyerProfile from "../pages/Dashboard/UserDashboard/BuyerProfile/BuyerProfile";
 import SellerCoupons from "../pages/Dashboard/SellerDashboard/SellerCoupons/SellerCoupons";
 import { TimerProvider } from "../providers/useTimer";
+import EventList from "../pages/Home/Home/EventCard/EventList";
 
 export const router = createBrowserRouter([
   {
@@ -44,6 +45,10 @@ export const router = createBrowserRouter([
       {
         path: "/",
         element: <Home />,
+      },
+      {
+        path: "/event-list",
+        element: <EventList />,
       },
       {
         path: "/events/:id",

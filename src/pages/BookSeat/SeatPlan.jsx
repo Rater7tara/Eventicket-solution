@@ -20,6 +20,8 @@ const SeatPlan = () => {
   const [showTimeoutModal, setShowTimeoutModal] = useState(false); // Modal for timeout
   const [isReserving, setIsReserving] = useState(false); // For reserve mode
   const [reserveSuccess, setReserveSuccess] = useState(false); // Reserve success state
+  const [bookedSeatsData, setBookedSeatsData] = useState([]); // Store booked seats from API
+  const [isLoadingSeats, setIsLoadingSeats] = useState(true); // Loading state for seats
 
   const eventDetails = location.state?.event || {};
   const ticketType = location.state?.ticketType || {};
@@ -60,6 +62,68 @@ const SeatPlan = () => {
     }
   }, [userData]);
 
+const fetchBookedSeats = async () => {
+  if (!eventDetails._id && !eventDetails.id) {
+    setIsLoadingSeats(false);
+    return;
+  }
+
+  try {
+    setIsLoadingSeats(true);
+
+    const token =
+      authServiceInstance.getToken() ||
+      (authContext && authContext.authToken) ||
+      localStorage.getItem("auth-token");
+
+    const headers = {
+      "Content-Type": "application/json",
+    };
+
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    // Updated API endpoint to use the new booked seats API
+    const eventId = eventDetails._id || eventDetails.id;
+    const response = await fetch(
+      `${serverURL.url}bookings/booked-seats/${eventId}`,
+      {
+        method: "GET",
+        headers: headers,
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch booked seats data");
+    }
+
+    const data = await response.json();
+    console.log("Booked seats API response:", data);
+
+    // Extract booked seats from the new API response structure
+    if (data.success && data.bookedSeats) {
+      setBookedSeatsData(data.bookedSeats);
+      console.log("Booked seats loaded:", data.bookedSeats);
+      console.log("Total booked seats:", data.totalBookedSeats);
+    } else {
+      console.log("No booked seats found for this event");
+      setBookedSeatsData([]);
+    }
+  } catch (error) {
+    console.error("Error fetching booked seats:", error);
+    setBookedSeatsData([]);
+  } finally {
+    setIsLoadingSeats(false);
+  }
+};
+
+
+useEffect(() => {
+  fetchBookedSeats();
+}, [eventDetails._id, eventDetails.id]);
+
+
   useEffect(() => {
     if (!eventDetails || Object.keys(eventDetails).length === 0) {
       console.error("No event details found in location state");
@@ -75,13 +139,13 @@ const SeatPlan = () => {
   // Format date function - show date, month, year
   const formatEventDate = (dateString) => {
     if (!dateString) return "Date TBA";
-    
+
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric'
+      return date.toLocaleDateString("en-US", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
       });
     } catch (error) {
       return dateString;
@@ -91,24 +155,24 @@ const SeatPlan = () => {
   // Format time function - 12 hour format
   const formatEventTime = (timeString) => {
     if (!timeString) return "Time TBA";
-    
+
     try {
       // Handle both time formats (HH:MM and full datetime)
       let timeToFormat;
-      if (timeString.includes('T')) {
+      if (timeString.includes("T")) {
         // If it's a full datetime string
         timeToFormat = new Date(timeString);
       } else {
         // If it's just time (HH:MM)
-        const [hours, minutes] = timeString.split(':');
+        const [hours, minutes] = timeString.split(":");
         timeToFormat = new Date();
         timeToFormat.setHours(parseInt(hours), parseInt(minutes), 0, 0);
       }
-      
-      return timeToFormat.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
+
+      return timeToFormat.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
       });
     } catch (error) {
       return timeString;
@@ -232,10 +296,37 @@ const SeatPlan = () => {
     navigate(-1);
   };
 
-  // Check if a seat is booked
-  const isSeatBooked = (seatId) => {
-    return bookedSeats.includes(seatId);
+  // Check if a seat is booked - UPDATED to use API data
+  const isSeatBooked = (section, row, seatNumber) => {
+    if (isLoadingSeats) return false;
+
+    return bookedSeatsData.some((bookedSeat) => {
+      // Handle both string and number seat numbers
+      const bookedSeatNumber = parseInt(bookedSeat.seatNumber);
+      const currentSeatNumber = parseInt(seatNumber);
+
+      const matches =
+        bookedSeat.section === section &&
+        bookedSeat.row === row &&
+        bookedSeatNumber === currentSeatNumber;
+
+      if (matches) {
+        console.log(
+          `Seat ${section} ${row}${seatNumber} is booked:`,
+          bookedSeat
+        );
+      }
+
+      return matches;
+    });
   };
+
+  useEffect(() => {
+    if (bookedSeatsData.length > 0) {
+      console.log("Booked seats loaded:", bookedSeatsData);
+      console.log("Number of booked seats:", bookedSeatsData.length);
+    }
+  }, [bookedSeatsData]);
 
   // Handle seat reservation (for organizers)
   const handleReserveSeats = async () => {
@@ -290,8 +381,8 @@ const SeatPlan = () => {
 
       console.log("Seats reserved successfully:", data);
 
-      // Mark seats as booked in local state
-      setBookedSeats([...bookedSeats, ...selectedSeats.map((seat) => seat.id)]);
+      // FIXED: Refetch from backend instead of manually updating local state
+      await fetchBookedSeats();
 
       // Clear selection
       setSelectedSeats([]);
@@ -318,135 +409,161 @@ const SeatPlan = () => {
     }
   };
 
-  const handleCheckout = async () => {
-    if (selectedSeats.length === 0) return;
+const handleCheckout = async () => {
+  if (selectedSeats.length === 0) return;
 
-    // If in reserve mode, call reserve function instead
-    if (mode === "reserve") {
-      return handleReserveSeats();
+  // If in reserve mode, call reserve function instead
+  if (mode === "reserve") {
+    return handleReserveSeats();
+  }
+
+  // Stop the timer when proceeding to checkout
+  setTimerActive(false);
+  setIsBooking(true);
+  setBookingError("");
+
+  try {
+    // Get authentication token
+    const token =
+      authServiceInstance.getToken() ||
+      (authContext && authContext.authToken) ||
+      localStorage.getItem("auth-token");
+
+    console.log("🔐 Token check:", {
+      authServiceToken: authServiceInstance.getToken(),
+      contextToken: authContext?.authToken,
+      localStorageToken: localStorage.getItem("auth-token"),
+      finalToken: token ? "✅ Token exists" : "❌ No token found"
+    });
+
+    if (!token) {
+      throw new Error("Authentication token required. Please login again.");
     }
 
-    // Stop the timer when proceeding to checkout
-    setTimerActive(false);
-    setIsBooking(true);
-    setBookingError("");
-
-    try {
-      // Use the authContext that's already defined at the top level of the component
-      let buyerId = null;
-
-      // Try to get user ID from context first
-      if (authContext && authContext.user && authContext.user._id) {
-        buyerId = authContext.user._id;
-        console.log("Got buyer ID from AuthContext:", buyerId);
+    // Get buyerId from userData, authContext, or localStorage
+    let buyerId = userData?._id || authContext?.user?._id;
+    
+    if (!buyerId) {
+      // Try to get from localStorage as fallback
+      try {
+        const storedUserData = JSON.parse(localStorage.getItem("userData")) || 
+                              JSON.parse(localStorage.getItem("user-info"));
+        buyerId = storedUserData?._id;
+      } catch (error) {
+        console.error("Error parsing stored user data:", error);
       }
-      // If not in context, use AuthService to get buyer ID
-      else {
-        buyerId = authServiceInstance.getBuyerId();
-        console.log("Got buyer ID from AuthService:", buyerId);
-      }
-
-      if (!buyerId) {
-        // Try one last option - use userData from component state
-        if (userData && userData._id) {
-          buyerId = userData._id;
-          console.log("Got buyer ID from component userData:", buyerId);
-        } else {
-          console.error("No buyer ID found in any source");
-          setBookingError("User authentication required. Please login first.");
-          // Navigate to user details page
-          navigate("/user-Details", {
-            state: {
-              event: eventDetails,
-              ticketType,
-              quantity: selectedSeats.length,
-            },
-          });
-          return;
-        }
-      }
-
-      // Format the selected seats as required by the API
-      const formattedSeats = selectedSeats.map((seat) => ({
-        section: seat.section,
-        row: seat.row,
-        seatNumber: seat.number,
-        price: seat.price,
-      }));
-
-      // Prepare request payload
-      const bookingData = {
-        eventId: eventDetails.id || eventDetails._id,
-        buyerId: buyerId,
-        seats: formattedSeats,
-        totalAmount: totalPrice,
-      };
-
-      console.log("Sending booking request:", bookingData);
-
-      // Make API call to book seats using the most reliable token source
-      const token =
-        authServiceInstance.getToken() ||
-        (authContext && authContext.authToken);
-
-      if (!token) {
-        console.error("No authentication token found");
-        setBookingError("Authentication token required. Please login again.");
-        navigate("/login", {
-          state: {
-            from: location.pathname,
-            message: "Your session has expired. Please login again.",
-          },
-        });
-        return;
-      }
-
-      const response = await fetch(`${serverURL.url}bookings/book`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(bookingData),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to book seats");
-      }
-
-      console.log("Booking successful:", data);
-
-      // Add selected seats to booked seats
-      setBookedSeats([...bookedSeats, ...selectedSeats.map((seat) => seat.id)]);
-
-      // Clear selection after booking
-      setSelectedSeats([]);
-
-      // Navigate to checkout with booking information
-      navigate("/checkout", {
-        state: {
-          bookingId: data.bookingId,
-          event: eventDetails,
-          selectedSeats: selectedSeats,
-          totalPrice,
-          grandTotal: totalPrice,
-          ticketType,
-          quantity: selectedSeats.length,
-        },
-      });
-    } catch (error) {
-      console.error("Error booking seats:", error);
-      setBookingError(
-        error.message ||
-          "There was an error processing your booking. Please try again."
-      );
-      setTimerActive(true);
-    } finally {
-      setIsBooking(false);
     }
-  };
+
+    console.log("👤 User ID sources:", {
+      userDataId: userData?._id,
+      contextUserId: authContext?.user?._id,
+      localStorageUserData: (() => {
+        try {
+          return JSON.parse(localStorage.getItem("userData"))?._id;
+        } catch { return null; }
+      })(),
+      localStorageUserInfo: (() => {
+        try {
+          return JSON.parse(localStorage.getItem("user-info"))?._id;
+        } catch { return null; }
+      })(),
+      finalBuyerId: buyerId
+    });
+
+    if (!buyerId) {
+      throw new Error("User ID required. Please login again.");
+    }
+
+    // Format the selected seats for the booking API
+    const formattedSeats = selectedSeats.map((seat) => ({
+      section: seat.section,
+      row: seat.row,
+      seatNumber: seat.number, // Make sure this is a number
+    }));
+
+    // Prepare booking data
+    const bookingData = {
+      eventId: eventDetails._id || eventDetails.id,
+      buyerId: buyerId,
+      totalAmount: totalPrice,
+      seats: formattedSeats,
+    };
+
+    console.log("📋 Booking data being sent:", JSON.stringify(bookingData, null, 2));
+    console.log("🌐 API Endpoint:", `${serverURL.url}bookings/book`);
+    console.log("🔑 Request headers:", {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token.substring(0, 20)}...`
+    });
+
+    const response = await fetch(`${serverURL.url}bookings/book`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(bookingData),
+    });
+
+    console.log("📡 Response received:", {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      headers: Object.fromEntries(response.headers.entries())
+    });
+
+    // Check if response is actually JSON
+    const contentType = response.headers.get("content-type");
+    console.log("📄 Content-Type:", contentType);
+
+    let data;
+    if (contentType && contentType.includes("application/json")) {
+      data = await response.json();
+      console.log("✅ JSON Response data:", data);
+    } else {
+      const textResponse = await response.text();
+      console.log("⚠️ Non-JSON Response:", textResponse);
+      throw new Error(`Server returned non-JSON response: ${textResponse}`);
+    }
+
+    if (!response.ok) {
+      console.error("❌ API Error Response:", data);
+      throw new Error(data.message || `HTTP ${response.status}: Failed to book seats`);
+    }
+
+    console.log("🎉 Booking successful:", data);
+
+    // Clear selection after booking
+    setSelectedSeats([]);
+
+    // Navigate to checkout with booking information
+    navigate("/checkout", {
+      state: {
+        bookingId: data.bookingId,
+        event: eventDetails,
+        selectedSeats: selectedSeats,
+        totalPrice,
+        grandTotal: totalPrice,
+        quantity: selectedSeats.length,
+      },
+    });
+
+  } catch (error) {
+    console.error("💥 Full error details:", {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    
+    setBookingError(
+      error.message ||
+        "There was an error processing your booking. Please try again."
+    );
+    setTimerActive(true);
+  } finally {
+    setIsBooking(false);
+  }
+};
 
   // Handle contact organizer for VIP seats
   const handleContactOrganizer = (section) => {
@@ -535,6 +652,14 @@ const SeatPlan = () => {
           </p>
         </div>
       </div>
+    </div>
+  );
+
+  // Loading component
+  const LoadingSeats = () => (
+    <div className="flex justify-center items-center py-8">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+      <span className="ml-2 text-gray-400">Loading seat availability...</span>
     </div>
   );
 
@@ -627,7 +752,9 @@ const SeatPlan = () => {
               Back
             </button>
             <h1 className="text-xl md:text-3xl font-bold text-center flex-1">
-              Select Your Seats
+              {mode === "reserve"
+                ? "Reserve Seats for Personal Guests"
+                : "Select Your Seats"}
             </h1>
             <div className="w-12"></div> {/* Spacer for balance */}
           </div>
@@ -697,7 +824,11 @@ const SeatPlan = () => {
 
           <div className="mt-2 text-center text-sm md:text-base bg-orange-900 bg-opacity-40 p-2 rounded-lg">
             <p>
-              <span className="font-semibold">Select your seats below</span>
+              <span className="font-semibold">
+                {mode === "reserve"
+                  ? "Select seats to reserve for your personal guests (FREE)"
+                  : "Select your seats below"}
+              </span>
             </p>
           </div>
         </div>
@@ -722,6 +853,9 @@ const SeatPlan = () => {
               </button>
             ))}
           </div>
+
+          {/* Loading indicator */}
+          {isLoadingSeats && <LoadingSeats />}
 
           {/* Main Content */}
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
@@ -804,7 +938,6 @@ const SeatPlan = () => {
                                   {Array.from({
                                     length: sections[0].seatsPerRow,
                                   }).map((_, seatIndex) => {
-                                    // Calculate actual seat number (continuous across columns)
                                     const seatNumber =
                                       colIndex * sections[0].seatsPerRow +
                                       seatIndex +
@@ -831,7 +964,7 @@ const SeatPlan = () => {
                   </div>
                 )}
 
-                {/* Energon Enclave - Same class as VIP but rows C-E */}
+                {/* Energon Enclave - Rows C-E */}
                 {(!activeSection || activeSection === "energon-enclave") && (
                   <div className="mb-8">
                     <h3
@@ -844,7 +977,6 @@ const SeatPlan = () => {
                     <div className="overflow-x-auto">
                       <div className="inline-block min-w-full">
                         {Array.from({ length: 3 }).map((_, idx) => {
-                          // Use rowIndex starting from C (index 2)
                           const rowIndex = idx + 2;
 
                           return (
@@ -868,15 +1000,18 @@ const SeatPlan = () => {
                                     {Array.from({
                                       length: sections[1].seatsPerRow,
                                     }).map((_, seatIndex) => {
-                                      // Calculate actual seat number (continuous across columns)
                                       const seatNumber =
                                         colIndex * sections[1].seatsPerRow +
                                         seatIndex +
                                         1;
                                       const seatId = `energon-enclave_${idx}_${colIndex}_${seatIndex}`;
 
-                                      // Check if seat is booked
-                                      const isBooked = isSeatBooked(seatId);
+                                      // Check if seat is booked using API data
+                                      const isBooked = isSeatBooked(
+                                        sections[1].id,
+                                        rowLetters[rowIndex],
+                                        seatNumber
+                                      );
                                       const isSelected = selectedSeats.some(
                                         (s) => s.id === seatId
                                       );
@@ -936,7 +1071,7 @@ const SeatPlan = () => {
                   </div>
                 </div>
 
-                {/* HDB House with Judges Table */}
+                {/* HDB House */}
                 {(!activeSection || activeSection === "hdb-house") && (
                   <div className="mb-8">
                     <h3
@@ -970,15 +1105,18 @@ const SeatPlan = () => {
                                     {Array.from({
                                       length: sections[2].seatsPerRow,
                                     }).map((_, seatIndex) => {
-                                      // Calculate actual seat number (continuous across columns)
                                       const seatNumber =
                                         colIndex * sections[2].seatsPerRow +
                                         seatIndex +
                                         1;
                                       const seatId = `${sections[2].id}_${rowIndex}_${colIndex}_${seatIndex}`;
 
-                                      // Check if seat is booked
-                                      const isBooked = isSeatBooked(seatId);
+                                      // Check if seat is booked using API data
+                                      const isBooked = isSeatBooked(
+                                        sections[2].id,
+                                        rowLetters[rowIndex],
+                                        seatNumber
+                                      );
                                       const isSelected = selectedSeats.some(
                                         (s) => s.id === seatId
                                       );
@@ -1026,15 +1164,6 @@ const SeatPlan = () => {
                         )}
                       </div>
                     </div>
-
-                    {/* Section separator */}
-                    <div className="w-full h-4 my-3 flex items-center justify-center text-xs text-orange-300">
-                      <div className="w-4/5 border-b border-dashed border-orange-500 relative">
-                        <span className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-gray-900 px-2 text-xs">
-                          Walking Path
-                        </span>
-                      </div>
-                    </div>
                   </div>
                 )}
 
@@ -1072,15 +1201,18 @@ const SeatPlan = () => {
                                     {Array.from({
                                       length: sections[3].seatsPerRow,
                                     }).map((_, seatIndex) => {
-                                      // Calculate actual seat number (continuous across columns)
                                       const seatNumber =
                                         colIndex * sections[3].seatsPerRow +
                                         seatIndex +
                                         1;
                                       const seatId = `${sections[3].id}_${rowIndex}_${colIndex}_${seatIndex}`;
 
-                                      // Check if seat is booked (simulated)
-                                      const isBooked = isSeatBooked(seatId);
+                                      // Check if seat is booked using API data
+                                      const isBooked = isSeatBooked(
+                                        sections[3].id,
+                                        rowLetters[rowIndex],
+                                        seatNumber
+                                      );
                                       const isSelected = selectedSeats.some(
                                         (s) => s.id === seatId
                                       );
@@ -1131,16 +1263,7 @@ const SeatPlan = () => {
                   </div>
                 )}
 
-                {/* Section separator */}
-                <div className="w-full h-8 my-4 flex items-center justify-center text-xs text-orange-300">
-                  <div className="w-4/5 border-b-2 border-dashed border-orange-500 relative">
-                    <span className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-gray-900 px-2 text-xs">
-                      Main Walking Path
-                    </span>
-                  </div>
-                </div>
-
-                {/* Century Circle with Entrance Door */}
+                {/* Century Circle */}
                 {(!activeSection || activeSection === "century-circle") && (
                   <div className="mb-8 relative pl-6">
                     <h3
@@ -1150,7 +1273,6 @@ const SeatPlan = () => {
                       {sections[4].name} - ${sections[4].price}
                     </h3>
 
-                    {/* Add Entrance Door - Now vertical */}
                     <EntranceDoor />
 
                     <div className="overflow-x-auto">
@@ -1177,15 +1299,18 @@ const SeatPlan = () => {
                                     {Array.from({
                                       length: sections[4].seatsPerRow,
                                     }).map((_, seatIndex) => {
-                                      // Calculate actual seat number (continuous across columns)
                                       const seatNumber =
                                         colIndex * sections[4].seatsPerRow +
                                         seatIndex +
                                         1;
                                       const seatId = `${sections[4].id}_${rowIndex}_${colIndex}_${seatIndex}`;
 
-                                      // Check if seat is booked (simulated)
-                                      const isBooked = isSeatBooked(seatId);
+                                      // Check if seat is booked using API data
+                                      const isBooked = isSeatBooked(
+                                        sections[4].id,
+                                        rowLetters[rowIndex],
+                                        seatNumber
+                                      );
                                       const isSelected = selectedSeats.some(
                                         (s) => s.id === seatId
                                       );
@@ -1236,12 +1361,12 @@ const SeatPlan = () => {
                   </div>
                 )}
 
-                {/* Add Judges' Table at the bottom of HDB House */}
+                {/* Judges' Table */}
                 <div className="mt-2 flex justify-center">
                   <JudgesTable />
                 </div>
 
-                {/* Special Gamma Gallery Section */}
+                {/* Gamma Gallery Section */}
                 {(!activeSection || activeSection === "gamma-gallery") && (
                   <div className="mb-4">
                     <h3
@@ -1278,8 +1403,12 @@ const SeatPlan = () => {
                                         column.start + seatIndex;
                                       const seatId = `gamma-gallery_${rowIndex}_${colIndex}_${seatIndex}`;
 
-                                      // Check if seat is booked (simulated)
-                                      const isBooked = isSeatBooked(seatId);
+                                      // Check if seat is booked using API data
+                                      const isBooked = isSeatBooked(
+                                        "gamma-gallery",
+                                        rowLetters[rowIndex],
+                                        seatNumber
+                                      );
                                       const isSelected = selectedSeats.some(
                                         (s) => s.id === seatId
                                       );
@@ -1421,7 +1550,7 @@ const SeatPlan = () => {
                         </div>
                         <div className="text-right">
                           <div className="font-bold">
-                            {mode === "reserve" ? "FREE" : `$${seat.price}`}
+                            {mode === "reserve" ? "FREE" : `${seat.price}`}
                           </div>
                           <button
                             onClick={() => toggleSeat(seat)}
@@ -1434,7 +1563,7 @@ const SeatPlan = () => {
                     ))}
                   </div>
 
-                 {mode !== "reserve" && (
+                  {mode !== "reserve" && (
                     <div className="border-t border-gray-700 pt-4 mb-6">
                       <div className="flex justify-between items-center text-lg font-bold">
                         <p className="text-purple-400">Total</p>

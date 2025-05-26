@@ -68,7 +68,7 @@ const DashboardLayout = () => {
         ],
         buyer: [
             { to: '/dashboard/my-tickets', label: 'My Tickets', icon: <Ticket size={20} /> },
-            { to: '/dashboard/purchase-history', label: 'Purchase History', icon: <ShoppingBag size={20} /> },
+            // { to: '/dashboard/purchase-history', label: 'Purchase History', icon: <ShoppingBag size={20} /> },
             { to: '/dashboard/buyer-profile', label: 'Settings', icon: <Settings size={20} /> },
         ],
         // No need for a separate 'user' entry since we're mapping 'user' to 'buyer'

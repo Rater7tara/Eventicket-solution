@@ -29,7 +29,7 @@ const NavBar = () => {
 
   const navItems = [
     { name: "Home", icon: <Home size={20} />, path: "/" },
-    { name: "Events", icon: <Calendar size={20} />, path: "/events" },
+    { name: "Events", icon: <Calendar size={20} />, path: "/event-list" },
     // { name: 'About Us', icon: <Users size={20} />, path: '/about' },
     // { name: 'Blogs', icon: <FileText size={20} />, path: '/blogs' },
     { name: "Contact Us", icon: <Phone size={20} />, path: "/contact" },
