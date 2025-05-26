@@ -44,7 +44,7 @@ const fadeInUp = `
 }
 `;
 
-const AdminProfile = () => {
+const SellerProfile = () => {
   const { user, setUser, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
@@ -84,6 +84,29 @@ const AdminProfile = () => {
     return localStorage.getItem("auth-token");
   };
 
+  // Get user ID from user context or localStorage
+  const getUserId = () => {
+    // Try to get from user context first
+    if (user && user.id) {
+      return user.id;
+    }
+    // Try to get from user context with different property name
+    if (user && user._id) {
+      return user._id;
+    }
+    // Try to get from localStorage if stored there
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        return parsedUser.id || parsedUser._id;
+      } catch (err) {
+        console.error("Error parsing stored user:", err);
+      }
+    }
+    return null;
+  };
+
   // Set up axios headers with authentication
   const getAuthHeaders = () => {
     const token = getAuthToken();
@@ -109,8 +132,14 @@ const AdminProfile = () => {
       const authHeaders = getAuthHeaders();
       if (!authHeaders) return;
 
+      const userId = getUserId();
+      if (!userId) {
+        throw new Error("User ID not found. Please login again.");
+      }
+
+      // Using the correct API endpoint pattern: seller/profile/{id}
       const response = await axios.get(
-        `${serverURL.url}auth/profile`,
+        `${serverURL.url}seller/profile/${userId}`,
         authHeaders
       );
 
@@ -179,6 +208,11 @@ const AdminProfile = () => {
       const authHeaders = getAuthHeaders();
       if (!authHeaders) return;
 
+      const userId = getUserId();
+      if (!userId) {
+        throw new Error("User ID not found. Please login again.");
+      }
+
       // Clean the data - remove empty strings and trim whitespace
       const cleanedData = {
         name: editFormData.name.trim(),
@@ -190,8 +224,9 @@ const AdminProfile = () => {
 
       console.log("Sending update data:", cleanedData);
 
+      // Using the existing update endpoint
       const response = await axios.put(
-        `${serverURL.url}auth/profile`,
+        `${serverURL.url}seller/update-profile`,
         cleanedData,
         authHeaders
       );
@@ -375,14 +410,20 @@ const AdminProfile = () => {
     }
   };
 
-  // Delete account
+  // Delete account - FIXED VERSION
   const handleDeleteAccount = async () => {
     try {
       const authHeaders = getAuthHeaders();
       if (!authHeaders) return;
 
+      const userId = getUserId();
+      if (!userId) {
+        throw new Error("User ID not found. Please login again.");
+      }
+
+      // Using the correct delete endpoint pattern: seller/{id}
       const response = await axios.delete(
-        `${serverURL.url}auth/profile`,
+        `${serverURL.url}seller/${userId}`,
         authHeaders
       );
       
@@ -391,6 +432,7 @@ const AdminProfile = () => {
       if (response.data?.success) {
         toast.success("Account deleted successfully!");
         localStorage.removeItem("auth-token");
+        localStorage.removeItem("user"); // Also remove user data if stored
         if (logout) {
           logout();
         }
@@ -574,7 +616,7 @@ const AdminProfile = () => {
                             <p className="text-sm font-medium text-gray-500">Role</p>
                           </div>
                           <p className="capitalize text-gray-800">
-                            {profile?.role || "User"}
+                            {profile?.role || "Seller"}
                           </p>
                         </div>
                         <div className="bg-gray-50 rounded-lg p-4">
@@ -584,6 +626,15 @@ const AdminProfile = () => {
                           </div>
                           <p className="text-gray-800">
                             {profile?.updatedAt ? formatDate(profile.updatedAt) : "N/A"}
+                          </p>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <div className="flex items-center mb-1">
+                            <User className="text-orange-500 mr-2" size={18} />
+                            <p className="text-sm font-medium text-gray-500">User ID</p>
+                          </div>
+                          <p className="text-gray-800 text-sm font-mono">
+                            {profile?.id || profile?._id || "N/A"}
                           </p>
                         </div>
                       </div>
@@ -1096,4 +1147,4 @@ const AdminProfile = () => {
   );
 };
 
-export default AdminProfile;
+export default SellerProfile;

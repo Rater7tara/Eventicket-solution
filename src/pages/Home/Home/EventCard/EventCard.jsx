@@ -20,6 +20,35 @@ const EventCard = ({ event }) => {
     );
   };
 
+    // Format date to show only date (e.g., "25 May")
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB', { 
+      day: 'numeric', 
+      month: 'short',
+      year: 'numeric' 
+    });
+  };
+
+  // Format time to 12-hour format (e.g., "2:30 PM")
+  const formatTime = (timeString) => {
+    // If timeString is already in 12-hour format, return as is
+    if (timeString && (timeString.includes('AM') || timeString.includes('PM'))) {
+      return timeString;
+    }
+    
+    // If it's a time string like "14:30", convert to 12-hour format
+    if (timeString && timeString.includes(':')) {
+      const [hours, minutes] = timeString.split(':');
+      const hour24 = parseInt(hours);
+      const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+      const ampm = hour24 >= 12 ? 'PM' : 'AM';
+      return `${hour12}:${minutes} ${ampm}`;
+    }
+    
+    return timeString;
+  };
+
   return (
     <div onClick={handleClick} className="w-80 h-full">
       {" "}
@@ -42,25 +71,24 @@ const EventCard = ({ event }) => {
                 />
               </div>
 
-              {/* Ticket count badge */}
-              {/* <div className="absolute top-3 left-3">
-                                <div className={`text-xs font-bold px-3 py-1 rounded-full ${
-                                    event.ticketsAvailable <= 0 
-                                    ? 'bg-red-500 text-white' 
-                                    : event.ticketsAvailable < 10 
-                                    ? 'bg-amber-400 text-black' 
-                                    : 'bg-green-500 text-white'
-                                } shadow-md`}>
-                                    {event.ticketsAvailable <= 0 
-                                        ? 'SOLD OUT' 
-                                        : `${event.ticketsAvailable} TICKETS`}
-                                </div>
-                            </div> */}
-
-              {/* Date/Time badge */}
-              <div className="absolute bottom-3 left-3 bg-white/80 backdrop-blur-sm px-2 py-1 rounded shadow-md text-xs font-semibold text-gray-800">
-                {event.time}
+              {/* Date badge */}
+               <div className="absolute top-3 left-3">
+                <div className={`text-xs font-bold px-3 py-1 rounded-full ${
+                  event.ticketsAvailable <= 0 
+                  ? 'bg-red-500 text-white' 
+                  : event.ticketsAvailable < 10 
+                  ? 'bg-amber-400 text-black' 
+                  : 'bg-green-500 text-white'
+                } shadow-md`}>
+                  {event.date ? formatDate(event.date) : 'TBD'}
+                </div>
               </div>
+
+              {/* Time badge */}
+              <div className="absolute bottom-3 left-3 bg-white/80 backdrop-blur-sm px-2 py-1 rounded shadow-md text-xs font-semibold text-gray-800">
+                {event.time ? formatTime(event.time) : 'TBD'}
+              </div>
+            </div>
 
               {/* Price tag */}
               {/* <div className="absolute -top-2 -right-2 transform rotate-3 group-hover:rotate-0 transition-transform duration-300">
@@ -68,7 +96,7 @@ const EventCard = ({ event }) => {
                                     {event.price ? `${event.price} BDT` : 'FREE'}
                                 </div>
                             </div> */}
-            </div>
+            {/* </div> */}
 
             {/* Content section */}
             <div className="p-4">

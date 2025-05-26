@@ -15,6 +15,35 @@ const EventDetails = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Format date to show date with year (e.g., "25 May 2024")
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB', { 
+      day: 'numeric', 
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  // Format time to 12-hour format (e.g., "2:30 PM")
+  const formatTime = (timeString) => {
+    // If timeString is already in 12-hour format, return as is
+    if (timeString && (timeString.includes('AM') || timeString.includes('PM'))) {
+      return timeString;
+    }
+    
+    // If it's a time string like "14:30", convert to 12-hour format
+    if (timeString && timeString.includes(':')) {
+      const [hours, minutes] = timeString.split(':');
+      const hour24 = parseInt(hours);
+      const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
+      const ampm = hour24 >= 12 ? 'PM' : 'AM';
+      return `${hour12}:${minutes} ${ampm}`;
+    }
+    
+    return timeString;
+  };
+
   // Scroll to top when component mounts
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -99,6 +128,7 @@ const EventDetails = () => {
     preparedData.description =
       preparedData.description || "No description available.";
     preparedData.time = preparedData.time || "TBD";
+    preparedData.date = preparedData.date || new Date().toISOString();
     preparedData.location = preparedData.location || "TBD";
     preparedData.price = preparedData.price || "0";
     preparedData.ticketsAvailable = preparedData.ticketsAvailable || 0;
@@ -237,7 +267,7 @@ const EventDetails = () => {
                       d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
-                  {event.time}
+                  {event.time ? formatTime(event.time) : 'TBD'}
                 </div>
                 <div className="flex items-center">
                   <svg
@@ -275,11 +305,7 @@ const EventDetails = () => {
                       d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                     />
                   </svg>
-                  {new Date(event.createdAt).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
+                  {event.date ? formatDate(event.date) : 'TBD'}
                 </div>
               </div>
             </div>

@@ -6,6 +6,7 @@ import { paymentService } from "../../../services/api"; // Import the payment se
 import serverURL from "../../../ServerConfig";
 import CheckoutForm from "./CheckoutForm"; // Make sure to import the CheckoutForm component
 import { AuthContext } from "../../../providers/AuthProvider";
+import axios from "axios";
 
 // Replace with your Stripe publishable key
 const stripePromise = loadStripe(
@@ -22,9 +23,121 @@ const CheckoutTickets = () => {
   const [authenticationAttempted, setAuthenticationAttempted] = useState(false);
   const authContext = useContext(AuthContext);
 
-  // Get data from location state
-  const { event, selectedSeats, totalPrice, serviceFee, grandTotal, userData } =
+  // Coupon states
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState("");
+  const [couponSuccess, setCouponSuccess] = useState("");
+  const [discount, setDiscount] = useState(0);
+  const [finalTotal, setFinalTotal] = useState(0);
+
+  
+
+  // Get data from location state (removed serviceFee and grandTotal)
+  const { event, selectedSeats, totalPrice, userData } =
     location.state || {};
+
+  // Calculate final total whenever grandTotal or discount changes
+  useEffect(() => {
+    if (appliedCoupon && appliedCoupon.finalPrice) {
+      // Use the finalPrice from API response
+      setFinalTotal(appliedCoupon.finalPrice);
+    } else {
+      // Use original total price (no service fee)
+      setFinalTotal(totalPrice || 0);
+    }
+  }, [totalPrice, appliedCoupon]);
+
+  // Get auth headers for API requests
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('auth-token');
+    return {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    };
+  };
+
+  // Apply coupon function
+  const applyCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponError("Please enter a coupon code");
+      return;
+    }
+
+    setCouponLoading(true);
+    setCouponError("");
+    setCouponSuccess("");
+
+    try {
+      const response = await axios.post(
+        `${serverURL.url}coupons/apply-coupon`,
+        {
+          code: couponCode.toUpperCase(),
+          eventId: event?._id,
+          totalAmount: totalPrice // Use totalPrice instead of grandTotal
+        },
+        getAuthHeaders()
+      );
+
+      console.log("Coupon apply response:", response.data);
+
+      if (response.data.success) {
+        const discountAmount = response.data.discountAmount || 0;
+        const finalPrice = response.data.finalPrice || totalPrice;
+        const couponId = response.data.couponId;
+        
+        // Create coupon object with the data we need
+        const appliedCouponData = {
+          id: couponId,
+          code: couponCode.toUpperCase(),
+          discountAmount: discountAmount,
+          finalPrice: finalPrice,
+          originalPrice: totalPrice
+        };
+        
+        setAppliedCoupon(appliedCouponData);
+        setDiscount(discountAmount);
+        setCouponSuccess(`Coupon applied! You saved ${discountAmount.toFixed(2)}`);
+        setCouponCode(""); // Clear the input
+      } else {
+        setCouponError(response.data.message || "Failed to apply coupon");
+      }
+    } catch (error) {
+      console.error("Error applying coupon:", error);
+      setCouponError(
+        error.response?.data?.message || 
+        "Failed to apply coupon. Please try again."
+      );
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  // Remove applied coupon
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setDiscount(0);
+    setCouponCode("");
+    setCouponError("");
+    setCouponSuccess("");
+  };
+
+  // Handle coupon input change
+  const handleCouponChange = (e) => {
+    setCouponCode(e.target.value.toUpperCase());
+    setCouponError("");
+    setCouponSuccess("");
+  };
+
+  // Handle Enter key press in coupon input
+  const handleCouponKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      applyCoupon();
+    }
+  };
 
   // Store userData in localStorage for CheckoutForm to access
   useEffect(() => {
@@ -175,11 +288,12 @@ const CheckoutTickets = () => {
         event,
         selectedSeats,
         totalPrice,
-        serviceFee,
-        grandTotal,
+        grandTotal: finalTotal, // Use final total after coupon
         confirmationNumber,
         purchaseDate: new Date().toISOString(),
         orderId: savedOrderId,
+        appliedCoupon,
+        discount
       },
     });
   };
@@ -257,7 +371,7 @@ const CheckoutTickets = () => {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth="2"
-                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 002 2z"
                     />
                   </svg>
                   {formatDate(event?.date)}
@@ -351,7 +465,7 @@ const CheckoutTickets = () => {
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                                 strokeWidth="2"
-                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 002 2z"
                               />
                             </svg>
                             <span className="text-sm">
@@ -418,6 +532,149 @@ const CheckoutTickets = () => {
               ))}
             </div>
 
+            {/* Coupon Section */}
+            {!paymentComplete && (
+              <div className="bg-gray-900 rounded-lg p-4 border border-gray-700 mb-6">
+                <h3 className="text-md font-bold text-orange-300 mb-4 flex items-center">
+                  <svg
+                    className="w-5 h-5 mr-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a1 1 0 001 1h1a1 1 0 001-1V7a2 2 0 00-2-2H5zM5 19a2 2 0 01-2-2v-3a1 1 0 011-1h1a1 1 0 011 1v3a2 2 0 01-2 2H5z"
+                    />
+                  </svg>
+                  Have a Coupon Code?
+                </h3>
+
+                {!appliedCoupon ? (
+                  <div className="flex space-x-3">
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        value={couponCode}
+                        onChange={handleCouponChange}
+                        onKeyPress={handleCouponKeyPress}
+                        placeholder="Enter coupon code"
+                        className="w-full px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                        disabled={couponLoading}
+                      />
+                    </div>
+                    <button
+                      onClick={applyCoupon}
+                      disabled={couponLoading || !couponCode.trim()}
+                      className={`px-6 py-2 rounded-lg font-medium transition-all ${
+                        couponLoading || !couponCode.trim()
+                          ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                          : 'bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white shadow-lg hover:shadow-xl'
+                      }`}
+                    >
+                      {couponLoading ? (
+                        <div className="flex items-center">
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Applying...
+                        </div>
+                      ) : (
+                        'Apply'
+                      )}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="bg-green-900 border border-green-600 rounded-lg p-3 flex items-center justify-between">
+                    <div className="flex items-center">
+                      <svg
+                        className="w-5 h-5 text-green-400 mr-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                      <div>
+                        <div className="text-green-400 font-medium">
+                          Coupon "{appliedCoupon.code}" applied!
+                        </div>
+                        <div className="text-green-300 text-sm">
+                          You saved ${appliedCoupon.discountAmount?.toFixed(2) || discount.toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={removeCoupon}
+                      className="text-red-400 hover:text-red-300 p-1"
+                      title="Remove coupon"
+                    >
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+
+                {/* Coupon Messages */}
+                {couponError && (
+                  <div className="mt-3 flex items-center text-red-400 text-sm">
+                    <svg
+                      className="w-4 h-4 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    {couponError}
+                  </div>
+                )}
+
+                {couponSuccess && !appliedCoupon && (
+                  <div className="mt-3 flex items-center text-green-400 text-sm">
+                    <svg
+                      className="w-4 h-4 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                    {couponSuccess}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Price Summary */}
             <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
               <div className="flex justify-between items-center mb-2">
@@ -427,15 +684,13 @@ const CheckoutTickets = () => {
                 </span>
                 <span>${totalPrice?.toFixed(2) || "0.00"}</span>
               </div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="flex items-center">
-                  Service Fee
-                  <button
-                    className="ml-1 text-gray-400 hover:text-white"
-                    title="Service fees help us operate the platform"
-                  >
+              
+              {/* Show discount if coupon is applied */}
+              {appliedCoupon && discount > 0 && (
+                <div className="flex justify-between items-center mb-2 text-green-400">
+                  <span className="flex items-center">
                     <svg
-                      className="w-4 h-4"
+                      className="w-4 h-4 mr-1"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -444,16 +699,25 @@ const CheckoutTickets = () => {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth="2"
-                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a1 1 0 001 1h1a1 1 0 001-1V7a2 2 0 00-2-2H5zM5 19a2 2 0 01-2-2v-3a1 1 0 011-1h1a1 1 0 011 1v3a2 2 0 01-2 2H5z"
                       />
                     </svg>
-                  </button>
-                </span>
-                <span>${serviceFee?.toFixed(2) || "0.00"}</span>
-              </div>
+                    Coupon Discount
+                  </span>
+                  <span>-${discount.toFixed(2)}</span>
+                </div>
+              )}
+
               <div className="border-t border-gray-700 my-2 pt-2 flex justify-between items-center font-bold text-orange-300">
                 <span>Total</span>
-                <span>${grandTotal?.toFixed(2) || "0.00"}</span>
+                <span className="flex flex-col items-end">
+                  {appliedCoupon && discount > 0 && (
+                    <span className="text-sm text-gray-400 line-through">
+                      ${totalPrice?.toFixed(2) || "0.00"}
+                    </span>
+                  )}
+                  <span>${finalTotal.toFixed(2)}</span>
+                </span>
               </div>
             </div>
           </div>
@@ -467,11 +731,13 @@ const CheckoutTickets = () => {
 
               <Elements stripe={stripePromise}>
                 <CheckoutForm
-                  grandTotal={grandTotal || 0}
+                  grandTotal={finalTotal} // Use final total after coupon discount
                   event={event}
                   selectedSeats={selectedSeats || []}
                   onPaymentComplete={handlePaymentComplete}
                   bookingId={location.state?.bookingId} // Pass the bookingId from location state
+                  appliedCoupon={appliedCoupon} // Pass coupon data to CheckoutForm
+                  discount={discount} // Pass discount amount
                 />
               </Elements>
 
@@ -593,10 +859,16 @@ const CheckoutTickets = () => {
                       {orderData?.orderId}
                     </span>
                   </div>
+                  {appliedCoupon && (
+                    <div className="flex justify-between mb-2 text-green-400">
+                      <span className="text-gray-400">Coupon Applied:</span>
+                      <span>{appliedCoupon.code} (-${(appliedCoupon.discountAmount || discount).toFixed(2)})</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-gray-400">Amount Paid:</span>
                     <span className="font-bold text-orange-300">
-                      ${grandTotal?.toFixed(2)}
+                      ${finalTotal.toFixed(2)}
                     </span>
                   </div>
                 </div>

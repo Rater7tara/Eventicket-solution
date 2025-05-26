@@ -8,7 +8,7 @@ const SeatPlan = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const authContext = useContext(AuthContext); // Move this to component top level
-  
+
   const [selectedSeats, setSelectedSeats] = useState(
     location.state?.selectedSeats || []
   );
@@ -34,7 +34,7 @@ const SeatPlan = () => {
       try {
         // Try to get userData from localStorage
         const storedUserData = JSON.parse(localStorage.getItem("userData"));
-        
+
         // If no userData, try user-info
         if (!storedUserData) {
           const userInfo = JSON.parse(localStorage.getItem("user-info"));
@@ -51,7 +51,6 @@ const SeatPlan = () => {
       }
     }
   }, [userData]);
-
 
   useEffect(() => {
     if (!eventDetails || Object.keys(eventDetails).length === 0) {
@@ -171,7 +170,7 @@ const SeatPlan = () => {
     return bookedSeats.includes(seatId);
   };
 
- const handleCheckout = async () => {
+  const handleCheckout = async () => {
     if (selectedSeats.length === 0) return;
 
     setIsBooking(true);
@@ -180,12 +179,12 @@ const SeatPlan = () => {
     try {
       // Use the authContext that's already defined at the top level of the component
       let buyerId = null;
-      
+
       // Try to get user ID from context first
       if (authContext && authContext.user && authContext.user._id) {
         buyerId = authContext.user._id;
         console.log("Got buyer ID from AuthContext:", buyerId);
-      } 
+      }
       // If not in context, use AuthService to get buyer ID
       else {
         buyerId = authServiceInstance.getBuyerId();
@@ -231,20 +230,22 @@ const SeatPlan = () => {
       console.log("Sending booking request:", bookingData);
 
       // Make API call to book seats using the most reliable token source
-      const token = authServiceInstance.getToken() || (authContext && authContext.authToken);
-      
+      const token =
+        authServiceInstance.getToken() ||
+        (authContext && authContext.authToken);
+
       if (!token) {
         console.error("No authentication token found");
         setBookingError("Authentication token required. Please login again.");
         navigate("/login", {
           state: {
             from: location.pathname,
-            message: "Your session has expired. Please login again."
-          }
+            message: "Your session has expired. Please login again.",
+          },
         });
         return;
       }
-      
+
       const response = await fetch(`${serverURL.url}bookings/book`, {
         method: "POST",
         headers: {
@@ -261,10 +262,10 @@ const SeatPlan = () => {
       }
 
       console.log("Booking successful:", data);
-      
+
       // Add selected seats to booked seats
-      setBookedSeats([...bookedSeats, ...selectedSeats.map(seat => seat.id)]);
-      
+      setBookedSeats([...bookedSeats, ...selectedSeats.map((seat) => seat.id)]);
+
       // Clear selection after booking
       setSelectedSeats([]);
 
@@ -291,7 +292,6 @@ const SeatPlan = () => {
       setIsBooking(false);
     }
   };
-
 
   // Handle contact organizer for VIP seats
   const handleContactOrganizer = (section) => {

@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { Calendar, Clock, MapPin, DollarSign, TicketIcon, Trash2, Edit, PlusCircle, AlertCircle, X, Save, ImageIcon } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Calendar, Clock, MapPin, DollarSign, TicketIcon, Trash2, Edit, PlusCircle, AlertCircle, X, Save, ImageIcon, Ticket } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../../../providers/AuthProvider';
 import serverURL from "../../../../ServerConfig";
 import axios from 'axios';
 
 const MyEvents = () => {
     const { user } = useContext(AuthContext);
+    const navigate = useNavigate();
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [deleteConfirmation, setDeleteConfirmation] = useState(null);
@@ -215,6 +216,15 @@ const MyEvents = () => {
         }
     };
 
+    // Navigate to coupons page with event filter
+    const handleManageCoupons = (eventId = null) => {
+        if (eventId) {
+            navigate(`/dashboard/coupons?eventId=${eventId}`);
+        } else {
+            navigate('/dashboard/coupons');
+        }
+    };
+
     // Format date for display
     const formatEventDate = (dateString) => {
         if (!dateString) return 'Date not specified';
@@ -243,13 +253,22 @@ const MyEvents = () => {
         <div className="max-w-5xl mx-auto">
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-800">My Events</h2>
-                <Link 
-                    to="/dashboard/add-event" 
-                    className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 py-2 rounded-lg shadow hover:shadow-lg transition-all duration-200"
-                >
-                    <PlusCircle size={18} />
-                    Add New Event
-                </Link>
+                <div className="flex gap-3">
+                    <button
+                        onClick={() => handleManageCoupons()}
+                        className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white px-4 py-2 rounded-lg shadow hover:shadow-lg transition-all duration-200"
+                    >
+                        <Ticket size={18} />
+                        Manage Coupons
+                    </button>
+                    <Link 
+                        to="/dashboard/add-event" 
+                        className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 py-2 rounded-lg shadow hover:shadow-lg transition-all duration-200"
+                    >
+                        <PlusCircle size={18} />
+                        Add New Event
+                    </Link>
+                </div>
             </div>
             
             {/* Status message */}
@@ -343,6 +362,14 @@ const MyEvents = () => {
                                 </div>
                                 
                                 <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => handleManageCoupons(event._id)}
+                                        className="p-2 text-purple-500 hover:bg-purple-50 rounded-full transition-colors duration-200"
+                                        title="Manage Coupons for this Event"
+                                    >
+                                        <Ticket size={18} />
+                                    </button>
+                                    
                                     <button 
                                         onClick={() => requestDeleteEvent(event._id)}
                                         className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors duration-200"

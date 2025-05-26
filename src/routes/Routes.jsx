@@ -29,6 +29,11 @@ import BuyerDashboard from "../pages/Dashboard/UserDashboard/BuyerDashboard";
 import SoldTickets from "../pages/Dashboard/AdminDashborad/SoldTickets/SoldTickets";
 import ManageSellerRequests from "../pages/Dashboard/AdminDashborad/SellerRequest/ManageSellerRequests";
 import AdminProfile from "../pages/Dashboard/AdminDashborad/AdminProfille/AdminProfile";
+import Reports from "../pages/Dashboard/AdminDashborad/Reports/Reports";
+import SellerProfile from "../pages/Dashboard/SellerDashboard/SellerProfile/SellerProfile";
+import BuyerProfile from "../pages/Dashboard/UserDashboard/BuyerProfile/BuyerProfile";
+import SellerCoupons from "../pages/Dashboard/SellerDashboard/SellerCoupons/SellerCoupons";
+import { TimerProvider } from "../providers/useTimer";
 
 export const router = createBrowserRouter([
   {
@@ -100,6 +105,10 @@ export const router = createBrowserRouter([
         element: <MyTickets />,
       },
       {
+        path: "buyer-profile",
+        element: <BuyerProfile />,
+      },
+      {
         path: "purchase-history",
         element: <div>Purchase History coming soon</div>, // Placeholder
       },
@@ -135,7 +144,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "reports",
-        element: <div>Reports coming soon</div>, // Placeholder
+        element: <Reports />,
       },
 
       // Seller specific routes
@@ -155,6 +164,14 @@ export const router = createBrowserRouter([
         path: "sales-report",
         element: <TicketSellReport />,
       },
+      {
+        path: "seller-profile",
+        element: <SellerProfile />,
+      },
+      {
+        path: "coupons",
+        element: <SellerCoupons />,
+      },
 
       // Common routes
       {
@@ -165,6 +182,6 @@ export const router = createBrowserRouter([
   },
   {
     path: "SeatPlan",
-    element: <SeatPlan />,
+    element: <TimerProvider><SeatPlan /></TimerProvider>,
   },
 ]);
