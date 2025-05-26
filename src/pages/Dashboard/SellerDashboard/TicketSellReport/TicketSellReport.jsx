@@ -1,234 +1,147 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar, DollarSign, BarChart2, Filter, Download, Search, RefreshCw, TicketIcon } from 'lucide-react';
+import React, { useState, useEffect, useContext } from 'react';
+import { Calendar, DollarSign, BarChart2, Filter, Download, Search, RefreshCw, Ticket } from 'lucide-react';
+import axios from 'axios';
+import serverURL from "../../../../ServerConfig";
+import { AuthContext } from "../../../../providers/AuthProvider"; // Uncomment this line in your actual app
+import { toast } from "react-toastify"; // Uncomment this line in your actual app
+import { useNavigate } from "react-router-dom"; // Uncomment this line in your actual app
 
-// Mock API service
-const TicketSalesAPI = {
-  getSalesData: () => {
-    // This simulates an API call delay
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        // Mock data that would normally come from an API
-        const mockData = [
-          {
-            id: 1,
-            eventId: 11,
-            eventTitle: "Jazz Madness",
-            purchaseDate: "2025-04-28",
-            buyer: "john.doe@example.com",
-            ticketsSold: 2,
-            ticketsAvailable: 110,
-            unitPrice: 45,
-            totalAmount: 90,
-            status: "completed"
-          },
-          {
-            id: 2,
-            eventId: 11,
-            eventTitle: "Jazz Madness",
-            purchaseDate: "2025-04-29",
-            buyer: "sarah.smith@example.com",
-            ticketsSold: 1,
-            ticketsAvailable: 108,
-            unitPrice: 45,
-            totalAmount: 45,
-            status: "completed"
-          },
-          {
-            id: 3,
-            eventId: 12,
-            eventTitle: "Rock Festival",
-            purchaseDate: "2025-04-27",
-            buyer: "mike.wilson@example.com",
-            ticketsSold: 4,
-            ticketsAvailable: 250,
-            unitPrice: 55,
-            totalAmount: 220,
-            status: "completed"
-          },
-          {
-            id: 4,
-            eventId: 13,
-            eventTitle: "Classical Night",
-            purchaseDate: "2025-04-30",
-            buyer: "emily.johnson@example.com",
-            ticketsSold: 2,
-            ticketsAvailable: 150,
-            unitPrice: 65,
-            totalAmount: 130,
-            status: "completed"
-          },
-          {
-            id: 5,
-            eventId: 11,
-            eventTitle: "Jazz Madness",
-            purchaseDate: "2025-04-30",
-            buyer: "david.brown@example.com",
-            ticketsSold: 3,
-            ticketsAvailable: 107,
-            unitPrice: 45,
-            totalAmount: 135,
-            status: "completed"
-          },
-          {
-            id: 6,
-            eventId: 14,
-            eventTitle: "Pop Concert",
-            purchaseDate: "2025-05-01",
-            buyer: "jessica.miller@example.com",
-            ticketsSold: 2,
-            ticketsAvailable: 200,
-            unitPrice: 50,
-            totalAmount: 100,
-            status: "pending"
-          },
-          {
-            id: 7,
-            eventId: 12,
-            eventTitle: "Rock Festival",
-            purchaseDate: "2025-05-01",
-            buyer: "robert.jones@example.com",
-            ticketsSold: 1,
-            ticketsAvailable: 246,
-            unitPrice: 55,
-            totalAmount: 55,
-            status: "completed"
-          },
-          {
-            id: 8,
-            eventId: 11,
-            eventTitle: "Jazz Madness",
-            purchaseDate: "2025-05-01",
-            buyer: "linda.davis@example.com",
-            ticketsSold: 2,
-            ticketsAvailable: 104,
-            unitPrice: 45,
-            totalAmount: 90,
-            status: "refunded"
-          },
-          {
-            id: 9,
-            eventId: 15,
-            eventTitle: "EDM Night",
-            purchaseDate: "2025-05-02",
-            buyer: "thomas.clark@example.com",
-            ticketsSold: 5,
-            ticketsAvailable: 375,
-            unitPrice: 40,
-            totalAmount: 200,
-            status: "completed"
-          },
-          {
-            id: 10,
-            eventId: 13,
-            eventTitle: "Classical Night",
-            purchaseDate: "2025-05-02",
-            buyer: "jennifer.white@example.com",
-            ticketsSold: 3,
-            ticketsAvailable: 148,
-            unitPrice: 65,
-            totalAmount: 195,
-            status: "completed"
-          }
-        ];
-        resolve(mockData);
-      }, 1000); // Simulate 1 second delay
-    });
-  }
-};
+// Temporary serverURL for demo - replace with actual import
 
 const TicketSellReport = () => {
-  const [salesData, setSalesData] = useState([]);
+  // const { user } = useContext(AuthContext); // Uncomment this line in your actual app
+  // const navigate = useNavigate(); // Uncomment this line in your actual app
+  
+  const [salesData, setSalesData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortConfig, setSortConfig] = useState({ key: 'purchaseDate', direction: 'desc' });
+  const [sortConfig, setSortConfig] = useState({ key: 'orderTime', direction: 'desc' });
   const [showStats, setShowStats] = useState(true);
-  
-  // Load data on component mount
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const data = await TicketSalesAPI.getSalesData();
-        setSalesData(data);
-        setError(null);
-      } catch (err) {
-        console.error("Failed to fetch sales data:", err);
-        setError("Failed to load sales data. Please try again.");
-      } finally {
-        setLoading(false);
-      }
+
+  // Get auth token from localStorage (following SellerProfile pattern)
+  const getAuthToken = () => {
+    return localStorage.getItem("auth-token");
+  };
+
+  // Set up axios headers with authentication (following SellerProfile pattern)
+  const getAuthHeaders = () => {
+    const token = getAuthToken();
+    if (!token) {
+      // toast.error("No authentication token found. Please login again."); // Uncomment in actual app
+      // navigate('/login'); // Uncomment in actual app
+      setError("No authentication token found. Please login again.");
+      return null;
+    }
+    return {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
     };
-    
-    fetchData();
-  }, []);
-  
-  // Refresh data handler
-  const handleRefresh = async () => {
+  };
+
+  // Fetch seller earnings data
+  const fetchSalesData = async () => {
     try {
       setLoading(true);
-      const data = await TicketSalesAPI.getSalesData();
-      setSalesData(data);
       setError(null);
+      
+      const authHeaders = getAuthHeaders();
+      if (!authHeaders) return;
+
+      const response = await axios.get(
+        `${serverURL.url}seller/earnings`,
+        authHeaders
+      );
+
+      console.log("Earnings data:", response.data);
+      
+      if (response.data?.success) {
+        const earningsData = response.data.data;
+        setSalesData(earningsData);
+      } else {
+        throw new Error(response.data?.message || "Invalid response format");
+      }
     } catch (err) {
-      console.error("Failed to refresh sales data:", err);
-      setError("Failed to refresh sales data. Please try again.");
+      console.error("Error fetching earnings data:", err);
+      const errorMessage = err.response?.data?.message || 
+                          err.message || 
+                          "Failed to fetch earnings data. Please try again.";
+      setError(errorMessage);
+      // toast.error(errorMessage); // Uncomment in actual app
+      
+      if (err.response?.status === 401) {
+        localStorage.removeItem("auth-token");
+        // navigate('/login'); // Uncomment in actual app
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  // Load data on component mount
+  useEffect(() => {
+    fetchSalesData();
+  }, []);
+  
+  // Refresh data handler
+  const handleRefresh = async () => {
+    await fetchSalesData();
+  };
   
   // Calculate summary statistics
   const calculateStats = () => {
-    const totalSales = salesData.reduce((sum, sale) => {
-      if (sale.status !== 'refunded') {
-        return sum + sale.totalAmount;
-      }
-      return sum;
-    }, 0);
+    if (!salesData) {
+      return { totalSales: 0, totalTickets: 0, completedSales: 0, pendingSales: 0, totalOrders: 0 };
+    }
     
-    const totalTickets = salesData.reduce((sum, sale) => {
-      if (sale.status !== 'refunded') {
-        return sum + sale.ticketsSold;
-      }
-      return sum;
-    }, 0);
+    const completedOrders = salesData.orders.filter(order => order.paymentStatus === 'completed' || order.paymentStatus === 'paid');
+    const pendingOrders = salesData.orders.filter(order => order.paymentStatus === 'pending');
     
-    const completedSales = salesData.filter(sale => sale.status === 'completed').length;
-    
-    const uniqueEvents = [...new Set(salesData.map(sale => sale.eventId))].length;
-    
-    // Calculate total remaining tickets
-    const remainingTickets = salesData.reduce((obj, sale) => {
-      if (!obj[sale.eventId]) {
-        obj[sale.eventId] = {
-          title: sale.eventTitle,
-          available: sale.ticketsAvailable
-        };
-      }
-      return obj;
-    }, {});
-    
-    const totalAvailable = Object.values(remainingTickets).reduce((sum, event) => sum + event.available, 0);
-    
-    return { totalSales, totalTickets, completedSales, uniqueEvents, totalAvailable };
+    return {
+      totalSales: salesData.totalEarnings,
+      totalTickets: salesData.totalTicketsSold,
+      completedSales: completedOrders.length,
+      pendingSales: pendingOrders.length,
+      totalOrders: salesData.orders.length
+    };
+  };
+  
+  // Get event title (you might need to fetch this from another API or include it in the response)
+  const getEventTitle = (eventId) => {
+    // This is a placeholder - you might want to fetch event details separately
+    // or include event title in the API response
+    return `Event ${eventId.slice(-8)}`;
+  };
+  
+  // Get buyer email (you might need to fetch this from another API or include it in the response)
+  const getBuyerEmail = (buyerId) => {
+    // This is a placeholder - you might want to fetch buyer details separately
+    // or include buyer email in the API response
+    return `buyer-${buyerId.slice(-8)}@example.com`;
   };
   
   // Filter and sort data
   const getFilteredData = () => {
-    const filtered = salesData.filter(sale => {
+    if (!salesData || !salesData.orders) return [];
+    
+    const filtered = salesData.orders.filter(order => {
       // Filter by status
-      if (filterStatus !== 'all' && sale.status !== filterStatus) {
+      if (filterStatus !== 'all' && order.paymentStatus !== filterStatus) {
         return false;
       }
       
       // Filter by search term
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
+        const eventTitle = getEventTitle(order.eventId);
+        const buyerEmail = getBuyerEmail(order.buyerId);
         return (
-          sale.eventTitle.toLowerCase().includes(searchLower) ||
-          sale.buyer.toLowerCase().includes(searchLower)
+          eventTitle.toLowerCase().includes(searchLower) ||
+          buyerEmail.toLowerCase().includes(searchLower) ||
+          order.bookingId.toLowerCase().includes(searchLower)
         );
       }
       
@@ -238,10 +151,19 @@ const TicketSellReport = () => {
     // Sort data
     if (sortConfig.key) {
       filtered.sort((a, b) => {
-        if (a[sortConfig.key] < b[sortConfig.key]) {
+        let aVal = a[sortConfig.key];
+        let bVal = b[sortConfig.key];
+        
+        // Handle date sorting
+        if (sortConfig.key === 'orderTime') {
+          aVal = new Date(aVal);
+          bVal = new Date(bVal);
+        }
+        
+        if (aVal < bVal) {
           return sortConfig.direction === 'asc' ? -1 : 1;
         }
-        if (a[sortConfig.key] > b[sortConfig.key]) {
+        if (aVal > bVal) {
           return sortConfig.direction === 'asc' ? 1 : -1;
         }
         return 0;
@@ -276,9 +198,11 @@ const TicketSellReport = () => {
   const getStatusBadge = (status) => {
     switch (status) {
       case 'completed':
+      case 'paid':
         return 'bg-green-100 text-green-800 border-green-200';
       case 'pending':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'failed':
       case 'refunded':
         return 'bg-red-100 text-red-800 border-red-200';
       default:
@@ -286,10 +210,15 @@ const TicketSellReport = () => {
     }
   };
   
+  // Format seat information
+  const formatSeats = (seats) => {
+    return seats.map(seat => `${seat.section}-${seat.row}${seat.seatNumber}`).join(', ');
+  };
+  
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto p-4">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4 md:mb-0">Ticket Sales Report</h2>
+        <h2 className="text-2xl font-bold text-gray-800 mb-4 md:mb-0">Seller Earnings Report</h2>
         
         <div className="flex items-center space-x-2">
           <button 
@@ -319,12 +248,12 @@ const TicketSellReport = () => {
       </div>
       
       {/* Statistics Cards */}
-      {showStats && (
+      {showStats && salesData && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-500 text-sm">Total Revenue</p>
+                <p className="text-gray-500 text-sm">Total Earnings</p>
                 <h3 className="text-2xl font-bold text-gray-800">${stats.totalSales.toLocaleString()}</h3>
               </div>
               <div className="p-3 bg-green-100 rounded-full">
@@ -340,7 +269,7 @@ const TicketSellReport = () => {
                 <h3 className="text-2xl font-bold text-gray-800">{stats.totalTickets.toLocaleString()}</h3>
               </div>
               <div className="p-3 bg-blue-100 rounded-full">
-                <Calendar size={20} className="text-blue-600" />
+                <Ticket size={20} className="text-blue-600" />
               </div>
             </div>
           </div>
@@ -348,11 +277,11 @@ const TicketSellReport = () => {
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-500 text-sm">Available Tickets</p>
-                <h3 className="text-2xl font-bold text-gray-800">{stats.totalAvailable.toLocaleString()}</h3>
+                <p className="text-gray-500 text-sm">Total Orders</p>
+                <h3 className="text-2xl font-bold text-gray-800">{stats.totalOrders}</h3>
               </div>
               <div className="p-3 bg-indigo-100 rounded-full">
-                <TicketIcon size={20} className="text-indigo-600" />
+                <Calendar size={20} className="text-indigo-600" />
               </div>
             </div>
           </div>
@@ -360,7 +289,7 @@ const TicketSellReport = () => {
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-500 text-sm">Completed Sales</p>
+                <p className="text-gray-500 text-sm">Completed Orders</p>
                 <h3 className="text-2xl font-bold text-gray-800">{stats.completedSales}</h3>
               </div>
               <div className="p-3 bg-orange-100 rounded-full">
@@ -372,8 +301,8 @@ const TicketSellReport = () => {
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-500 text-sm">Unique Events</p>
-                <h3 className="text-2xl font-bold text-gray-800">{stats.uniqueEvents}</h3>
+                <p className="text-gray-500 text-sm">Pending Orders</p>
+                <h3 className="text-2xl font-bold text-gray-800">{stats.pendingSales}</h3>
               </div>
               <div className="p-3 bg-purple-100 rounded-full">
                 <Calendar size={20} className="text-purple-600" />
@@ -392,7 +321,7 @@ const TicketSellReport = () => {
             </div>
             <input
               type="text"
-              placeholder="Search by event or buyer"
+              placeholder="Search by booking ID, event, or buyer"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -408,7 +337,9 @@ const TicketSellReport = () => {
             >
               <option value="all">All Statuses</option>
               <option value="completed">Completed</option>
+              <option value="paid">Paid</option>
               <option value="pending">Pending</option>
+              <option value="failed">Failed</option>
               <option value="refunded">Refunded</option>
             </select>
           </div>
@@ -419,6 +350,12 @@ const TicketSellReport = () => {
       {error && (
         <div className="bg-red-100 border border-red-500 text-red-700 px-4 py-3 rounded mb-4">
           {error}
+          <button
+            onClick={handleRefresh}
+            className="ml-4 px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+          >
+            Retry
+          </button>
         </div>
       )}
       
@@ -430,7 +367,7 @@ const TicketSellReport = () => {
       )}
       
       {/* Results Table */}
-      {!loading && (
+      {!loading && salesData && (
         <>
           <div className="bg-white rounded-xl shadow overflow-hidden border border-gray-100">
             <div className="overflow-x-auto">
@@ -440,44 +377,43 @@ const TicketSellReport = () => {
                     <th 
                       scope="col" 
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => requestSort('id')}
+                      onClick={() => requestSort('bookingId')}
                     >
-                      ID{getSortIndicator('id')}
+                      Booking ID{getSortIndicator('bookingId')}
                     </th>
                     <th 
                       scope="col" 
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => requestSort('eventTitle')}
+                      onClick={() => requestSort('eventId')}
                     >
-                      Event{getSortIndicator('eventTitle')}
+                      Event{getSortIndicator('eventId')}
                     </th>
                     <th 
                       scope="col" 
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => requestSort('purchaseDate')}
+                      onClick={() => requestSort('orderTime')}
                     >
-                      Date{getSortIndicator('purchaseDate')}
+                      Order Date{getSortIndicator('orderTime')}
                     </th>
                     <th 
                       scope="col" 
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => requestSort('buyer')}
+                      onClick={() => requestSort('buyerId')}
                     >
-                      Buyer{getSortIndicator('buyer')}
+                      Buyer{getSortIndicator('buyerId')}
+                    </th>
+                    <th 
+                      scope="col" 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Seats
                     </th>
                     <th 
                       scope="col" 
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => requestSort('ticketsSold')}
+                      onClick={() => requestSort('quantity')}
                     >
-                      Sold{getSortIndicator('ticketsSold')}
-                    </th>
-                    <th 
-                      scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => requestSort('ticketsAvailable')}
-                    >
-                      Available{getSortIndicator('ticketsAvailable')}
+                      Quantity{getSortIndicator('quantity')}
                     </th>
                     <th 
                       scope="col" 
@@ -489,46 +425,48 @@ const TicketSellReport = () => {
                     <th 
                       scope="col" 
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                      onClick={() => requestSort('status')}
+                      onClick={() => requestSort('paymentStatus')}
                     >
-                      Status{getSortIndicator('status')}
+                      Status{getSortIndicator('paymentStatus')}
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredData.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
+                      <td colSpan="8" className="px-6 py-4 text-center text-gray-500">
                         No sales records found matching your criteria
                       </td>
                     </tr>
                   ) : (
-                    filteredData.map((sale) => (
-                      <tr key={sale.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          #{sale.id}
+                    filteredData.map((order) => (
+                      <tr key={order._id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
+                          {order.bookingId.slice(-8)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {sale.eventTitle}
+                          {getEventTitle(order.eventId)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(sale.purchaseDate).toLocaleDateString()}
+                          {new Date(order.orderTime).toLocaleDateString()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {sale.buyer}
+                          {getBuyerEmail(order.buyerId)}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500 max-w-xs">
+                          <div className="truncate" title={formatSeats(order.seats)}>
+                            {formatSeats(order.seats)}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {sale.ticketsSold}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {sale.ticketsAvailable}
+                          {order.quantity}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                          ${sale.totalAmount}
+                          ${order.totalAmount}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusBadge(sale.status)}`}>
-                            {sale.status.charAt(0).toUpperCase() + sale.status.slice(1)}
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusBadge(order.paymentStatus)}`}>
+                            {order.paymentStatus.charAt(0).toUpperCase() + order.paymentStatus.slice(1)}
                           </span>
                         </td>
                       </tr>
@@ -545,7 +483,7 @@ const TicketSellReport = () => {
               <div>
                 <p className="text-sm text-gray-700">
                   Showing <span className="font-medium">{filteredData.length}</span> of{" "}
-                  <span className="font-medium">{salesData.length}</span> results
+                  <span className="font-medium">{salesData.orders.length}</span> results
                 </p>
               </div>
             </div>

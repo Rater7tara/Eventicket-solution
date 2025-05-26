@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { Calendar, Clock, MapPin, DollarSign, TicketIcon, Trash2, Edit, PlusCircle, AlertCircle, X, Save, ImageIcon, Ticket } from 'lucide-react';
+import { Calendar, Clock, MapPin, DollarSign, TicketIcon, Trash2, Edit, PlusCircle, AlertCircle, X, Save, ImageIcon, Ticket, Users } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../../../providers/AuthProvider';
 import serverURL from "../../../../ServerConfig";
@@ -225,6 +225,26 @@ const MyEvents = () => {
         }
     };
 
+    // Navigate to seat plan page for booking seats
+    const handleBookSeats = (eventId) => {
+        // Find the event details from the events state
+        const eventDetails = events.find(event => event._id === eventId);
+        
+        if (!eventDetails) {
+            setErrorMessage('Event details not found');
+            return;
+        }
+        
+        // Navigate to SeatPlan page with event details in state and query parameters
+        navigate('/SeatPlan', {
+            state: {
+                event: eventDetails,
+                mode: 'reserve',
+                sellerId: user?.id || user?._id
+            }
+        });
+    };
+
     // Format date for display
     const formatEventDate = (dateString) => {
         if (!dateString) return 'Date not specified';
@@ -363,6 +383,14 @@ const MyEvents = () => {
                                 
                                 <div className="flex gap-2">
                                     <button 
+                                        onClick={() => handleBookSeats(event._id)}
+                                        className="p-2 text-green-500 hover:bg-green-50 rounded-full transition-colors duration-200"
+                                        title="Book Seats for Personal Guests"
+                                    >
+                                        <Users size={18} />
+                                    </button>
+                                    
+                                    <button 
                                         onClick={() => handleManageCoupons(event._id)}
                                         className="p-2 text-purple-500 hover:bg-purple-50 rounded-full transition-colors duration-200"
                                         title="Manage Coupons for this Event"
@@ -386,6 +414,17 @@ const MyEvents = () => {
                                         <Edit size={18} />
                                     </button>
                                 </div>
+                            </div>
+
+                            {/* Book Seats Button - Full width below action buttons */}
+                            <div className="mt-4 pt-4 border-t border-gray-100">
+                                <button 
+                                    onClick={() => handleBookSeats(event._id)}
+                                    className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-green-500 to-green-600 text-white px-4 py-2.5 rounded-lg shadow hover:shadow-lg transition-all duration-200 font-medium"
+                                >
+                                    <Users size={18} />
+                                    Book Seats for Personal Guests
+                                </button>
                             </div>
                         </div>
                     </div>

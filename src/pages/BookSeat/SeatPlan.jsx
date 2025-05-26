@@ -3,11 +3,12 @@ import { useLocation, useNavigate } from "react-router-dom";
 import serverURL from "../../ServerConfig";
 import authServiceInstance from "../../services/AuthService";
 import { AuthContext } from "../../providers/AuthProvider";
+import CountdownTimer from "../Dashboard/UserDashboard/CountdownTimer/CountdownTimer";
 
 const SeatPlan = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const authContext = useContext(AuthContext); // Move this to component top level
+  const authContext = useContext(AuthContext);
 
   const [selectedSeats, setSelectedSeats] = useState(
     location.state?.selectedSeats || []
@@ -15,9 +16,16 @@ const SeatPlan = () => {
   const [activeSection, setActiveSection] = useState(null);
   const [isBooking, setIsBooking] = useState(false);
   const [bookingError, setBookingError] = useState("");
+  const [timerActive, setTimerActive] = useState(true); // Timer state
+  const [showTimeoutModal, setShowTimeoutModal] = useState(false); // Modal for timeout
+  const [isReserving, setIsReserving] = useState(false); // For reserve mode
+  const [reserveSuccess, setReserveSuccess] = useState(false); // Reserve success state
+
   const eventDetails = location.state?.event || {};
   const ticketType = location.state?.ticketType || {};
   const quantity = location.state?.quantity || 1;
+  const mode = location.state?.mode || "book"; // 'book' or 'reserve'
+  const sellerId = location.state?.sellerId || null;
 
   // Get user data from location state or localStorage
   const [userData, setUserData] = useState(location.state?.userData || null);
@@ -63,6 +71,25 @@ const SeatPlan = () => {
       console.log("User data in SeatPlan:", userData);
     }
   }, [eventDetails, userData, navigate]);
+
+  // Handle timer expiration
+  const handleTimerExpire = () => {
+    setTimerActive(false);
+    setShowTimeoutModal(true);
+    // Clear any selected seats
+    setSelectedSeats([]);
+  };
+
+  // Handle timeout modal actions
+  const handleTimeoutOk = () => {
+    setShowTimeoutModal(false);
+    navigate("/"); // Redirect to home page
+  };
+
+  const handleExtendTime = () => {
+    setShowTimeoutModal(false);
+    setTimerActive(true); // Restart timer
+  };
 
   // Define seating sections with their configurations
   const sections = [
@@ -170,9 +197,97 @@ const SeatPlan = () => {
     return bookedSeats.includes(seatId);
   };
 
+  // Handle seat reservation (for organizers)
+  const handleReserveSeats = async () => {
+    if (selectedSeats.length === 0) return;
+
+    setIsReserving(true);
+    setBookingError("");
+    setTimerActive(false);
+
+    try {
+      // Get authentication token
+      const token =
+        authServiceInstance.getToken() ||
+        (authContext && authContext.authToken) ||
+        localStorage.getItem("auth-token");
+
+      if (!token) {
+        throw new Error("Authentication token required. Please login again.");
+      }
+
+      // Format the selected seats for the reserve API
+      const formattedSeats = selectedSeats.map((seat) => ({
+        section: seat.section,
+        row: seat.row,
+        seatNumber: seat.number,
+      }));
+
+      // Prepare request payload for reserve API
+      const reserveData = {
+        eventId: eventDetails._id || eventDetails.id,
+        sellerId: sellerId || userData?._id || authContext?.user?._id,
+        seats: formattedSeats,
+      };
+
+      console.log("Sending reserve seats request:", reserveData);
+
+      // Make API call to reserve seats
+      const response = await fetch(`${serverURL.url}bookings/reserve-seats`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(reserveData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to reserve seats");
+      }
+
+      console.log("Seats reserved successfully:", data);
+
+      // Mark seats as booked in local state
+      setBookedSeats([...bookedSeats, ...selectedSeats.map((seat) => seat.id)]);
+
+      // Clear selection
+      setSelectedSeats([]);
+
+      // Show success state
+      setReserveSuccess(true);
+
+      // Auto-redirect after 3 seconds
+      setTimeout(() => {
+        navigate("/dashboard/my-events", {
+          state: {
+            message: `Successfully reserved ${formattedSeats.length} seats for your event.`,
+          },
+        });
+      }, 3000);
+    } catch (error) {
+      console.error("Error reserving seats:", error);
+      setBookingError(
+        error.message || "Failed to reserve seats. Please try again."
+      );
+      setTimerActive(true);
+    } finally {
+      setIsReserving(false);
+    }
+  };
+
   const handleCheckout = async () => {
     if (selectedSeats.length === 0) return;
 
+    // If in reserve mode, call reserve function instead
+    if (mode === "reserve") {
+      return handleReserveSeats();
+    }
+
+    // Stop the timer when proceeding to checkout
+    setTimerActive(false);
     setIsBooking(true);
     setBookingError("");
 
@@ -288,6 +403,7 @@ const SeatPlan = () => {
         error.message ||
           "There was an error processing your booking. Please try again."
       );
+      setTimerActive(true);
     } finally {
       setIsBooking(false);
     }
@@ -348,8 +464,106 @@ const SeatPlan = () => {
     </div>
   );
 
+  // Success Modal for Reserve
+  const ReserveSuccessModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-gray-800 p-6 rounded-lg border border-green-500 max-w-md mx-4">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500 rounded-full mb-4">
+            <svg
+              className="w-8 h-8 text-white"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+          </div>
+          <h3 className="text-lg font-bold text-green-400 mb-2">
+            Seats Reserved Successfully!
+          </h3>
+          <p className="text-gray-300 mb-6">
+            You have successfully reserved {selectedSeats.length} seats for your
+            personal guests. These seats are now blocked for free.
+          </p>
+          <p className="text-sm text-gray-400">
+            Redirecting you back to your events...
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 text-white p-4">
+      {/* Timer Component */}
+      {mode !== "reserve" && (
+        <CountdownTimer
+          initialMinutes={5}
+          onExpire={handleTimerExpire}
+          isActive={timerActive}
+          showWarning={true}
+          position="fixed"
+        />
+      )}
+
+      {/* Success Modal for Reserve */}
+      {reserveSuccess && <ReserveSuccessModal />}
+
+      {/* Timeout Modal */}
+      {showTimeoutModal && (
+        <div
+          className="fixed left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          style={{ top: "88px" }}
+        >
+          <div className="bg-gray-800 p-6 rounded-lg border border-red-500 max-w-md mx-4">
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-red-500 rounded-full mb-4">
+                <svg
+                  className="w-8 h-8 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-red-400 mb-2">
+                Session Expired
+              </h3>
+              <p className="text-gray-300 mb-6">
+                Your seat selection session has expired. Your selected seats
+                have been released.
+              </p>
+              <div className="flex space-x-3 justify-center">
+                <button
+                  onClick={handleTimeoutOk}
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+                >
+                  Go to Home
+                </button>
+                <button
+                  onClick={handleExtendTime}
+                  className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors"
+                >
+                  Try Again
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-full mx-auto bg-gray-800 bg-opacity-80 backdrop-blur-lg rounded-xl shadow-2xl overflow-hidden border border-orange-500 border-opacity-30">
         {/* Header with event info */}
         <div className="bg-gradient-to-r from-orange-800 to-orange-600 p-4 md:p-6">
@@ -1141,7 +1355,9 @@ const SeatPlan = () => {
 
             {/* Booking Summary */}
             <div className="lg:col-span-1 bg-gray-900 rounded-lg p-4 border border-gray-700 h-fit sticky top-4">
-              <h2 className="text-xl font-bold mb-4">Your Selection</h2>
+              <h2 className="text-xl font-bold mb-4">
+                {mode === "reserve" ? "Reserve Selection" : "Your Selection"}
+              </h2>
 
               {/* Error message for booking errors */}
               {bookingError && (
@@ -1165,7 +1381,9 @@ const SeatPlan = () => {
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="font-bold">${seat.price}</div>
+                          <div className="font-bold">
+                            {mode === "reserve" ? "FREE" : `$${seat.price}`}
+                          </div>
                           <button
                             onClick={() => toggleSeat(seat)}
                             className="text-xs text-orange-400 hover:text-orange-300 cursor-pointer"
@@ -1177,40 +1395,66 @@ const SeatPlan = () => {
                     ))}
                   </div>
 
-                  <div className="border-t border-gray-700 pt-4 mb-6">
-                    <div className="flex justify-between items-center mb-2">
-                      <p className="text-gray-300">Subtotal</p>
-                      <p className="font-medium">${totalPrice.toFixed(2)}</p>
+                  {mode !== "reserve" && (
+                    <div className="border-t border-gray-700 pt-4 mb-6">
+                      <div className="flex justify-between items-center mb-2">
+                        <p className="text-gray-300">Subtotal</p>
+                        <p className="font-medium">${totalPrice.toFixed(2)}</p>
+                      </div>
+                      <div className="flex justify-between items-center mb-2">
+                        <p className="text-gray-300">Service Fee</p>
+                        <p className="font-medium">${serviceFee.toFixed(2)}</p>
+                      </div>
+                      <div className="flex justify-between items-center text-lg font-bold mt-4">
+                        <p className="text-purple-400">Total</p>
+                        <p className="text-purple-400">
+                          ${(totalPrice + serviceFee).toFixed(2)}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center mb-2">
-                      <p className="text-gray-300">Service Fee</p>
-                      <p className="font-medium">${serviceFee.toFixed(2)}</p>
-                    </div>
-                    <div className="flex justify-between items-center text-lg font-bold mt-4">
-                      <p className="text-purple-400">Total</p>
-                      <p className="text-purple-400">
-                        ${(totalPrice + serviceFee).toFixed(2)}
+                  )}
+
+                  {mode === "reserve" && (
+                    <div className="border-t border-gray-700 pt-4 mb-6">
+                      <div className="flex justify-between items-center text-lg font-bold">
+                        <p className="text-green-400">Total Cost</p>
+                        <p className="text-green-400">FREE</p>
+                      </div>
+                      <p className="text-sm text-gray-400 mt-2">
+                        These seats will be reserved for your personal guests at
+                        no cost.
                       </p>
                     </div>
-                  </div>
+                  )}
 
                   <button
                     onClick={handleCheckout}
-                    disabled={selectedSeats.length === 0}
+                    disabled={
+                      selectedSeats.length === 0 || isBooking || isReserving
+                    }
                     className={`w-full py-3 cursor-pointer ${
-                      selectedSeats.length === 0
+                      selectedSeats.length === 0 || isBooking || isReserving
                         ? "bg-gray-600 cursor-not-allowed"
+                        : mode === "reserve"
+                        ? "bg-gradient-to-r from-green-600 to-green-700 hover:shadow-green-500/30 transform hover:-translate-y-0.5"
                         : "bg-gradient-to-r from-purple-600 to-purple-700 hover:shadow-purple-500/30 transform hover:-translate-y-0.5"
                     } text-white font-bold rounded-lg shadow-lg transition-all duration-300`}
                   >
-                    {selectedSeats.length === 0
+                    {isReserving
+                      ? "Reserving Seats..."
+                      : isBooking
+                      ? "Processing..."
+                      : selectedSeats.length === 0
                       ? "Select Seats"
+                      : mode === "reserve"
+                      ? "Reserve Seats (FREE)"
                       : "Proceed to Checkout"}
                   </button>
 
                   <button
                     onClick={() => setSelectedSeats([])}
-                    className="w-full mt-2 py-2 border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors cursor-pointer"
+                    disabled={isBooking || isReserving}
+                    className="w-full mt-2 py-2 border border-gray-700 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Clear Selection
                   </button>
@@ -1237,7 +1481,9 @@ const SeatPlan = () => {
                     No Seats Selected
                   </h3>
                   <p className="text-gray-400">
-                    Select seats from the seating chart.
+                    {mode === "reserve"
+                      ? "Select seats to reserve for your personal guests."
+                      : "Select seats from the seating chart."}
                   </p>
 
                   <div className="mt-6 text-sm text-gray-500">

@@ -7,6 +7,7 @@ import serverURL from "../../../ServerConfig";
 import CheckoutForm from "./CheckoutForm"; // Make sure to import the CheckoutForm component
 import { AuthContext } from "../../../providers/AuthProvider";
 import axios from "axios";
+import CountdownTimer from "../../Dashboard/UserDashboard/CountdownTimer/CountdownTimer";
 
 // Replace with your Stripe publishable key
 const stripePromise = loadStripe(
@@ -32,6 +33,9 @@ const CheckoutTickets = () => {
   const [discount, setDiscount] = useState(0);
   const [finalTotal, setFinalTotal] = useState(0);
 
+  const [timerActive, setTimerActive] = useState(true); // Timer state
+  const [showTimeoutModal, setShowTimeoutModal] = useState(false); // Modal for timeout
+
   
 
   // Get data from location state (removed serviceFee and grandTotal)
@@ -49,6 +53,29 @@ const CheckoutTickets = () => {
     }
   }, [totalPrice, appliedCoupon]);
 
+   // Handle timer expiration
+  const handleTimerExpire = () => {
+    setTimerActive(false);
+    setShowTimeoutModal(true);
+    // Clear any applied coupons
+    setAppliedCoupon(null);
+    setDiscount(0);
+    setCouponCode("");
+    setCouponError("");
+    setCouponSuccess("");
+  };
+
+  // Handle timeout modal actions
+  const handleTimeoutOk = () => {
+    setShowTimeoutModal(false);
+    navigate("/"); // Redirect to home page
+  };
+
+  const handleExtendTime = () => {
+    setShowTimeoutModal(false);
+    setTimerActive(true); // Restart timer
+  };
+
   // Get auth headers for API requests
   const getAuthHeaders = () => {
     const token = localStorage.getItem('auth-token');
@@ -64,6 +91,11 @@ const CheckoutTickets = () => {
   const applyCoupon = async () => {
     if (!couponCode.trim()) {
       setCouponError("Please enter a coupon code");
+      return;
+    }
+
+     if (!timerActive) {
+      setCouponError("Session expired. Please restart your booking.");
       return;
     }
 
@@ -241,6 +273,9 @@ const CheckoutTickets = () => {
 
   // Handle payment completion
   const handlePaymentComplete = async (orderId) => {
+     // Stop the timer when payment is successful
+    setTimerActive(false);
+
     setPaymentComplete(true);
     setOrderData({ orderId });
 
@@ -319,6 +354,49 @@ const CheckoutTickets = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 text-white p-4">
+            {/* Timer Component - Only show if payment is not complete */}
+      {!paymentComplete && (
+        <CountdownTimer
+          initialMinutes={5}
+          onExpire={handleTimerExpire}
+          isActive={timerActive}
+          showWarning={true}
+          position="fixed"
+        />
+      )}
+
+      {/* Timeout Modal */}
+      {showTimeoutModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 p-6 rounded-lg border border-red-500 max-w-md mx-4">
+            <div className="text-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-red-500 rounded-full mb-4">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-red-400 mb-2">Session Expired</h3>
+              <p className="text-gray-300 mb-6">
+                Your checkout session has expired. Please restart your booking process.
+              </p>
+              <div className="flex space-x-3 justify-center">
+                <button
+                  onClick={handleTimeoutOk}
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+                >
+                  Go to Home
+                </button>
+                <button
+                  onClick={handleExtendTime}
+                  className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors"
+                >
+                  Try Again
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="max-w-3xl mx-auto">
         {/* Header */}
         <div className="bg-gradient-to-r from-orange-800 to-orange-600 p-4 rounded-t-xl flex items-center justify-between mb-1">

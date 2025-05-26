@@ -50,10 +50,6 @@ export const router = createBrowserRouter([
         element: <EventDetails />,
       },
       {
-        path: "/checkout",
-        element: <CheckoutTickets />,
-      },
-      {
         path: "/terms",
         element: <TermsAndConditions />,
       },
@@ -182,6 +178,10 @@ export const router = createBrowserRouter([
   },
   {
     path: "SeatPlan",
-    element: <TimerProvider><SeatPlan /></TimerProvider>,
+    element: <SeatPlan />,
+  },
+  {
+    path: "/checkout",
+    element: <CheckoutTickets />,
   },
 ]);

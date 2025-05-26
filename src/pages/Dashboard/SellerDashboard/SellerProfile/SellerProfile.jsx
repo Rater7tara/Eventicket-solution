@@ -123,7 +123,7 @@ const SellerProfile = () => {
     };
   };
 
-  // Fetch user profile
+  // Fetch user profile - UPDATED to handle correct API response structure
   const fetchProfile = async () => {
     try {
       setLoading(true);
@@ -137,7 +137,6 @@ const SellerProfile = () => {
         throw new Error("User ID not found. Please login again.");
       }
 
-      // Using the correct API endpoint pattern: seller/profile/{id}
       const response = await axios.get(
         `${serverURL.url}seller/profile/${userId}`,
         authHeaders
@@ -145,21 +144,38 @@ const SellerProfile = () => {
 
       console.log("Profile data:", response.data);
       
-      if (response.data?.success && response.data?.data) {
-        const profileData = response.data.data;
-        setProfile(profileData);
+      if (response.data?.success) {
+        const profileData = response.data.data || response.data.profile;
         
-        // Initialize edit form with current data
-        setEditFormData({
-          name: profileData.name || "",
-          email: profileData.email || "",
-          phone: profileData.phone || "",
-          address: profileData.address || "",
-          profilePicture: profileData.profilePicture || "",
-        });
-        
-        // Set email in password form
-        setPasswordData(prev => ({ ...prev, email: profileData.email || "" }));
+        if (profileData) {
+          console.log("Setting profile data:", profileData); // Debug log
+          setProfile(profileData);
+          
+          // Initialize edit form with current data - handle nested userId structure
+          setEditFormData({
+            name: profileData.userId?.name || profileData.name || "",
+            email: profileData.email || profileData.userId?.email || "",
+            phone: profileData.contactNumber || profileData.phone || "",
+            address: profileData.address || "",
+            profilePicture: profileData.profileImg || profileData.profilePicture || "",
+          });
+          
+          console.log("Edit form data set to:", {
+            name: profileData.userId?.name || profileData.name || "",
+            email: profileData.email || profileData.userId?.email || "",
+            phone: profileData.contactNumber || profileData.phone || "",
+            address: profileData.address || "",
+            profilePicture: profileData.profileImg || profileData.profilePicture || "",
+          }); // Debug log
+          
+          // Set email in password form
+          setPasswordData(prev => ({ 
+            ...prev, 
+            email: profileData.email || profileData.userId?.email || "" 
+          }));
+        } else {
+          throw new Error("Profile data not found in response");
+        }
       } else {
         throw new Error(response.data?.message || "Invalid response format");
       }
@@ -171,7 +187,6 @@ const SellerProfile = () => {
       setError(errorMessage);
       toast.error(errorMessage);
       
-      // If unauthorized, redirect to login
       if (err.response?.status === 401) {
         localStorage.removeItem("auth-token");
         navigate('/login');
@@ -224,8 +239,8 @@ const SellerProfile = () => {
 
       console.log("Sending update data:", cleanedData);
 
-      // Using the existing update endpoint
-      const response = await axios.put(
+      // Using the existing update endpoint with PATCH method
+      const response = await axios.patch(
         `${serverURL.url}seller/update-profile`,
         cleanedData,
         authHeaders
@@ -237,17 +252,17 @@ const SellerProfile = () => {
         toast.success("Profile updated successfully!");
         setIsEditing(false);
         
-        // Update the profile state with new data
-        const updatedProfile = { ...profile, ...cleanedData };
-        setProfile(updatedProfile);
+        // Refetch profile to get updated data from server
+        await fetchProfile();
         
-        // Update user context if available
+        // Also update the user context if available
         if (setUser) {
-          setUser(prev => ({ ...prev, ...cleanedData }));
+          setUser(prev => ({ 
+            ...prev, 
+            name: cleanedData.name,
+            email: cleanedData.email 
+          }));
         }
-        
-        // Optionally refetch to get server data
-        // await fetchProfile();
       } else {
         const errorMsg = response.data?.message || "Update failed. Please try again.";
         toast.error(errorMsg);
@@ -318,7 +333,7 @@ const SellerProfile = () => {
           currentPassword: "",
           newPassword: "",
           confirmPassword: "",
-          email: profile?.email || ""
+          email: profile?.email || profile?.userId?.email || ""
         });
       } else {
         toast.error(response.data?.message || "Password change failed. Please try again.");
@@ -476,15 +491,15 @@ const SellerProfile = () => {
     });
   };
 
-  // Cancel editing - IMPROVED
+  // Cancel editing - UPDATED to handle correct field mapping
   const handleCancelEdit = () => {
-    // Reset form data to original profile data
+    // Reset form data to original profile data with correct field mapping
     setEditFormData({
-      name: profile?.name || "",
-      email: profile?.email || "",
-      phone: profile?.phone || "",
+      name: profile?.userId?.name || profile?.name || "",
+      email: profile?.email || profile?.userId?.email || "",
+      phone: profile?.contactNumber || profile?.phone || "",
       address: profile?.address || "",
-      profilePicture: profile?.profilePicture || "",
+      profilePicture: profile?.profileImg || profile?.profilePicture || "",
     });
     setIsEditing(false);
   };
@@ -503,7 +518,7 @@ const SellerProfile = () => {
       currentPassword: "",
       newPassword: "",
       confirmPassword: "",
-      email: profile?.email || ""
+      email: profile?.email || profile?.userId?.email || ""
     });
   };
 
@@ -540,32 +555,37 @@ const SellerProfile = () => {
             <>
               {/* Main Content */}
               <div className="p-6">
-                {/* Profile View Mode */}
+                {/* Profile View Mode - UPDATED to show correct data */}
                 {!isEditing && (
-                  <div className="animate-fade-in-up">
+                  <div className="animate-fade-in-up" key={`profile-${profile?._id}-${profile?.updatedAt}`}>
                     <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-8">
                       <div className="relative w-24 h-24 md:w-32 md:h-32 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden border-4 border-orange-200">
-                        {profile?.profilePicture ? (
+                        {profile?.profileImg || profile?.profilePicture ? (
                           <img
-                            src={profile.profilePicture}
-                            alt={profile.name}
+                            src={profile.profileImg || profile.profilePicture}
+                            alt={profile.userId?.name || profile.name || "Profile"}
                             className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              e.target.nextSibling.style.display = 'flex';
+                            }}
                           />
-                        ) : (
+                        ) : null}
+                        <div className={`w-full h-full items-center justify-center ${(profile?.profileImg || profile?.profilePicture) ? 'hidden' : 'flex'}`}>
                           <User className="text-orange-500" size={48} />
-                        )}
+                        </div>
                       </div>
                       <div className="flex-1">
                         <h2 className="text-2xl font-bold text-gray-800 mb-1">
-                          {profile?.name || "User"}
+                          {profile?.userId?.name || profile?.name || "User"}
                         </h2>
                         <p className="text-gray-500 mb-2 flex items-center">
                           <Mail className="mr-2" size={16} />
-                          {profile?.email || "No email provided"}
+                          {profile?.email || profile?.userId?.email || "No email provided"}
                         </p>
                         <p className="text-gray-500 mb-2 flex items-center">
                           <Phone className="mr-2" size={16} />
-                          {profile?.phone || "No phone provided"}
+                          {profile?.contactNumber || profile?.phone || "No phone provided"}
                         </p>
                         <p className="text-gray-500 flex items-center">
                           <MapPin className="mr-2" size={16} />
@@ -651,7 +671,7 @@ const SellerProfile = () => {
                           {editFormData.profilePicture ? (
                             <img
                               src={editFormData.profilePicture}
-                              alt={editFormData.name}
+                              alt={editFormData.name || "Profile"}
                               className="w-full h-full object-cover"
                               onError={(e) => {
                                 e.target.style.display = 'none';
@@ -804,35 +824,6 @@ const SellerProfile = () => {
                       name="currentPassword"
                       type={showCurrentPassword ? "text" : "password"}
                       value={passwordData.currentPassword}
-                      onChange={handlePasswordChange}
-                      className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      required
-                    />
-                    <Lock className="absolute left-3 top-2.5 text-gray-400" size={18} />
-                    <button
-                      type="button"
-                      className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
-                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                    >
-                      {showCurrentPassword ? (
-                        <EyeOff size={18} />
-                      ) : (
-                        <Eye size={18} />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                    New Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="newPassword"
-                      name="newPassword"
-                      type={showNewPassword ? "text" : "password"}
-                      value={passwordData.newPassword}
                       onChange={handlePasswordChange}
                       className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                       required
