@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { Calendar, Clock, MapPin, DollarSign, TicketIcon, ImageIcon, FileText, CalendarIcon } from 'lucide-react';
+import { Calendar, Clock, MapPin, DollarSign, TicketIcon, ImageIcon, FileText, CalendarIcon, Upload, ChevronDown } from 'lucide-react';
 import { AuthContext } from '../../../../providers/AuthProvider';
 import serverURL from "../../../../ServerConfig";
 
@@ -13,13 +13,18 @@ const CreateEvent = () => {
         location: '',
         image: '',
         price: '',
-        ticketsAvailable: 0
+        ticketsAvailable: ''
     });
     const [loading, setLoading] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [showTimePicker, setShowTimePicker] = useState(false);
+    
+    // Image handling states
+    const [imageInputType, setImageInputType] = useState('url'); // 'url' or 'upload'
+    const [showImageDropdown, setShowImageDropdown] = useState(false);
+    const [uploadedImage, setUploadedImage] = useState(null);
     
     // Calendar state variables
     const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -39,6 +44,9 @@ const CreateEvent = () => {
             if (!e.target.closest('.time-picker-container') && !e.target.closest('.time-input-container')) {
                 setShowTimePicker(false);
             }
+            if (!e.target.closest('.image-dropdown-container') && !e.target.closest('.image-dropdown-trigger')) {
+                setShowImageDropdown(false);
+            }
         };
 
         document.addEventListener('mousedown', handleOutsideClick);
@@ -46,6 +54,25 @@ const CreateEvent = () => {
             document.removeEventListener('mousedown', handleOutsideClick);
         };
     }, []);
+
+    // Image handling functions
+    const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            // Create a preview URL
+            const imageUrl = URL.createObjectURL(file);
+            setUploadedImage(file);
+            setEventData({ ...eventData, image: imageUrl });
+        }
+    };
+
+    const handleImageInputTypeChange = (type) => {
+        setImageInputType(type);
+        setShowImageDropdown(false);
+        // Clear image data when switching types
+        setEventData({ ...eventData, image: '' });
+        setUploadedImage(null);
+    };
 
     // Calendar functions
     const getDaysInMonth = (year, month) => {
@@ -100,7 +127,7 @@ const CreateEvent = () => {
         const { name, value } = e.target;
         setEventData({
             ...eventData,
-            [name]: name === 'ticketsAvailable' || name === 'price' ? parseInt(value) || 0 : value
+            [name]: name === 'price' ? (value === '' ? '' : parseInt(value) || '') : value
         });
     };
 
@@ -165,9 +192,10 @@ const CreateEvent = () => {
                 location: '',
                 image: '',
                 price: '',
-                ticketsAvailable: 0
+                ticketsAvailable: ''
             });
             setSelectedDate(null);
+            setUploadedImage(null);
         } catch (error) {
             console.error('Error creating event:', error);
             setErrorMessage(error.message || 'Failed to save event. Please try again.');
@@ -494,7 +522,6 @@ const CreateEvent = () => {
                     </div>
                 </div>
                 
-                {/* The rest of the form remains unchanged */}
                 {/* Event Location */}
                 <div className="space-y-2">
                     <label className="flex items-center gap-2 text-gray-700 font-medium">
@@ -512,20 +539,113 @@ const CreateEvent = () => {
                     />
                 </div>
                 
-                {/* Image URL */}
+                {/* Image Upload/URL with Dropdown */}
                 <div className="space-y-2">
                     <label className="flex items-center gap-2 text-gray-700 font-medium">
                         <ImageIcon size={18} className="text-orange-500" />
-                        Image URL
+                        Event Image
                     </label>
-                    <input
-                        type="text"
-                        name="image"
-                        value={eventData.image}
-                        onChange={handleChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                        placeholder="https://example.com/image.jpg"
-                    />
+                    
+                    {/* Image Input Type Selector */}
+                    <div className="relative">
+                        <button
+                            type="button"
+                            className="image-dropdown-trigger w-full flex items-center justify-between px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                            onClick={() => setShowImageDropdown(!showImageDropdown)}
+                        >
+                            <span className="flex items-center gap-2">
+                                {imageInputType === 'upload' ? (
+                                    <>
+                                        <Upload size={18} className="text-orange-500" />
+                                        Upload Image
+                                    </>
+                                ) : (
+                                    <>
+                                        <ImageIcon size={18} className="text-orange-500" />
+                                        Image URL
+                                    </>
+                                )}
+                            </span>
+                            <ChevronDown size={18} className="text-gray-500" />
+                        </button>
+                        
+                        {/* Dropdown Menu */}
+                        {showImageDropdown && (
+                            <div className="image-dropdown-container absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg">
+                                <button
+                                    type="button"
+                                    className="w-full flex items-center gap-2 px-4 py-3 hover:bg-gray-50 text-left"
+                                    onClick={() => handleImageInputTypeChange('url')}
+                                >
+                                    <ImageIcon size={18} className="text-orange-500" />
+                                    Image URL
+                                </button>
+                                <button
+                                    type="button"
+                                    className="w-full flex items-center gap-2 px-4 py-3 hover:bg-gray-50 text-left border-t border-gray-100"
+                                    onClick={() => handleImageInputTypeChange('upload')}
+                                >
+                                    <Upload size={18} className="text-orange-500" />
+                                    Upload Image
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                    
+                    {/* Image Input Field */}
+                    {imageInputType === 'url' ? (
+                        <input
+                            type="text"
+                            name="image"
+                            value={eventData.image}
+                            onChange={handleChange}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            placeholder="https://example.com/image.jpg"
+                        />
+                    ) : (
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-orange-500 transition-colors">
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleImageUpload}
+                                className="hidden"
+                                id="image-upload"
+                            />
+                            <label htmlFor="image-upload" className="cursor-pointer">
+                                {uploadedImage ? (
+                                    <div className="space-y-2">
+                                        <div className="text-green-600 font-medium">
+                                            ✓ {uploadedImage.name}
+                                        </div>
+                                        <div className="text-sm text-gray-500">
+                                            Click to change image
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        <Upload size={32} className="mx-auto text-gray-400" />
+                                        <div className="text-gray-600">
+                                            Click to upload an image
+                                        </div>
+                                        <div className="text-sm text-gray-500">
+                                            PNG, JPG, GIF up to 10MB
+                                        </div>
+                                    </div>
+                                )}
+                            </label>
+                        </div>
+                    )}
+                    
+                    {/* Image Preview */}
+                    {eventData.image && (
+                        <div className="mt-2">
+                            <img
+                                src={eventData.image}
+                                alt="Event preview"
+                                className="w-32 h-24 object-cover rounded-lg border border-gray-200"
+                            />
+                        </div>
+                    )}
                 </div>
                 
                 {/* Price and Tickets - 2 column layout */}
@@ -541,7 +661,7 @@ const CreateEvent = () => {
                             name="price"
                             value={eventData.price}
                             onChange={handleChange}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             placeholder="500"
                             min="0"
                             required
@@ -559,9 +679,9 @@ const CreateEvent = () => {
                             name="ticketsAvailable"
                             value={eventData.ticketsAvailable}
                             onChange={handleChange}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             placeholder="100"
-                            min="0"
+                            min="1"
                             required
                         />
                     </div>
@@ -573,7 +693,7 @@ const CreateEvent = () => {
                         type="submit"
                         disabled={loading}
                         className={`${
-                            loading ? 'bg-gray-400' : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:shadow-lg transform hover:-translate-y-0.5'
+                            loading ? 'bg-gray-400' : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:shadow-lg transform hover:-translate-y-0.5 cursor-pointer'
                         } text-white font-medium px-8 py-3 rounded-lg shadow-md transition-all duration-200 flex items-center`}
                     >
                         {loading ? (

@@ -223,7 +223,7 @@ const TicketSellReport = () => {
         <div className="flex items-center space-x-2">
           <button 
             onClick={handleRefresh}
-            className="inline-flex items-center gap-2 p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
+            className="inline-flex items-center gap-2 p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 cursor-pointer"
             disabled={loading}
           >
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
@@ -232,14 +232,14 @@ const TicketSellReport = () => {
           
           <button 
             onClick={() => setShowStats(!showStats)}
-            className="inline-flex items-center gap-2 p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
+            className="inline-flex items-center gap-2 p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 cursor-pointer"
           >
             <BarChart2 size={16} />
             <span className="hidden sm:inline">{showStats ? 'Hide Stats' : 'Show Stats'}</span>
           </button>
           
           <button 
-            className="inline-flex items-center gap-2 p-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+            className="inline-flex items-center gap-2 p-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 cursor-pointer"
           >
             <Download size={16} />
             <span className="hidden sm:inline">Export</span>
@@ -324,7 +324,7 @@ const TicketSellReport = () => {
               placeholder="Search by booking ID, event, or buyer"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
+              className="pl-10 w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
             />
           </div>
           
@@ -333,7 +333,7 @@ const TicketSellReport = () => {
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
+              className="border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
             >
               <option value="all">All Statuses</option>
               <option value="completed">Completed</option>
@@ -352,7 +352,7 @@ const TicketSellReport = () => {
           {error}
           <button
             onClick={handleRefresh}
-            className="ml-4 px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+            className="ml-4 px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 cursor-pointer"
           >
             Retry
           </button>
@@ -376,28 +376,28 @@ const TicketSellReport = () => {
                   <tr>
                     <th 
                       scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                       onClick={() => requestSort('bookingId')}
                     >
                       Booking ID{getSortIndicator('bookingId')}
                     </th>
                     <th 
                       scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                       onClick={() => requestSort('eventId')}
                     >
                       Event{getSortIndicator('eventId')}
                     </th>
                     <th 
                       scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                       onClick={() => requestSort('orderTime')}
                     >
                       Order Date{getSortIndicator('orderTime')}
                     </th>
                     <th 
                       scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                       onClick={() => requestSort('buyerId')}
                     >
                       Buyer{getSortIndicator('buyerId')}
@@ -410,21 +410,21 @@ const TicketSellReport = () => {
                     </th>
                     <th 
                       scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                       onClick={() => requestSort('quantity')}
                     >
                       Quantity{getSortIndicator('quantity')}
                     </th>
                     <th 
                       scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                       onClick={() => requestSort('totalAmount')}
                     >
                       Amount{getSortIndicator('totalAmount')}
                     </th>
                     <th 
                       scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                       onClick={() => requestSort('paymentStatus')}
                     >
                       Status{getSortIndicator('paymentStatus')}
@@ -440,7 +440,7 @@ const TicketSellReport = () => {
                     </tr>
                   ) : (
                     filteredData.map((order) => (
-                      <tr key={order._id} className="hover:bg-gray-50">
+                      <tr key={order._id} className="hover:bg-gray-50 cursor-pointer">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
                           {order.bookingId.slice(-8)}
                         </td>

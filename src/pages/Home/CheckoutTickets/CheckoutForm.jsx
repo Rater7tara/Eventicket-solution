@@ -368,7 +368,7 @@ const CheckoutForm = ({
             <button
               type="button"
               onClick={handleRetryPayment}
-              className="text-orange-300 underline"
+              className="text-orange-300 underline cursor-pointer"
             >
               Retry Payment
             </button>
@@ -405,14 +405,14 @@ const CheckoutForm = ({
       <button
         type="submit"
         disabled={processing || disabled || succeeded || !clientSecret}
-        className={`w-full py-3 px-6 rounded-lg text-white font-medium transition-all ${
+        className={`w-full py-3 px-6 rounded-lg text-white font-medium transition-all cursor-pointer ${
           processing || disabled || !clientSecret
             ? "bg-gray-600 cursor-not-allowed"
             : "bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 shadow-lg hover:shadow-xl"
         }`}
       >
         {processing ? (
-          <span className="flex items-center justify-center">
+          <span className="flex items-center justify-center ">
             <svg
               className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
               xmlns="http://www.w3.org/2000/svg"

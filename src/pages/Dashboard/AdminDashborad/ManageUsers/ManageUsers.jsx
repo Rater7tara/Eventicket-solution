@@ -298,7 +298,7 @@ const ManageUsers = () => {
               </div>
               <button
                 onClick={toggleSellerRequestsView}
-                className="mt-4 sm:mt-0 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors duration-200 shadow-md flex items-center justify-center"
+                className="mt-4 sm:mt-0 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors duration-200 shadow-md flex items-center justify-center cursor-pointer"
               >
                 <Store className="mr-2" size={18} />
                 Manage Seller Requests
@@ -334,7 +334,7 @@ const ManageUsers = () => {
             <div className="flex items-center space-x-4">
               <div className="relative">
                 <select
-                  className="appearance-none pl-10 pr-8 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="appearance-none pl-10 pr-8 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                   value={filterRole}
                   onChange={(e) => setFilterRole(e.target.value)}
                 >
@@ -349,7 +349,7 @@ const ManageUsers = () => {
               
               {/* Refresh */}
               <button
-                className="flex items-center justify-center p-2 rounded-md hover:bg-gray-100"
+                className="flex items-center justify-center p-2 rounded-md hover:bg-gray-100 cursor-pointer"
                 onClick={fetchUsers}
                 disabled={loading}
               >
@@ -507,8 +507,8 @@ const ManageUsers = () => {
                         <button
                           className={`px-3 py-1 rounded-md ${
                             currentPage === page
-                              ? 'bg-blue-500 text-white'
-                              : 'border border-gray-300 text-gray-600 hover:bg-gray-100'
+                              ? 'bg-blue-500 text-white cursor-pointer'
+                              : 'border border-gray-300 text-gray-600 hover:bg-gray-100 cursor-pointer'
                           }`}
                           onClick={() => handlePageChange(page)}
                         >

@@ -382,13 +382,13 @@ const CheckoutTickets = () => {
               <div className="flex space-x-3 justify-center">
                 <button
                   onClick={handleTimeoutOk}
-                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors cursor-pointer"
                 >
                   Go to Home
                 </button>
                 <button
                   onClick={handleExtendTime}
-                  className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors"
+                  className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors cursor-pointer"
                 >
                   Try Again
                 </button>
@@ -402,7 +402,7 @@ const CheckoutTickets = () => {
         <div className="bg-gradient-to-r from-orange-800 to-orange-600 p-4 rounded-t-xl flex items-center justify-between mb-1">
           <button
             onClick={handleGoBack}
-            className="flex items-center text-white hover:text-orange-200 transition-colors"
+            className="flex items-center text-white hover:text-orange-200 transition-colors cursor-pointer"
             disabled={paymentComplete}
           >
             <svg
@@ -646,7 +646,7 @@ const CheckoutTickets = () => {
                     <button
                       onClick={applyCoupon}
                       disabled={couponLoading || !couponCode.trim()}
-                      className={`px-6 py-2 rounded-lg font-medium transition-all ${
+                      className={`px-6 py-2 rounded-lg font-medium transition-all cursor-pointer ${
                         couponLoading || !couponCode.trim()
                           ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                           : 'bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white shadow-lg hover:shadow-xl'
@@ -692,7 +692,7 @@ const CheckoutTickets = () => {
                     </div>
                     <button
                       onClick={removeCoupon}
-                      className="text-red-400 hover:text-red-300 p-1"
+                      className="text-red-400 hover:text-red-300 p-1 cursor-pointer"
                       title="Remove coupon"
                     >
                       <svg
@@ -809,6 +809,7 @@ const CheckoutTickets = () => {
 
               <Elements stripe={stripePromise}>
                 <CheckoutForm
+                className="cursor-pointer"
                   grandTotal={finalTotal} // Use final total after coupon discount
                   event={event}
                   selectedSeats={selectedSeats || []}
@@ -956,7 +957,7 @@ const CheckoutTickets = () => {
                 </p>
                 <button
                   onClick={handleViewTickets}
-                  className="py-3 px-6 rounded-lg bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white font-medium shadow-lg hover:shadow-xl transition-all"
+                  className="py-3 px-6 rounded-lg bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white font-medium shadow-lg hover:shadow-xl transition-all cursor-pointer"
                 >
                   View My Tickets
                 </button>

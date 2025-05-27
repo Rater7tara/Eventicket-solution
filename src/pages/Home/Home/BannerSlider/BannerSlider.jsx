@@ -14,28 +14,28 @@ const slides = [
         title: 'Unforgettable Music Nights',
         subtitle: 'Book your spot for the most electrifying shows in town!',
         category: 'CONCERTS',
-        action: 'Book Now'
+        // action: 'Book Now'
     },
     {
         image: banner2,
         title: 'Watch the Latest Films',
         subtitle: 'Experience cinema like never before – Dolby Atmos, 4K & more.',
         category: 'MOVIES',
-        action: 'Get Tickets'
+        // action: 'Get Tickets'
     },
     {
         image: banner3,
         title: 'All Events in One Place',
         subtitle: 'From concerts to movies, we bring them all to you.',
         category: 'EVENTS',
-        action: 'Explore'
+        // action: 'Explore'
     },
     {
         image: banner4,
         title: 'Watch the Latest Films',
         subtitle: 'Experience cinema like never before – Dolby Atmos, 4K & more.',
         category: 'MOVIES',
-        action: 'Get Tickets'
+        // action: 'Get Tickets'
     },
 ];
 
@@ -147,12 +147,12 @@ const BannerSlider = () => {
                                 </p>
                                 
                                 <div className="flex space-x-4">
-                                    <button className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-medium text-lg transition-all duration-300 transform hover:scale-105 shadow-lg">
+                                    {/* <button className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-medium text-lg transition-all duration-300 transform hover:scale-105 shadow-lg">
                                         {slide.action}
                                     </button>
                                     <button className="bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white px-6 py-3 rounded-lg font-medium text-lg transition-all duration-300">
                                         Learn More
-                                    </button>
+                                    </button> */}
                                 </div>
                             </div>
                         </div>

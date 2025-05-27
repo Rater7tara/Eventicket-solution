@@ -368,7 +368,7 @@ const SoldTickets = () => {
             <div className="flex items-center space-x-4">
               <div className="relative">
                 <select
-                  className="appearance-none pl-10 pr-8 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="appearance-none pl-10 pr-8 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
                 >
@@ -386,7 +386,7 @@ const SoldTickets = () => {
 
               {/* Refresh */}
               <button
-                className="flex items-center justify-center p-2 rounded-md hover:bg-gray-100"
+                className="flex items-center justify-center p-2 rounded-md hover:bg-gray-100 cursor-pointer"
                 onClick={fetchSoldTickets}
                 disabled={loading}
               >
@@ -559,10 +559,10 @@ const SoldTickets = () => {
                           <span className="px-3 py-1 text-gray-500">...</span>
                         )}
                         <button
-                          className={`px-3 py-1 rounded-md ${
+                          className={`px-3 py-1 rounded-md cursor-pointer ${
                             currentPage === page
                               ? "bg-blue-500 text-white"
-                              : "border border-gray-300 text-gray-600 hover:bg-gray-100"
+                              : "border border-gray-300 text-gray-600 hover:bg-gray-100 cursor-pointer"
                           }`}
                           onClick={() => handlePageChange(page)}
                         >
@@ -575,7 +575,7 @@ const SoldTickets = () => {
                     );
                   })}
                 <button
-                  className="px-3 py-1 rounded-md border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 cursor-pointer py-1 rounded-md border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages}
                 >

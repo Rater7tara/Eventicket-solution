@@ -62,6 +62,7 @@ const DashboardLayout = () => {
         seller: [
             { to: '/dashboard/my-events', label: 'My Events', icon: <Calendar size={20} /> },
             { to: '/dashboard/add-event', label: 'Add Event', icon: <FileText size={20} /> },
+            { to: '/dashboard/my-tickets', label: 'My Tickets', icon: <Ticket size={20} /> },
             { to: '/dashboard/coupons', label: 'My Coupons', icon: <Ticket size={20} /> },
             { to: '/dashboard/sales-report', label: 'Sales Report', icon: <ShoppingBag size={20} /> },
             { to: '/dashboard/seller-profile', label: 'Settings', icon: <Settings size={20} /> },

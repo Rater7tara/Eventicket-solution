@@ -365,7 +365,7 @@ const SellerCoupons = () => {
         </div>
         <button
           onClick={openCreateModal}
-          className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 py-2 rounded-lg shadow hover:shadow-lg transition-all duration-200"
+          className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 py-2 rounded-lg shadow hover:shadow-lg transition-all duration-200 cursor-pointer"
         >
           <Plus size={18} />
           Create Coupon
@@ -448,7 +448,7 @@ const SellerCoupons = () => {
                   <div className="flex gap-2">
                     <button
                       onClick={() => openEditModal(coupon)}
-                      className="p-2 text-blue-500 hover:bg-blue-50 rounded-full transition-colors duration-200"
+                      className="p-2 text-blue-500 hover:bg-blue-50 rounded-full transition-colors duration-200 cursor-pointer"
                       title="Edit Coupon"
                       disabled={coupon.status === 'approved'}
                     >
@@ -457,7 +457,7 @@ const SellerCoupons = () => {
                     
                     <button
                       onClick={() => setDeleteConfirmation(coupon._id)}
-                      className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors duration-200"
+                      className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors duration-200 cursor-pointer"
                       title="Delete Coupon"
                     >
                       <Trash2 size={16} />
@@ -482,7 +482,7 @@ const SellerCoupons = () => {
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center p-6 border-b border-gray-200">
               <h3 className="text-xl font-bold text-gray-800">Create New Coupon</h3>
-              <button onClick={closeCreateModal} className="p-1 rounded-full hover:bg-gray-100">
+              <button onClick={closeCreateModal} className="p-1 rounded-full hover:bg-gray-100 cursor-pointer">
                 <X size={20} className="text-gray-500" />
               </button>
             </div>
@@ -601,14 +601,14 @@ const SellerCoupons = () => {
                 <button
                   type="button"
                   onClick={closeCreateModal}
-                  className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50"
+                  className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className={`px-6 py-2.5 rounded-lg text-white font-medium flex items-center ${
+                  className={`px-6 py-2.5 rounded-lg text-white font-medium flex items-center cursor-pointer ${
                     isSubmitting 
                       ? 'bg-gray-400' 
                       : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:shadow-lg'
@@ -638,7 +638,7 @@ const SellerCoupons = () => {
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center p-6 border-b border-gray-200">
               <h3 className="text-xl font-bold text-gray-800">Edit Coupon</h3>
-              <button onClick={closeEditModal} className="p-1 rounded-full hover:bg-gray-100">
+              <button onClick={closeEditModal} className="p-1 rounded-full hover:bg-gray-100 cursor-pointer">
                 <X size={20} className="text-gray-500" />
               </button>
             </div>
@@ -752,14 +752,14 @@ const SellerCoupons = () => {
                 <button
                   type="button"
                   onClick={closeEditModal}
-                  className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50"
+                  className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className={`px-6 py-2.5 rounded-lg text-white font-medium flex items-center ${
+                  className={`px-6 py-2.5 rounded-lg text-white font-medium flex items-center cursor-pointer ${
                     isSubmitting 
                       ? 'bg-gray-400' 
                       : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:shadow-lg'
@@ -794,13 +794,13 @@ const SellerCoupons = () => {
             <div className="flex justify-end gap-4">
               <button
                 onClick={() => setDeleteConfirmation(null)}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleDeleteCoupon(deleteConfirmation)}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 cursor-pointer"
               >
                 Delete
               </button>

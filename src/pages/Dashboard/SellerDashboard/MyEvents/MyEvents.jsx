@@ -276,14 +276,14 @@ const MyEvents = () => {
                 <div className="flex gap-3">
                     <button
                         onClick={() => handleManageCoupons()}
-                        className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white px-4 py-2 rounded-lg shadow hover:shadow-lg transition-all duration-200"
+                        className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white px-4 py-2 rounded-lg shadow hover:shadow-lg transition-all duration-200 cursor-pointer"
                     >
                         <Ticket size={18} />
                         Manage Coupons
                     </button>
                     <Link 
                         to="/dashboard/add-event" 
-                        className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 py-2 rounded-lg shadow hover:shadow-lg transition-all duration-200"
+                        className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 py-2 rounded-lg shadow hover:shadow-lg transition-all duration-200 cursor-pointer"
                     >
                         <PlusCircle size={18} />
                         Add New Event
@@ -384,7 +384,7 @@ const MyEvents = () => {
                                 <div className="flex gap-2">
                                     <button 
                                         onClick={() => handleBookSeats(event._id)}
-                                        className="p-2 text-green-500 hover:bg-green-50 rounded-full transition-colors duration-200"
+                                        className="p-2 cursor-pointer text-green-500 hover:bg-green-50 rounded-full transition-colors duration-200"
                                         title="Book Seats for Personal Guests"
                                     >
                                         <Users size={18} />
@@ -392,7 +392,7 @@ const MyEvents = () => {
                                     
                                     <button 
                                         onClick={() => handleManageCoupons(event._id)}
-                                        className="p-2 text-purple-500 hover:bg-purple-50 rounded-full transition-colors duration-200"
+                                        className="p-2 cursor-pointer text-purple-500 hover:bg-purple-50 rounded-full transition-colors duration-200"
                                         title="Manage Coupons for this Event"
                                     >
                                         <Ticket size={18} />
@@ -400,7 +400,7 @@ const MyEvents = () => {
                                     
                                     <button 
                                         onClick={() => requestDeleteEvent(event._id)}
-                                        className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors duration-200"
+                                        className="p-2 cursor-pointer text-red-500 hover:bg-red-50 rounded-full transition-colors duration-200"
                                         title="Delete Event"
                                     >
                                         <Trash2 size={18} />
@@ -408,7 +408,7 @@ const MyEvents = () => {
                                     
                                     <button 
                                         onClick={() => openEditModal(event)}
-                                        className="p-2 text-blue-500 hover:bg-blue-50 rounded-full transition-colors duration-200"
+                                        className="p-2 text-blue-500 hover:bg-blue-50 rounded-full transition-colors duration-200 cursor-pointer"
                                         title="Edit Event"
                                     >
                                         <Edit size={18} />
@@ -420,7 +420,7 @@ const MyEvents = () => {
                             <div className="mt-4 pt-4 border-t border-gray-100">
                                 <button 
                                     onClick={() => handleBookSeats(event._id)}
-                                    className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-green-500 to-green-600 text-white px-4 py-2.5 rounded-lg shadow hover:shadow-lg transition-all duration-200 font-medium"
+                                    className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-green-500 to-green-600 text-white px-4 py-2.5 rounded-lg shadow hover:shadow-lg transition-all duration-200 font-medium cursor-pointer"
                                 >
                                     <Users size={18} />
                                     Book Seats for Personal Guests
@@ -442,13 +442,13 @@ const MyEvents = () => {
                         <div className="flex justify-end gap-4">
                             <button
                                 onClick={cancelDelete}
-                                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 cursor-pointer"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={() => confirmDelete(deleteConfirmation)}
-                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 cursor-pointer"
                             >
                                 Delete
                             </button>
@@ -465,7 +465,7 @@ const MyEvents = () => {
                             <h3 className="text-xl font-bold text-gray-800">Edit Event</h3>
                             <button 
                                 onClick={closeEditModal}
-                                className="p-1 rounded-full hover:bg-gray-100"
+                                className="p-1 rounded-full hover:bg-gray-100 cursor-pointer"
                             >
                                 <X size={20} className="text-gray-500" />
                             </button>
@@ -627,14 +627,14 @@ const MyEvents = () => {
                                 <button
                                     type="button"
                                     onClick={closeEditModal}
-                                    className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50"
+                                    className="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 cursor-pointer"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={updateLoading}
-                                    className={`px-6 py-2.5 rounded-lg text-white font-medium flex items-center ${
+                                    className={`px-6 py-2.5 rounded-lg text-white font-medium flex items-center cursor-pointer ${
                                         updateLoading 
                                             ? 'bg-gray-400' 
                                             : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:shadow-lg'

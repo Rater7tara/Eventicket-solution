@@ -25,6 +25,50 @@ const MyTickets = () => {
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState(false);
 
+  // Function to format time to 12-hour format
+  const formatTime = (timeString) => {
+    if (!timeString) return "Time TBA";
+    
+    try {
+      // Handle different time formats
+      let date;
+      
+      // If it's a full datetime string
+      if (timeString.includes('T') || timeString.includes(' ')) {
+        date = new Date(timeString);
+      } else {
+        // If it's just a time string (HH:MM format)
+        const timeRegex = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/;
+        const match = timeString.match(timeRegex);
+        
+        if (match) {
+          const hours = parseInt(match[1]);
+          const minutes = parseInt(match[2]);
+          date = new Date();
+          date.setHours(hours, minutes, 0, 0);
+        } else {
+          // Try to parse as date
+          date = new Date(timeString);
+        }
+      }
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return timeString; // Return original if can't parse
+      }
+      
+      // Format to 12-hour time
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch (e) {
+      console.error('Error formatting time:', e);
+      return timeString; // Return original if error
+    }
+  };
+
   // Function to safely parse localStorage data
   const safelyParseJSON = (jsonString, defaultValue = []) => {
     try {
@@ -161,11 +205,12 @@ const MyTickets = () => {
             let eventDetails = {};
             try {
               // You can add an API call here to fetch event details using order.eventId
-              // For now, we'll create a placeholder
+              // For now, we'll create a placeholder with proper time
+              const eventTime = order.eventTime || order.time || "19:00"; // Default to 7:00 PM
               eventDetails = {
                 title: "Event #" + order.eventId.substring(0, 6),
                 date: order.orderTime || order.createdAt,
-                time: "TBA",
+                time: eventTime,
                 location: "Event Venue",
               };
             } catch (err) {
@@ -199,6 +244,7 @@ const MyTickets = () => {
       } else if (data.success && data.data) {
         // Handle non-array responses (single ticket)
         const order = data.data;
+        const eventTime = order.eventTime || order.time || "19:00"; // Default to 7:00 PM
         const formattedTicket = {
           _id: order._id,
           orderId: order._id,
@@ -206,7 +252,7 @@ const MyTickets = () => {
           event: {
             title: "Event #" + order.eventId.substring(0, 6),
             date: order.orderTime || order.createdAt,
-            time: "TBA",
+            time: eventTime,
             location: "Event Venue",
           },
           selectedSeats: order.seats.map((seat) => ({
@@ -302,6 +348,7 @@ const MyTickets = () => {
       // Set selected ticket in state based on the API structure
       if (data.success && data.data) {
         const order = data.data;
+        const eventTime = order.eventTime || order.time || "19:00"; // Default to 7:00 PM
         const formattedTicket = {
           _id: order._id,
           orderId: order._id,
@@ -309,7 +356,7 @@ const MyTickets = () => {
           event: {
             title: "Event #" + order.eventId.substring(0, 6),
             date: order.orderTime || order.createdAt,
-            time: "TBA",
+            time: eventTime,
             location: "Event Venue",
           },
           selectedSeats: order.seats.map((seat) => ({
@@ -465,7 +512,7 @@ const MyTickets = () => {
       doc.setTextColor(70, 70, 70);
       doc.setFont("helvetica", "normal");
       doc.text(
-        `Time: ${ticket.event?.time || "Time TBA"}`,
+        `Time: ${formatTime(ticket.event?.time)}`,
         margin + 12,
         currentY
       );
@@ -626,7 +673,7 @@ const MyTickets = () => {
         const ticketText = `TICKET DETAILS
 Event: ${ticket.event?.title || "Untitled Event"}
 Date: ${formatDate(ticket.event?.date || ticket.purchaseDate)}
-Time: ${ticket.event?.time || "Time TBA"}
+Time: ${formatTime(ticket.event?.time)}
 Location: ${ticket.event?.location || "Location TBA"}
 Order ID: ${ticket._id || ticket.orderId || "N/A"}
 Purchased: ${new Date(
@@ -672,117 +719,6 @@ This is a locally generated ticket file as the PDF generation failed.
       generateLocalTicketPDF(ticketId);
       setDownloadLoading(false);
       return;
-
-      /* The code below is kept for reference but is commented out because
-           the API endpoints are not working correctly. If you fix the API endpoints
-           later, you can uncomment this section. */
-
-      /*
-        // Ensure we have a valid token
-        if (typeof refreshToken === 'function') {
-            await refreshToken();
-        }
-        
-        // Get token from localStorage
-        const token = localStorage.getItem('auth-token');
-        
-        if (!token) {
-            throw new Error('Authentication token not found. Please log in again.');
-        }
-        
-        console.log(`Attempting to download ticket with ID: ${ticketId}`);
-        
-        // Try both query parameter and path parameter approaches
-        let response;
-        
-        try {
-            // First try with query parameter
-            response = await fetch(`${API_BASE_URL}user/download-tickets?ticketId=${ticketId}`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-            
-            if (!response.ok) {
-                // If that fails, try with path parameter
-                response = await fetch(`${API_BASE_URL}user/download-tickets/${ticketId}`, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-            }
-        } catch (fetchError) {
-            console.error('Fetch error:', fetchError);
-            // Try alternative endpoint format
-            response = await fetch(`${API_BASE_URL}user/download-ticket/${ticketId}`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-        }
-        
-        // Check if any of the attempts were successful
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Server response:', errorText);
-            
-            try {
-                const errorData = JSON.parse(errorText);
-                throw new Error(errorData.message || `Failed to download ticket: ${response.status}`);
-            } catch (jsonError) {
-                throw new Error(`Failed to download ticket (Status: ${response.status})`);
-            }
-        }
-        
-        // Check content type to determine how to handle the response
-        const contentType = response.headers.get('content-type');
-        
-        if (contentType && contentType.includes('application/json')) {
-            // If the server returns JSON instead of a file, it might contain a download URL
-            const jsonResponse = await response.json();
-            
-            if (jsonResponse.downloadUrl) {
-                // If there's a download URL, open it
-                window.open(jsonResponse.downloadUrl, '_blank');
-                setStatusMessage('Ticket download initiated!');
-                return;
-            } else if (jsonResponse.error) {
-                throw new Error(jsonResponse.error || 'Failed to download ticket');
-            } else if (jsonResponse.message) {
-                throw new Error(jsonResponse.message);
-            }
-        }
-        
-        // Convert response to blob and download
-        const blob = await response.blob();
-        
-        // Validate that we got a PDF or some other file (not an HTML error page)
-        if (blob.type === 'text/html') {
-            // This might be an error page, try to extract the error message
-            const text = await blob.text();
-            if (text.includes('<html')) {
-                throw new Error('Server returned an HTML page instead of a ticket file');
-            }
-        }
-        
-        // Create download link
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = `ticket-${ticketId}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        
-        // Clean up
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        
-        setStatusMessage('Ticket downloaded successfully!');
-        */
     } catch (err) {
       console.error("Error downloading ticket:", err);
       setError(`Failed to download ticket: ${err.message}`);
@@ -838,7 +774,7 @@ This is a locally generated ticket file as the PDF generation failed.
         <h2 className="text-2xl font-bold text-gray-800">My Tickets</h2>
         <button
           onClick={fetchTickets}
-          className="inline-flex items-center gap-2 bg-orange-50 text-orange-600 px-4 py-2 rounded-lg hover:bg-orange-100 transition-colors"
+          className="inline-flex items-center gap-2 bg-orange-50 text-orange-600 px-4 py-2 rounded-lg hover:bg-orange-100 transition-colors cursor-pointer"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -856,28 +792,6 @@ This is a locally generated ticket file as the PDF generation failed.
         </button>
       </div>
 
-      {/* Status message */}
-      {/* {statusMessage && (
-                <div className="bg-blue-50 border border-blue-500 text-blue-700 px-4 py-3 rounded mb-4 flex items-start">
-                    <div className="mr-2 mt-0.5">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2h-1V9z" clipRule="evenodd" />
-                        </svg>
-                    </div>
-                    <div>{statusMessage}</div>
-                </div>
-            )} */}
-
-      {/* Error message */}
-      {/* {error && (
-                <div className="bg-red-50 border border-red-500 text-red-700 px-4 py-3 rounded mb-4 flex items-start">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    <div>{error}</div>
-                </div>
-            )} */}
-
       {/* No tickets message */}
       {!loading && tickets.length === 0 && (
         <div className="bg-gray-50 rounded-xl p-8 text-center">
@@ -889,8 +803,8 @@ This is a locally generated ticket file as the PDF generation failed.
             You haven't purchased any tickets yet.
           </p>
           <Link
-            to="/events"
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg shadow hover:shadow-lg transition-all duration-200"
+            to="/event-list"
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg shadow hover:shadow-lg transition-all duration-200 cursor-pointer"
           >
             <Calendar size={18} />
             Browse Events
@@ -926,7 +840,7 @@ This is a locally generated ticket file as the PDF generation failed.
                 {/* Ticket Body */}
                 <div className="p-4 md:p-6 flex flex-col md:flex-row">
                   {/* Left content */}
-                  <div className="md:w-2/3">
+                                      <div className="md:w-2/3">
                     <div className="flex flex-wrap gap-4 mb-4">
                       <div className="flex items-center gap-1 text-gray-600">
                         <Calendar size={18} className="text-orange-500" />
@@ -938,7 +852,7 @@ This is a locally generated ticket file as the PDF generation failed.
                       </div>
                       <div className="flex items-center gap-1 text-gray-600">
                         <Clock size={18} className="text-orange-500" />
-                        <span>{ticket.event?.time || "Time TBA"}</span>
+                        <span>{formatTime(ticket.event?.time)}</span>
                       </div>
                       <div className="flex items-center gap-1 text-gray-600">
                         <MapPin size={18} className="text-orange-500" />
@@ -1025,7 +939,7 @@ This is a locally generated ticket file as the PDF generation failed.
                         onClick={() =>
                           viewTicketDetails(ticket._id || ticket.orderId)
                         }
-                        className="inline-flex items-center gap-1 bg-blue-50 text-blue-600 px-3 py-2 rounded-lg hover:bg-blue-100 transition-colors"
+                        className="inline-flex items-center gap-1 bg-blue-50 text-blue-600 px-3 py-2 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer"
                       >
                         <Eye size={18} />
                         View Details
@@ -1034,7 +948,7 @@ This is a locally generated ticket file as the PDF generation failed.
                         onClick={() =>
                           downloadTicket(ticket._id || ticket.orderId)
                         }
-                        className="inline-flex items-center gap-1 bg-green-50 text-green-600 px-3 py-2 rounded-lg hover:bg-green-100 transition-colors"
+                        className="inline-flex items-center gap-1 bg-green-50 text-green-600 px-3 py-2 rounded-lg hover:bg-green-100 transition-colors cursor-pointer"
                         disabled={downloadLoading}
                       >
                         {downloadLoading ? (
@@ -1062,7 +976,7 @@ This is a locally generated ticket file as the PDF generation failed.
               <h3 className="text-xl font-bold text-white">Ticket Details</h3>
               <button
                 onClick={closeModal}
-                className="text-white hover:text-orange-200"
+                className="text-white hover:text-orange-200 cursor-pointer"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -1100,7 +1014,7 @@ This is a locally generated ticket file as the PDF generation failed.
                   </div>
                   <div className="flex items-center gap-1 text-gray-600">
                     <Clock size={18} className="text-orange-500" />
-                    <span>{selectedTicket.event?.time || "Time TBA"}</span>
+                    <span>{formatTime(selectedTicket.event?.time)}</span>
                   </div>
                   <div className="flex items-center gap-1 text-gray-600">
                     <MapPin size={18} className="text-orange-500" />
@@ -1264,7 +1178,7 @@ This is a locally generated ticket file as the PDF generation failed.
                             )}
                           </div>
                           <div className="font-medium">
-                            {selectedTicket.event?.time || "Time TBA"}
+                            {formatTime(selectedTicket.event?.time)}
                           </div>
                         </div>
 
@@ -1337,7 +1251,7 @@ This is a locally generated ticket file as the PDF generation failed.
               <div className="flex justify-end gap-4 mt-6">
                 <button
                   onClick={closeModal}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 cursor-pointer"
                 >
                   Close
                 </button>
@@ -1348,7 +1262,7 @@ This is a locally generated ticket file as the PDF generation failed.
                   className={`inline-flex items-center gap-2 px-4 py-2 ${
                     downloadLoading
                       ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-gradient-to-r from-orange-500 to-orange-600 hover:shadow-lg"
+                      : "bg-gradient-to-r from-orange-500 to-orange-600 hover:shadow-lg cursor-pointer"
                   } text-white rounded-lg transition-all`}
                   disabled={downloadLoading}
                 >

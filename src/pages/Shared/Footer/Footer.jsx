@@ -96,7 +96,7 @@ const Footer = () => {
                 </Link>
               </li>
               <li>
-                <Link to="/events" className="text-gray-600 hover:text-orange-500 transition-colors flex items-center group">
+                <Link to="/event-list" className="text-gray-600 hover:text-orange-500 transition-colors flex items-center group">
                   <ChevronRight size={16} className="mr-2 opacity-0 group-hover:opacity-100 transform -translate-x-2 group-hover:translate-x-0 transition-all duration-300" />
                   <span>Events</span>
                 </Link>
@@ -129,12 +129,12 @@ const Footer = () => {
               <span className="absolute bottom-0 left-0 w-1/2 h-1 bg-orange-500 rounded-full"></span>
             </h3>
             <ul className="space-y-3">
-              <li>
+              {/* <li>
                 <Link to="/faqs" className="text-gray-600 hover:text-orange-500 transition-colors flex items-center group">
                   <ChevronRight size={16} className="mr-2 opacity-0 group-hover:opacity-100 transform -translate-x-2 group-hover:translate-x-0 transition-all duration-300" />
                   <span>FAQs</span>
                 </Link>
-              </li>
+              </li> */}
               <li>
                 <Link to="/terms" className="text-gray-600 hover:text-orange-500 transition-colors flex items-center group">
                   <ChevronRight size={16} className="mr-2 opacity-0 group-hover:opacity-100 transform -translate-x-2 group-hover:translate-x-0 transition-all duration-300" />
