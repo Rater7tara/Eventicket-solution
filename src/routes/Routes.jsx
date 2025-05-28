@@ -33,7 +33,6 @@ import Reports from "../pages/Dashboard/AdminDashborad/Reports/Reports";
 import SellerProfile from "../pages/Dashboard/SellerDashboard/SellerProfile/SellerProfile";
 import BuyerProfile from "../pages/Dashboard/UserDashboard/BuyerProfile/BuyerProfile";
 import SellerCoupons from "../pages/Dashboard/SellerDashboard/SellerCoupons/SellerCoupons";
-import { TimerProvider } from "../providers/useTimer";
 import EventList from "../pages/Home/Home/EventCard/EventList";
 
 export const router = createBrowserRouter([

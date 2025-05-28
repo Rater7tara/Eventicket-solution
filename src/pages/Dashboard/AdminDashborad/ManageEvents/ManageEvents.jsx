@@ -865,7 +865,7 @@ const ManageEvents = () => {
                           <span>{formatTime(event.time)}</span>
                         </div>
                         <div className="text-sm font-medium text-blue-600">
-                          {event.price ? `৳${event.price}` : "Free"}
+                          {event.price ? `$${event.price}` : "Free"}
                         </div>
                       </div>
 
