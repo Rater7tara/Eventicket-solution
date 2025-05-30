@@ -1,22 +1,24 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { 
-  Ticket, 
-  Plus, 
-  Calendar, 
-  Percent, 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
+import React, { useState, useEffect, useContext } from "react";
+import {
+  Ticket,
+  Plus,
+  Calendar,
+  Percent,
+  Clock,
+  CheckCircle,
+  XCircle,
   AlertCircle,
   Edit,
   Trash2,
   Save,
   X,
-  DollarSign
-} from 'lucide-react';
-import { AuthContext } from '../../../../providers/AuthProvider';
+  DollarSign,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import { AuthContext } from "../../../../providers/AuthProvider";
 import serverURL from "../../../../ServerConfig";
-import axios from 'axios';
+import axios from "axios";
 
 const SellerCoupons = () => {
   const { user } = useContext(AuthContext);
@@ -24,40 +26,45 @@ const SellerCoupons = () => {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [eventsLoading, setEventsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingCoupon, setEditingCoupon] = useState(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState(null);
-  
+
   // Form states
   const [formData, setFormData] = useState({
-    eventId: '',
-    code: '',
-    discountPercentage: '',
-    startDate: '',
-    endDate: '',
-    minPurchaseAmount: 0
+    eventId: "",
+    code: "",
+    discountPercentage: "",
+    startDate: "",
+    endDate: "",
+    minPurchaseAmount: 0,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Calendar states
+  const [showStartCalendar, setShowStartCalendar] = useState(false);
+  const [showEndCalendar, setShowEndCalendar] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+
   // Get auth token and headers
-  const getAuthToken = () => localStorage.getItem('auth-token');
-  
+  const getAuthToken = () => localStorage.getItem("auth-token");
+
   const getAuthHeaders = () => {
     const token = getAuthToken();
     return {
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
     };
   };
 
-  // Fetch seller's events
+  // Fetch seller's events - Clean version
   const fetchEvents = async () => {
     try {
       setEventsLoading(true);
@@ -65,76 +72,213 @@ const SellerCoupons = () => {
         `${serverURL.url}event/my-events`,
         getAuthHeaders()
       );
-      
+
       if (response.data && response.data.events) {
         setEvents(response.data.events);
+      } else {
+        setEvents([]);
       }
     } catch (error) {
-      console.error('Error fetching events:', error);
-      setErrorMessage('Failed to load events.');
+      console.error("Error fetching events:", error);
+      setErrorMessage("Failed to load events.");
+      setEvents([]);
     } finally {
       setEventsLoading(false);
     }
   };
 
-  // Fetch seller's coupons
+  // Fetch seller's coupons - Clean version
   const fetchCoupons = async () => {
     try {
       setLoading(true);
-      setErrorMessage('');
-      
+      setErrorMessage("");
+
       const response = await axios.get(
         `${serverURL.url}coupons/my-coupons`,
         getAuthHeaders()
       );
-      
-      console.log('Coupons API response:', response.data);
-      
+
       if (response.data && response.data.coupons) {
         setCoupons(response.data.coupons);
       } else {
         setCoupons([]);
       }
     } catch (error) {
-      console.error('Error fetching coupons:', error);
-      setErrorMessage(error.response?.data?.message || 'Failed to load coupons.');
+      console.error("Error fetching coupons:", error);
+      setErrorMessage(
+        error.response?.data?.message || "Failed to load coupons."
+      );
       setCoupons([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Load data on component mount
+  // Load data on component mount - Enhanced version
   useEffect(() => {
     if (user) {
-      fetchCoupons();
-      fetchEvents();
+      // First fetch events, then coupons
+      const loadData = async () => {
+        await fetchEvents();
+        // Add a small delay to ensure events are loaded
+        setTimeout(() => {
+          fetchCoupons();
+        }, 500);
+      };
+      loadData();
     } else {
       setLoading(false);
     }
   }, [user]);
 
+  // Remove the separate useEffect for coupons since we're handling it above
+  // useEffect(() => {
+  //   if (events.length > 0) {
+  //     fetchCoupons();
+  //   }
+  // }, [events]);
+
   // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: name === 'discountPercentage' || name === 'minPurchaseAmount' 
-        ? parseInt(value) || 0 
-        : value
+      [name]:
+        name === "discountPercentage" || name === "minPurchaseAmount"
+          ? parseInt(value) || 0
+          : value,
     }));
   };
 
   // Reset form
   const resetForm = () => {
     setFormData({
-      eventId: '',
-      code: '',
-      discountPercentage: '',
-      startDate: '',
-      endDate: '',
-      minPurchaseAmount: 0
+      eventId: "",
+      code: "",
+      discountPercentage: "",
+      startDate: "",
+      endDate: "",
+      minPurchaseAmount: 0,
     });
+  };
+
+  // Calendar helper functions
+  const getDaysInMonth = (date) => {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  };
+
+  const getFirstDayOfMonth = (date) => {
+    return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+  };
+
+  const formatDateForInput = (date) => {
+    return date.toISOString().split("T")[0];
+  };
+
+  const handleDateSelect = (day, isStartDate) => {
+    const selectedDate = new Date(
+      currentMonth.getFullYear(),
+      currentMonth.getMonth(),
+      day
+    );
+    const formattedDate = formatDateForInput(selectedDate);
+
+    if (isStartDate) {
+      setFormData((prev) => ({ ...prev, startDate: formattedDate }));
+      setShowStartCalendar(false);
+    } else {
+      setFormData((prev) => ({ ...prev, endDate: formattedDate }));
+      setShowEndCalendar(false);
+    }
+  };
+
+  const navigateMonth = (direction) => {
+    setCurrentMonth((prev) => {
+      const newMonth = new Date(prev);
+      newMonth.setMonth(prev.getMonth() + direction);
+      return newMonth;
+    });
+  };
+
+  const renderCalendar = (isStartDate) => {
+    const daysInMonth = getDaysInMonth(currentMonth);
+    const firstDay = getFirstDayOfMonth(currentMonth);
+    const days = [];
+    const today = new Date();
+
+    // Empty cells for days before the first day of the month
+    for (let i = 0; i < firstDay; i++) {
+      days.push(<div key={`empty-${i}`} className="w-8 h-8"></div>);
+    }
+
+    // Days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(
+        currentMonth.getFullYear(),
+        currentMonth.getMonth(),
+        day
+      );
+      const isToday = date.toDateString() === today.toDateString();
+      const isPast = date < today && !isToday;
+
+      days.push(
+        <button
+          key={day}
+          type="button"
+          onClick={() => !isPast && handleDateSelect(day, isStartDate)}
+          disabled={isPast}
+          className={`w-8 h-8 rounded-full text-sm transition-colors ${
+            isToday
+              ? "bg-orange-500 text-white"
+              : isPast
+              ? "text-gray-300 cursor-not-allowed"
+              : "hover:bg-orange-100 text-gray-700"
+          }`}
+        >
+          {day}
+        </button>
+      );
+    }
+
+    return (
+      <div className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4 z-50">
+        <div className="flex items-center justify-between mb-4">
+          <button
+            type="button"
+            onClick={() => navigateMonth(-1)}
+            className="p-1 hover:bg-gray-100 rounded"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <span className="font-medium">
+            {currentMonth.toLocaleDateString("en-US", {
+              month: "long",
+              year: "numeric",
+            })}
+          </span>
+          <button
+            type="button"
+            onClick={() => navigateMonth(1)}
+            className="p-1 hover:bg-gray-100 rounded"
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-7 gap-1 mb-2">
+          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+            <div
+              key={day}
+              className="w-8 h-8 flex items-center justify-center text-xs font-medium text-gray-500"
+            >
+              {day}
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-7 gap-1">{days}</div>
+      </div>
+    );
   };
 
   // Open create modal
@@ -146,33 +290,41 @@ const SellerCoupons = () => {
   // Close create modal
   const closeCreateModal = () => {
     setIsCreateModalOpen(false);
+    setShowStartCalendar(false);
+    setShowEndCalendar(false);
     resetForm();
   };
 
   // Handle create coupon
   const handleCreateCoupon = async (e) => {
     e.preventDefault();
-    
+
     // Validation
-    if (!formData.eventId || !formData.code || !formData.discountPercentage || !formData.startDate || !formData.endDate) {
-      setErrorMessage('Please fill in all required fields.');
+    if (
+      !formData.eventId ||
+      !formData.code ||
+      !formData.discountPercentage ||
+      !formData.startDate ||
+      !formData.endDate
+    ) {
+      setErrorMessage("Please fill in all required fields.");
       return;
     }
 
     if (formData.discountPercentage < 1 || formData.discountPercentage > 100) {
-      setErrorMessage('Discount percentage must be between 1 and 100.');
+      setErrorMessage("Discount percentage must be between 1 and 100.");
       return;
     }
 
     if (new Date(formData.startDate) >= new Date(formData.endDate)) {
-      setErrorMessage('End date must be after start date.');
+      setErrorMessage("End date must be after start date.");
       return;
     }
 
     try {
       setIsSubmitting(true);
-      setErrorMessage('');
-      setSuccessMessage('');
+      setErrorMessage("");
+      setSuccessMessage("");
 
       const response = await axios.post(
         `${serverURL.url}coupons/create-coupon`,
@@ -182,21 +334,25 @@ const SellerCoupons = () => {
           discountPercentage: formData.discountPercentage,
           startDate: formData.startDate,
           endDate: formData.endDate,
-          minPurchaseAmount: formData.minPurchaseAmount
+          minPurchaseAmount: formData.minPurchaseAmount,
         },
         getAuthHeaders()
       );
 
       if (response.data.success) {
-        setSuccessMessage('Coupon created successfully! Waiting for admin approval.');
+        setSuccessMessage(
+          "Coupon created successfully! Waiting for admin approval."
+        );
         closeCreateModal();
         fetchCoupons(); // Refresh coupons list
       } else {
-        setErrorMessage(response.data.message || 'Failed to create coupon.');
+        setErrorMessage(response.data.message || "Failed to create coupon.");
       }
     } catch (error) {
-      console.error('Error creating coupon:', error);
-      setErrorMessage(error.response?.data?.message || 'Failed to create coupon.');
+      console.error("Error creating coupon:", error);
+      setErrorMessage(
+        error.response?.data?.message || "Failed to create coupon."
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -209,9 +365,9 @@ const SellerCoupons = () => {
       eventId: coupon.eventId,
       code: coupon.code,
       discountPercentage: coupon.discountPercentage,
-      startDate: coupon.startDate.split('T')[0],
-      endDate: coupon.endDate.split('T')[0],
-      minPurchaseAmount: coupon.minPurchaseAmount || 0
+      startDate: coupon.startDate.split("T")[0],
+      endDate: coupon.endDate.split("T")[0],
+      minPurchaseAmount: coupon.minPurchaseAmount || 0,
     });
     setIsEditModalOpen(true);
   };
@@ -219,6 +375,8 @@ const SellerCoupons = () => {
   // Close edit modal
   const closeEditModal = () => {
     setIsEditModalOpen(false);
+    setShowStartCalendar(false);
+    setShowEndCalendar(false);
     setEditingCoupon(null);
     resetForm();
   };
@@ -226,29 +384,35 @@ const SellerCoupons = () => {
   // Handle update coupon
   const handleUpdateCoupon = async (e) => {
     e.preventDefault();
-    
+
     if (!editingCoupon) return;
 
     // Same validation as create
-    if (!formData.eventId || !formData.code || !formData.discountPercentage || !formData.startDate || !formData.endDate) {
-      setErrorMessage('Please fill in all required fields.');
+    if (
+      !formData.eventId ||
+      !formData.code ||
+      !formData.discountPercentage ||
+      !formData.startDate ||
+      !formData.endDate
+    ) {
+      setErrorMessage("Please fill in all required fields.");
       return;
     }
 
     if (formData.discountPercentage < 1 || formData.discountPercentage > 100) {
-      setErrorMessage('Discount percentage must be between 1 and 100.');
+      setErrorMessage("Discount percentage must be between 1 and 100.");
       return;
     }
 
     if (new Date(formData.startDate) >= new Date(formData.endDate)) {
-      setErrorMessage('End date must be after start date.');
+      setErrorMessage("End date must be after start date.");
       return;
     }
 
     try {
       setIsSubmitting(true);
-      setErrorMessage('');
-      setSuccessMessage('');
+      setErrorMessage("");
+      setSuccessMessage("");
 
       const response = await axios.put(
         `${serverURL.url}coupons/update/${editingCoupon._id}`,
@@ -258,21 +422,23 @@ const SellerCoupons = () => {
           discountPercentage: formData.discountPercentage,
           startDate: formData.startDate,
           endDate: formData.endDate,
-          minPurchaseAmount: formData.minPurchaseAmount
+          minPurchaseAmount: formData.minPurchaseAmount,
         },
         getAuthHeaders()
       );
 
       if (response.data.success) {
-        setSuccessMessage('Coupon updated successfully!');
+        setSuccessMessage("Coupon updated successfully!");
         closeEditModal();
         fetchCoupons(); // Refresh coupons list
       } else {
-        setErrorMessage(response.data.message || 'Failed to update coupon.');
+        setErrorMessage(response.data.message || "Failed to update coupon.");
       }
     } catch (error) {
-      console.error('Error updating coupon:', error);
-      setErrorMessage(error.response?.data?.message || 'Failed to update coupon.');
+      console.error("Error updating coupon:", error);
+      setErrorMessage(
+        error.response?.data?.message || "Failed to update coupon."
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -281,8 +447,8 @@ const SellerCoupons = () => {
   // Handle delete coupon
   const handleDeleteCoupon = async (couponId) => {
     try {
-      setErrorMessage('');
-      setSuccessMessage('');
+      setErrorMessage("");
+      setSuccessMessage("");
 
       const response = await axios.delete(
         `${serverURL.url}coupons/delete/${couponId}`,
@@ -290,14 +456,16 @@ const SellerCoupons = () => {
       );
 
       if (response.data.success) {
-        setSuccessMessage('Coupon deleted successfully!');
-        setCoupons(coupons.filter(coupon => coupon._id !== couponId));
+        setSuccessMessage("Coupon deleted successfully!");
+        setCoupons(coupons.filter((coupon) => coupon._id !== couponId));
       } else {
-        setErrorMessage(response.data.message || 'Failed to delete coupon.');
+        setErrorMessage(response.data.message || "Failed to delete coupon.");
       }
     } catch (error) {
-      console.error('Error deleting coupon:', error);
-      setErrorMessage(error.response?.data?.message || 'Failed to delete coupon.');
+      console.error("Error deleting coupon:", error);
+      setErrorMessage(
+        error.response?.data?.message || "Failed to delete coupon."
+      );
     }
     setDeleteConfirmation(null);
   };
@@ -305,27 +473,29 @@ const SellerCoupons = () => {
   // Get status badge
   const getStatusBadge = (status) => {
     const statusConfig = {
-      pending: { 
-        color: 'bg-yellow-100 text-yellow-800', 
-        icon: <Clock size={14} />, 
-        text: 'Pending Approval' 
+      pending: {
+        color: "bg-yellow-100 text-yellow-800",
+        icon: <Clock size={14} />,
+        text: "Pending Approval",
       },
-      approved: { 
-        color: 'bg-green-100 text-green-800', 
-        icon: <CheckCircle size={14} />, 
-        text: 'Approved' 
+      approved: {
+        color: "bg-green-100 text-green-800",
+        icon: <CheckCircle size={14} />,
+        text: "Approved",
       },
-      rejected: { 
-        color: 'bg-red-100 text-red-800', 
-        icon: <XCircle size={14} />, 
-        text: 'Rejected' 
-      }
+      rejected: {
+        color: "bg-red-100 text-red-800",
+        icon: <XCircle size={14} />,
+        text: "Rejected",
+      },
     };
 
     const config = statusConfig[status] || statusConfig.pending;
-    
+
     return (
-      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
+      <span
+        className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${config.color}`}
+      >
         {config.icon}
         {config.text}
       </span>
@@ -334,17 +504,43 @@ const SellerCoupons = () => {
 
   // Format date for display
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     });
   };
 
-  // Get event title by ID
+  // Get event title by ID - Fixed for object eventId
   const getEventTitle = (eventId) => {
-    const event = events.find(e => e._id === eventId);
-    return event ? event.title : 'Unknown Event';
+    if (eventsLoading) {
+      return "Loading...";
+    }
+
+    if (!events || events.length === 0) {
+      return "No events available";
+    }
+
+    // Handle case where eventId is an object with _id property
+    let actualEventId = eventId;
+    if (typeof eventId === "object" && eventId._id) {
+      actualEventId = eventId._id;
+    }
+
+    // Find event by matching _id with actualEventId
+    const event = events.find((e) => {
+      return (
+        e._id === actualEventId ||
+        e._id?.toString() === actualEventId?.toString() ||
+        String(e._id) === String(actualEventId)
+      );
+    });
+
+    if (event) {
+      return event.title || "Untitled Event";
+    }
+
+    return "Event Not Found";
   };
 
   if (loading) {
@@ -361,7 +557,9 @@ const SellerCoupons = () => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">My Coupons</h2>
-          <p className="text-gray-600 mt-1">Create and manage discount coupons for your events</p>
+          <p className="text-gray-600 mt-1">
+            Create and manage discount coupons for your events
+          </p>
         </div>
         <button
           onClick={openCreateModal}
@@ -391,8 +589,12 @@ const SellerCoupons = () => {
       {!loading && coupons.length === 0 && (
         <div className="bg-gray-50 rounded-xl p-8 text-center">
           <Ticket size={48} className="mx-auto text-orange-500 mb-3" />
-          <h3 className="text-xl font-medium text-gray-700 mb-2">No Coupons Found</h3>
-          <p className="text-gray-600 mb-6">You haven't created any coupons yet.</p>
+          <h3 className="text-xl font-medium text-gray-700 mb-2">
+            No Coupons Found
+          </h3>
+          <p className="text-gray-600 mb-6">
+            You haven't created any coupons yet.
+          </p>
           <button
             onClick={openCreateModal}
             className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg shadow hover:shadow-lg transition-all duration-200"
@@ -406,14 +608,21 @@ const SellerCoupons = () => {
       {/* Coupons Grid */}
       {coupons.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {coupons.map(coupon => (
-            <div key={coupon._id} className="bg-white rounded-xl shadow-md border border-gray-100 hover:shadow-lg transition-shadow duration-200">
+          {coupons.map((coupon) => (
+            <div
+              key={coupon._id}
+              className="bg-white rounded-xl shadow-md border border-gray-100 hover:shadow-lg transition-shadow duration-200"
+            >
               <div className="p-6">
                 {/* Coupon Header */}
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex-1">
-                    <h3 className="text-lg font-bold text-gray-800 mb-1">{coupon.code}</h3>
-                    <p className="text-sm text-gray-600">{getEventTitle(coupon.eventId)}</p>
+                    <h3 className="text-lg font-bold text-gray-800 mb-1">
+                      {coupon.code}
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      {getEventTitle(coupon.eventId)}
+                    </p>
                   </div>
                   {getStatusBadge(coupon.status)}
                 </div>
@@ -432,9 +641,12 @@ const SellerCoupons = () => {
                 <div className="space-y-2 mb-4">
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <Calendar size={14} className="text-orange-500" />
-                    <span>Valid: {formatDate(coupon.startDate)} - {formatDate(coupon.endDate)}</span>
+                    <span>
+                      Valid: {formatDate(coupon.startDate)} -{" "}
+                      {formatDate(coupon.endDate)}
+                    </span>
                   </div>
-                  
+
                   {coupon.minPurchaseAmount > 0 && (
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <DollarSign size={14} className="text-orange-500" />
@@ -450,11 +662,11 @@ const SellerCoupons = () => {
                       onClick={() => openEditModal(coupon)}
                       className="p-2 text-blue-500 hover:bg-blue-50 rounded-full transition-colors duration-200 cursor-pointer"
                       title="Edit Coupon"
-                      disabled={coupon.status === 'approved'}
+                      disabled={coupon.status === "approved"}
                     >
                       <Edit size={16} />
                     </button>
-                    
+
                     <button
                       onClick={() => setDeleteConfirmation(coupon._id)}
                       className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors duration-200 cursor-pointer"
@@ -464,10 +676,14 @@ const SellerCoupons = () => {
                     </button>
                   </div>
 
-                  <span className={`text-xs px-2 py-1 rounded ${
-                    coupon.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {coupon.isActive ? 'Active' : 'Inactive'}
+                  <span
+                    className={`text-xs px-2 py-1 rounded ${
+                      coupon.isActive
+                        ? "bg-green-100 text-green-800"
+                        : "bg-gray-100 text-gray-800"
+                    }`}
+                  >
+                    {coupon.isActive ? "Active" : "Inactive"}
                   </span>
                 </div>
               </div>
@@ -481,8 +697,13 @@ const SellerCoupons = () => {
         <div className="fixed inset-0 backdrop-blur-md flex items-center justify-center z-50 p-4 overflow-y-auto">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center p-6 border-b border-gray-200">
-              <h3 className="text-xl font-bold text-gray-800">Create New Coupon</h3>
-              <button onClick={closeCreateModal} className="p-1 rounded-full hover:bg-gray-100 cursor-pointer">
+              <h3 className="text-xl font-bold text-gray-800">
+                Create New Coupon
+              </h3>
+              <button
+                onClick={closeCreateModal}
+                className="p-1 rounded-full hover:bg-gray-100 cursor-pointer"
+              >
                 <X size={20} className="text-gray-500" />
               </button>
             </div>
@@ -502,7 +723,7 @@ const SellerCoupons = () => {
                   required
                 >
                   <option value="">Choose an event</option>
-                  {events.map(event => (
+                  {events.map((event) => (
                     <option key={event._id} value={event._id}>
                       {event.title}
                     </option>
@@ -546,36 +767,54 @@ const SellerCoupons = () => {
                 />
               </div>
 
-              {/* Date Range */}
+              {/* Date Range with Calendar */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
+                <div className="space-y-2 relative">
                   <label className="flex items-center gap-2 text-gray-700 font-medium">
                     <Calendar size={18} className="text-orange-500" />
                     Start Date *
                   </label>
-                  <input
-                    type="date"
-                    name="startDate"
-                    value={formData.startDate}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    required
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={
+                        formData.startDate ? formatDate(formData.startDate) : ""
+                      }
+                      onClick={() => {
+                        setShowStartCalendar(!showStartCalendar);
+                        setShowEndCalendar(false);
+                      }}
+                      placeholder="Select start date"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
+                      readOnly
+                      required
+                    />
+                    {showStartCalendar && renderCalendar(true)}
+                  </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 relative">
                   <label className="flex items-center gap-2 text-gray-700 font-medium">
                     <Calendar size={18} className="text-orange-500" />
                     End Date *
                   </label>
-                  <input
-                    type="date"
-                    name="endDate"
-                    value={formData.endDate}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    required
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={
+                        formData.endDate ? formatDate(formData.endDate) : ""
+                      }
+                      onClick={() => {
+                        setShowEndCalendar(!showEndCalendar);
+                        setShowStartCalendar(false);
+                      }}
+                      placeholder="Select end date"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
+                      readOnly
+                      required
+                    />
+                    {showEndCalendar && renderCalendar(false)}
+                  </div>
                 </div>
               </div>
 
@@ -609,9 +848,9 @@ const SellerCoupons = () => {
                   type="submit"
                   disabled={isSubmitting}
                   className={`px-6 py-2.5 rounded-lg text-white font-medium flex items-center cursor-pointer ${
-                    isSubmitting 
-                      ? 'bg-gray-400' 
-                      : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:shadow-lg'
+                    isSubmitting
+                      ? "bg-gray-400"
+                      : "bg-gradient-to-r from-orange-500 to-orange-600 hover:shadow-lg"
                   }`}
                 >
                   {isSubmitting ? (
@@ -638,7 +877,10 @@ const SellerCoupons = () => {
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center p-6 border-b border-gray-200">
               <h3 className="text-xl font-bold text-gray-800">Edit Coupon</h3>
-              <button onClick={closeEditModal} className="p-1 rounded-full hover:bg-gray-100 cursor-pointer">
+              <button
+                onClick={closeEditModal}
+                className="p-1 rounded-full hover:bg-gray-100 cursor-pointer"
+              >
                 <X size={20} className="text-gray-500" />
               </button>
             </div>
@@ -658,7 +900,7 @@ const SellerCoupons = () => {
                   required
                 >
                   <option value="">Choose an event</option>
-                  {events.map(event => (
+                  {events.map((event) => (
                     <option key={event._id} value={event._id}>
                       {event.title}
                     </option>
@@ -700,35 +942,54 @@ const SellerCoupons = () => {
                 />
               </div>
 
+              {/* Date Range with Calendar for Edit Modal */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
+                <div className="space-y-2 relative">
                   <label className="flex items-center gap-2 text-gray-700 font-medium">
                     <Calendar size={18} className="text-orange-500" />
                     Start Date *
                   </label>
-                  <input
-                    type="date"
-                    name="startDate"
-                    value={formData.startDate}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    required
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={
+                        formData.startDate ? formatDate(formData.startDate) : ""
+                      }
+                      onClick={() => {
+                        setShowStartCalendar(!showStartCalendar);
+                        setShowEndCalendar(false);
+                      }}
+                      placeholder="Select start date"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
+                      readOnly
+                      required
+                    />
+                    {showStartCalendar && renderCalendar(true)}
+                  </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 relative">
                   <label className="flex items-center gap-2 text-gray-700 font-medium">
                     <Calendar size={18} className="text-orange-500" />
                     End Date *
                   </label>
-                  <input
-                    type="date"
-                    name="endDate"
-                    value={formData.endDate}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    required
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={
+                        formData.endDate ? formatDate(formData.endDate) : ""
+                      }
+                      onClick={() => {
+                        setShowEndCalendar(!showEndCalendar);
+                        setShowStartCalendar(false);
+                      }}
+                      placeholder="Select end date"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
+                      readOnly
+                      required
+                    />
+                    {showEndCalendar && renderCalendar(false)}
+                  </div>
                 </div>
               </div>
 
@@ -760,9 +1021,9 @@ const SellerCoupons = () => {
                   type="submit"
                   disabled={isSubmitting}
                   className={`px-6 py-2.5 rounded-lg text-white font-medium flex items-center cursor-pointer ${
-                    isSubmitting 
-                      ? 'bg-gray-400' 
-                      : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:shadow-lg'
+                    isSubmitting
+                      ? "bg-gray-400"
+                      : "bg-gradient-to-r from-orange-500 to-orange-600 hover:shadow-lg"
                   }`}
                 >
                   {isSubmitting ? (
@@ -787,9 +1048,12 @@ const SellerCoupons = () => {
       {deleteConfirmation && (
         <div className="fixed inset-0 backdrop-blur-md flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">Confirm Delete</h3>
+            <h3 className="text-xl font-bold text-gray-800 mb-4">
+              Confirm Delete
+            </h3>
             <p className="text-gray-600 mb-6">
-              Are you sure you want to delete this coupon? This action cannot be undone.
+              Are you sure you want to delete this coupon? This action cannot be
+              undone.
             </p>
             <div className="flex justify-end gap-4">
               <button

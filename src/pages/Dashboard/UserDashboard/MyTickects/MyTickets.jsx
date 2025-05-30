@@ -7,6 +7,9 @@ import {
   Download,
   Eye,
   FileText,
+  User,
+  X,
+  AlertTriangle,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { AuthContext } from "../../../../providers/AuthProvider";
@@ -24,23 +27,26 @@ const MyTickets = () => {
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [ticketToCancel, setTicketToCancel] = useState(null);
 
   // Function to format time to 12-hour format
   const formatTime = (timeString) => {
     if (!timeString) return "Time TBA";
-    
+
     try {
       // Handle different time formats
       let date;
-      
+
       // If it's a full datetime string
-      if (timeString.includes('T') || timeString.includes(' ')) {
+      if (timeString.includes("T") || timeString.includes(" ")) {
         date = new Date(timeString);
       } else {
         // If it's just a time string (HH:MM format)
         const timeRegex = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/;
         const match = timeString.match(timeRegex);
-        
+
         if (match) {
           const hours = parseInt(match[1]);
           const minutes = parseInt(match[2]);
@@ -51,20 +57,20 @@ const MyTickets = () => {
           date = new Date(timeString);
         }
       }
-      
+
       // Check if date is valid
       if (isNaN(date.getTime())) {
         return timeString; // Return original if can't parse
       }
-      
+
       // Format to 12-hour time
-      return date.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
+      return date.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
       });
     } catch (e) {
-      console.error('Error formatting time:', e);
+      console.error("Error formatting time:", e);
       return timeString; // Return original if error
     }
   };
@@ -78,6 +84,90 @@ const MyTickets = () => {
     } catch (err) {
       console.error("JSON parsing error:", err);
       return defaultValue;
+    }
+  };
+
+  // Function to fetch event details by eventId
+  const fetchEventDetails = async (eventId) => {
+    try {
+      const token = localStorage.getItem("auth-token");
+
+      console.log(`Fetching event details for eventId: ${eventId}`);
+
+      const response = await fetch(`${API_BASE_URL}event/events/${eventId}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      console.log(`Event API response status: ${response.status}`);
+
+      if (response.ok) {
+        const eventData = await response.json();
+        console.log("Event API response data:", eventData);
+
+        // Handle your specific API response structure
+        let event = null;
+
+        if (eventData.success && eventData.event) {
+          // Your API structure: { success: true, message: "...", event: { ... } }
+          event = eventData.event;
+        } else if (eventData.data) {
+          // Fallback: { data: { ... } }
+          event = eventData.data;
+        } else if (eventData.success === false) {
+          // Handle API error response
+          console.error("API returned error:", eventData.message);
+          throw new Error(eventData.message || "Event not found");
+        } else {
+          // Direct event object
+          event = eventData;
+        }
+
+        if (event && event.title) {
+          console.log("Successfully fetched event:", event);
+          return {
+            title: event.title,
+            name: event.title, // Use title as name as well
+            date: event.date,
+            time: event.time,
+            location: event.location,
+            venue: event.location, // Use location as venue
+            description: event.description || "No description available",
+            price: event.price,
+            image: event.image,
+            _id: event._id || eventId,
+            sellerId: event.sellerId,
+            ticketsAvailable: event.ticketsAvailable,
+            ticketSold: event.ticketSold,
+          };
+        } else {
+          console.warn("Event data structure unexpected:", event);
+          throw new Error("Invalid event data structure - no title found");
+        }
+      } else {
+        console.error(`API request failed with status: ${response.status}`);
+        const errorData = await response.text();
+        console.error("Error response:", errorData);
+        throw new Error(`Failed to fetch event: ${response.status}`);
+      }
+    } catch (error) {
+      console.error("Error fetching event details:", error);
+
+      // Return fallback data with event ID only as last resort
+      return {
+        title: `Event ${eventId.substring(0, 8)}...`,
+        name: `Event ${eventId.substring(0, 8)}...`,
+        date: null,
+        time: "19:00",
+        location: "Venue information unavailable",
+        venue: "Venue information unavailable",
+        description: `Unable to load event details: ${error.message}`,
+        _id: eventId,
+        error: true,
+      };
     }
   };
 
@@ -198,76 +288,252 @@ const MyTickets = () => {
 
       // Check if the data structure matches what we expect
       if (data.success && data.data && Array.isArray(data.data)) {
+        console.log("Processing orders:", data.data);
+
         // Map the API data to match our component's expected format
         const formattedTickets = await Promise.all(
-          data.data.map(async (order) => {
-            // Try to fetch event details if needed
-            let eventDetails = {};
-            try {
-              // You can add an API call here to fetch event details using order.eventId
-              // For now, we'll create a placeholder with proper time
-              const eventTime = order.eventTime || order.time || "19:00"; // Default to 7:00 PM
+          data.data.map(async (order, index) => {
+            console.log(`Processing order ${index + 1}:`, order);
+
+            // Fetch event details for each order
+            let eventDetails = {
+              title: `Order ${index + 1}`,
+              date: order.orderTime || order.createdAt,
+              time: order.eventTime || order.time || "19:00",
+              location: "Loading venue...",
+              description: "Loading event details...",
+            };
+
+            if (order.eventId) {
+              console.log(`Fetching details for eventId: ${order.eventId}`);
+              const fetchedEventDetails = await fetchEventDetails(
+                order.eventId
+              );
               eventDetails = {
-                title: "Event #" + order.eventId.substring(0, 6),
-                date: order.orderTime || order.createdAt,
-                time: eventTime,
-                location: "Event Venue",
+                title:
+                  fetchedEventDetails.title ||
+                  fetchedEventDetails.name ||
+                  `Event ${order.eventId.substring(0, 8)}`,
+                name:
+                  fetchedEventDetails.name ||
+                  fetchedEventDetails.title ||
+                  `Event ${order.eventId.substring(0, 8)}`,
+                date:
+                  fetchedEventDetails.date ||
+                  order.orderTime ||
+                  order.createdAt,
+                time:
+                  fetchedEventDetails.time ||
+                  order.eventTime ||
+                  order.time ||
+                  "19:00",
+                location:
+                  fetchedEventDetails.location ||
+                  fetchedEventDetails.venue ||
+                  "Venue details unavailable",
+                venue:
+                  fetchedEventDetails.venue ||
+                  fetchedEventDetails.location ||
+                  "Venue details unavailable",
+                description:
+                  fetchedEventDetails.description || "No description available",
+                _id: order.eventId,
               };
-            } catch (err) {
-              console.warn("Could not fetch event details:", err);
+              console.log("Final event details:", eventDetails);
+            } else {
+              console.warn("No eventId found in order:", order);
+              eventDetails.title = `Order #${
+                order._id?.substring(0, 8) || index + 1
+              }`;
             }
+
+            // ENHANCED CANCELLED STATUS DETECTION
+            // Check multiple possible fields and values that indicate cancellation
+            const isCancelled =
+              // Check status field
+              order.status === "cancelled" ||
+              order.status === "canceled" ||
+              order.status === "CANCELLED" ||
+              order.status === "CANCELED" ||
+              // Check paymentStatus field
+              order.paymentStatus === "cancelled" ||
+              order.paymentStatus === "canceled" ||
+              order.paymentStatus === "CANCELLED" ||
+              order.paymentStatus === "CANCELED" ||
+              order.paymentStatus === "refunded" ||
+              order.paymentStatus === "REFUNDED" ||
+              order.paymentStatus === "failed" ||
+              order.paymentStatus === "FAILED" ||
+              // Check orderStatus field
+              order.orderStatus === "cancelled" ||
+              order.orderStatus === "canceled" ||
+              order.orderStatus === "CANCELLED" ||
+              order.orderStatus === "CANCELED" ||
+              // Check booking status if available
+              order.bookingStatus === "cancelled" ||
+              order.bookingStatus === "canceled" ||
+              order.bookingStatus === "CANCELLED" ||
+              order.bookingStatus === "CANCELED" ||
+              // Check if there's a cancellation date
+              order.cancellationDate ||
+              order.cancelledAt ||
+              order.cancelled_at ||
+              // Check if refund amount exists (indicates cancellation)
+              order.refundAmount > 0 ||
+              order.refund_amount > 0;
+
+            console.log(`Order ${index + 1} cancellation status:`, {
+              orderId: order._id,
+              status: order.status,
+              paymentStatus: order.paymentStatus,
+              orderStatus: order.orderStatus,
+              bookingStatus: order.bookingStatus,
+              isCancelled: isCancelled,
+              cancellationDate: order.cancellationDate,
+              cancelledAt: order.cancelledAt,
+              refundAmount: order.refundAmount,
+            });
 
             return {
               _id: order._id,
               orderId: order._id,
               bookingId: order.bookingId,
               event: eventDetails,
-              selectedSeats: order.seats.map((seat) => ({
-                section: seat.section,
-                row: seat.row,
-                number: seat.seatNumber,
-                price: seat.price,
-                name: `${seat.section} ${seat.row}${seat.seatNumber}`,
-              })),
-              quantity: order.quantity,
-              totalPrice: order.totalAmount,
-              grandTotal: order.totalAmount,
+              selectedSeats:
+                order.seats?.map((seat) => ({
+                  section: seat.section,
+                  row: seat.row,
+                  number: seat.seatNumber,
+                  price: seat.price,
+                  name: `${seat.section} ${seat.row}${seat.seatNumber}`,
+                })) || [],
+              quantity: order.quantity || 1,
+              totalPrice: order.totalAmount || 0,
+              grandTotal: order.totalAmount || 0,
               purchaseDate: order.orderTime || order.createdAt,
               createdAt: order.createdAt,
-              paymentStatus: order.paymentStatus,
+              paymentStatus: order.paymentStatus || "Unknown",
+              isCancelled: isCancelled,
+              // Store raw order data for debugging
+              rawOrderData: order,
+              // Add user info
+              userInfo: {
+                name:
+                  user?.name ||
+                  user?.firstName + " " + user?.lastName ||
+                  "Guest User",
+                email: user?.email || "No email provided",
+              },
             };
           })
         );
 
+        console.log("Final formatted tickets:", formattedTickets);
         setTickets(formattedTickets);
         setStatusMessage("Your tickets have been loaded successfully.");
       } else if (data.success && data.data) {
-        // Handle non-array responses (single ticket)
+        // Handle single ticket response (same logic as above for single order)
         const order = data.data;
-        const eventTime = order.eventTime || order.time || "19:00"; // Default to 7:00 PM
+        console.log("Processing single order:", order);
+
+        // Fetch event details
+        let eventDetails = {
+          title: "Single Event",
+          date: order.orderTime || order.createdAt,
+          time: order.eventTime || order.time || "19:00",
+          location: "Loading venue...",
+          description: "Loading event details...",
+        };
+
+        if (order.eventId) {
+          const fetchedEventDetails = await fetchEventDetails(order.eventId);
+          eventDetails = {
+            title:
+              fetchedEventDetails.title ||
+              fetchedEventDetails.name ||
+              `Event ${order.eventId.substring(0, 8)}`,
+            name:
+              fetchedEventDetails.name ||
+              fetchedEventDetails.title ||
+              `Event ${order.eventId.substring(0, 8)}`,
+            date:
+              fetchedEventDetails.date || order.orderTime || order.createdAt,
+            time:
+              fetchedEventDetails.time ||
+              order.eventTime ||
+              order.time ||
+              "19:00",
+            location:
+              fetchedEventDetails.location ||
+              fetchedEventDetails.venue ||
+              "Venue details unavailable",
+            venue:
+              fetchedEventDetails.venue ||
+              fetchedEventDetails.location ||
+              "Venue details unavailable",
+            description:
+              fetchedEventDetails.description || "No description available",
+            _id: order.eventId,
+          };
+        }
+
+        // Same enhanced cancellation detection for single order
+        const isCancelled =
+          order.status === "cancelled" ||
+          order.status === "canceled" ||
+          order.status === "CANCELLED" ||
+          order.status === "CANCELED" ||
+          order.paymentStatus === "cancelled" ||
+          order.paymentStatus === "canceled" ||
+          order.paymentStatus === "CANCELLED" ||
+          order.paymentStatus === "CANCELED" ||
+          order.paymentStatus === "refunded" ||
+          order.paymentStatus === "REFUNDED" ||
+          order.paymentStatus === "failed" ||
+          order.paymentStatus === "FAILED" ||
+          order.orderStatus === "cancelled" ||
+          order.orderStatus === "canceled" ||
+          order.orderStatus === "CANCELLED" ||
+          order.orderStatus === "CANCELED" ||
+          order.bookingStatus === "cancelled" ||
+          order.bookingStatus === "canceled" ||
+          order.bookingStatus === "CANCELLED" ||
+          order.bookingStatus === "CANCELED" ||
+          order.cancellationDate ||
+          order.cancelledAt ||
+          order.cancelled_at ||
+          order.refundAmount > 0 ||
+          order.refund_amount > 0;
+
         const formattedTicket = {
           _id: order._id,
           orderId: order._id,
           bookingId: order.bookingId,
-          event: {
-            title: "Event #" + order.eventId.substring(0, 6),
-            date: order.orderTime || order.createdAt,
-            time: eventTime,
-            location: "Event Venue",
-          },
-          selectedSeats: order.seats.map((seat) => ({
-            section: seat.section,
-            row: seat.row,
-            number: seat.seatNumber,
-            price: seat.price,
-            name: `${seat.section} ${seat.row}${seat.seatNumber}`,
-          })),
-          quantity: order.quantity,
-          totalPrice: order.totalAmount,
-          grandTotal: order.totalAmount,
+          event: eventDetails,
+          selectedSeats:
+            order.seats?.map((seat) => ({
+              section: seat.section,
+              row: seat.row,
+              number: seat.seatNumber,
+              price: seat.price,
+              name: `${seat.section} ${seat.row}${seat.seatNumber}`,
+            })) || [],
+          quantity: order.quantity || 1,
+          totalPrice: order.totalAmount || 0,
+          grandTotal: order.totalAmount || 0,
           purchaseDate: order.orderTime || order.createdAt,
           createdAt: order.createdAt,
-          paymentStatus: order.paymentStatus,
+          paymentStatus: order.paymentStatus || "Unknown",
+          isCancelled: isCancelled,
+          rawOrderData: order,
+          // Add user info
+          userInfo: {
+            name:
+              user?.name ||
+              user?.firstName + " " + user?.lastName ||
+              "Guest User",
+            email: user?.email || "No email provided",
+          },
         };
 
         setTickets([formattedTicket]);
@@ -294,6 +560,148 @@ const MyTickets = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const cancelTicket = async (ticket) => {
+    setCancelLoading(true);
+    setError("");
+
+    try {
+      // Check if ticket is already cancelled
+      if (ticket.isCancelled) {
+        setStatusMessage("This ticket is already cancelled.");
+        setShowCancelModal(false);
+        setTicketToCancel(null);
+        setCancelLoading(false);
+        return;
+      }
+
+      // Check if refreshToken function is available
+      if (typeof refreshToken === "function") {
+        await refreshToken();
+      }
+
+      // Get token from localStorage
+      const token = localStorage.getItem("auth-token");
+
+      if (!token) {
+        throw new Error("Authentication token not found. Please log in again.");
+      }
+
+      // Validate bookingId exists
+      if (!ticket.bookingId) {
+        throw new Error("Booking ID is missing. Cannot cancel this ticket.");
+      }
+
+      // Updated request body to only include bookingId
+      const requestBody = {
+        bookingId: ticket.bookingId,
+      };
+
+      console.log("Cancelling ticket with body:", requestBody);
+
+      // Call the cancel ticket API
+      const response = await fetch(`${API_BASE_URL}payments/booking/cancel`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const data = await response.json();
+      console.log("Cancel API response:", data);
+
+      if (!response.ok) {
+        // Check if the error is about booking already being cancelled
+        if (response.status === 400 && data.message) {
+          const errorMessage = data.message.toLowerCase();
+
+          if (
+            errorMessage.includes("already cancelled") ||
+            errorMessage.includes("already canceled") ||
+            errorMessage.includes("booking already cancelled") ||
+            errorMessage.includes("booking already canceled")
+          ) {
+            // If booking is already cancelled, update the local state to reflect this
+            setTickets((prevTickets) =>
+              prevTickets.map((t) =>
+                t._id === ticket._id ||
+                t.orderId === ticket.orderId ||
+                t.bookingId === ticket.bookingId
+                  ? { ...t, isCancelled: true, paymentStatus: "cancelled" }
+                  : t
+              )
+            );
+            setStatusMessage(
+              "This ticket was already cancelled on the server. The display has been updated."
+            );
+            setShowCancelModal(false);
+            setTicketToCancel(null);
+            return; // Exit the function early
+          }
+        }
+
+        // For other errors, throw them
+        throw new Error(
+          data.message || `Failed to cancel ticket (Status: ${response.status})`
+        );
+      }
+
+      // If cancellation was successful, update the ticket status in the local state
+      setTickets((prevTickets) =>
+        prevTickets.map((t) =>
+          t._id === ticket._id ||
+          t.orderId === ticket.orderId ||
+          t.bookingId === ticket.bookingId
+            ? { ...t, isCancelled: true, paymentStatus: "cancelled" }
+            : t
+        )
+      );
+
+      setStatusMessage(
+        "Ticket cancelled successfully. Refund will be processed shortly."
+      );
+      setShowCancelModal(false);
+      setTicketToCancel(null);
+    } catch (err) {
+      console.error("Error cancelling ticket:", err);
+      setError(`Failed to cancel ticket: ${err.message}`);
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
+  // Function to show cancel confirmation modal
+  const showCancelConfirmation = (ticket) => {
+    // Check if ticket is already cancelled
+    if (ticket.isCancelled) {
+      setStatusMessage("This ticket has already been cancelled.");
+      return;
+    }
+
+    // Check if bookingId exists
+    if (!ticket.bookingId) {
+      setError("Cannot cancel this ticket - booking ID is missing.");
+      return;
+    }
+
+    setTicketToCancel(ticket);
+    setShowCancelModal(true);
+  };
+
+  // 4. Force refresh function to update cancelled status
+  const forceRefreshTickets = async () => {
+    setStatusMessage("");
+    setError("");
+    await fetchTickets();
+  };
+
+  // Function to close cancel modal
+  const closeCancelModal = () => {
+    setShowCancelModal(false);
+    setTicketToCancel(null);
   };
 
   // Function to view ticket details
@@ -348,17 +756,44 @@ const MyTickets = () => {
       // Set selected ticket in state based on the API structure
       if (data.success && data.data) {
         const order = data.data;
-        const eventTime = order.eventTime || order.time || "19:00"; // Default to 7:00 PM
+
+        // Fetch event details
+        let eventDetails = {
+          title: "Event Details Loading...",
+          date: order.orderTime || order.createdAt,
+          time: order.eventTime || order.time || "19:00",
+          location: "Event Venue",
+          description: "Loading event details...",
+        };
+
+        if (order.eventId) {
+          const fetchedEventDetails = await fetchEventDetails(order.eventId);
+          eventDetails = {
+            title:
+              fetchedEventDetails.title ||
+              fetchedEventDetails.name ||
+              "Untitled Event",
+            date:
+              fetchedEventDetails.date || order.orderTime || order.createdAt,
+            time:
+              fetchedEventDetails.time ||
+              order.eventTime ||
+              order.time ||
+              "19:00",
+            location:
+              fetchedEventDetails.location ||
+              fetchedEventDetails.venue ||
+              "Event Venue",
+            description:
+              fetchedEventDetails.description || "No description available",
+          };
+        }
+
         const formattedTicket = {
           _id: order._id,
           orderId: order._id,
           bookingId: order.bookingId,
-          event: {
-            title: "Event #" + order.eventId.substring(0, 6),
-            date: order.orderTime || order.createdAt,
-            time: eventTime,
-            location: "Event Venue",
-          },
+          event: eventDetails,
           selectedSeats: order.seats.map((seat) => ({
             section: seat.section,
             row: seat.row,
@@ -372,6 +807,16 @@ const MyTickets = () => {
           purchaseDate: order.orderTime || order.createdAt,
           createdAt: order.createdAt,
           paymentStatus: order.paymentStatus,
+          isCancelled:
+            order.status === "cancelled" || order.paymentStatus === "cancelled",
+          // Add user info
+          userInfo: {
+            name:
+              user?.name ||
+              user?.firstName + " " + user?.lastName ||
+              "Guest User",
+            email: user?.email || "No email provided",
+          },
         };
 
         setSelectedTicket(formattedTicket);
@@ -422,12 +867,12 @@ const MyTickets = () => {
 
       // Card background
       doc.setFillColor(255, 255, 255);
-      doc.roundedRect(margin, margin, contentWidth, 180, 3, 3, "F");
+      doc.roundedRect(margin, margin, contentWidth, 200, 3, 3, "F");
 
       // Card border
       doc.setDrawColor(230, 230, 230);
       doc.setLineWidth(0.5);
-      doc.roundedRect(margin, margin, contentWidth, 180, 3, 3, "S");
+      doc.roundedRect(margin, margin, contentWidth, 200, 3, 3, "S");
 
       // ----- HEADER SECTION -----
 
@@ -492,9 +937,22 @@ const MyTickets = () => {
       // ----- LEFT COLUMN -----
       let currentY = bodyTop + 10;
 
+      // User Info
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(224, 88, 41);
+      doc.text("• ", margin + 5, currentY);
+      doc.setTextColor(70, 70, 70);
+      doc.setFont("helvetica", "normal");
+      doc.text(
+        `Ticket Holder: ${ticket.userInfo?.name || "Guest User"}`,
+        margin + 12,
+        currentY
+      );
+      currentY += 15;
+
       // Date
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(224, 88, 41); // Orange for icons
+      doc.setTextColor(224, 88, 41);
       doc.text("• ", margin + 5, currentY);
       doc.setTextColor(70, 70, 70);
       doc.setFont("helvetica", "normal");
@@ -582,7 +1040,7 @@ const MyTickets = () => {
       // Add right column border
       doc.setDrawColor(229, 231, 235);
       doc.setLineWidth(0.5);
-      doc.line(rightColStart - 5, bodyTop, rightColStart - 5, bodyTop + 110);
+      doc.line(rightColStart - 5, bodyTop, rightColStart - 5, bodyTop + 130);
 
       // Price info
       currentY = bodyTop + 15;
@@ -604,6 +1062,16 @@ const MyTickets = () => {
         `Purchased on ${new Date(
           ticket.purchaseDate || ticket.createdAt || Date.now()
         ).toLocaleDateString()}`,
+        rightColStart + 10,
+        currentY
+      );
+
+      // Payment status
+      currentY += 12;
+      doc.setFontSize(10);
+      doc.setTextColor(34, 197, 94); // Green color for paid status
+      doc.text(
+        `Status: ${ticket.paymentStatus || "Paid"}`,
         rightColStart + 10,
         currentY
       );
@@ -638,7 +1106,7 @@ const MyTickets = () => {
       );
 
       // ----- FOOTER -----
-      const footerY = margin + 155;
+      const footerY = margin + 175;
 
       // Footer text
       doc.setFillColor(245, 245, 245);
@@ -662,7 +1130,8 @@ const MyTickets = () => {
         0,
         8
       );
-      doc.save(`ticket-${shortId}.pdf`);
+      const userName = ticket.userInfo?.name?.replace(/\s+/g, "_") || "user";
+      doc.save(`ticket-${userName}-${shortId}.pdf`);
 
       setStatusMessage("Ticket PDF generated successfully!");
     } catch (err) {
@@ -672,6 +1141,8 @@ const MyTickets = () => {
       try {
         const ticketText = `TICKET DETAILS
 Event: ${ticket.event?.title || "Untitled Event"}
+Ticket Holder: ${ticket.userInfo?.name || "Guest User"}
+Email: ${ticket.userInfo?.email || "No email provided"}
 Date: ${formatDate(ticket.event?.date || ticket.purchaseDate)}
 Time: ${formatTime(ticket.event?.time)}
 Location: ${ticket.event?.location || "Location TBA"}
@@ -679,7 +1150,8 @@ Order ID: ${ticket._id || ticket.orderId || "N/A"}
 Purchased: ${new Date(
           ticket.purchaseDate || ticket.createdAt || Date.now()
         ).toLocaleString()}
-Price: $${(ticket.grandTotal || ticket.totalPrice || 0).toFixed(2)}
+Total Price: ${(ticket.grandTotal || ticket.totalPrice || 0).toFixed(2)}
+Payment Status: ${ticket.paymentStatus || "Paid"}
 
 This is a locally generated ticket file as the PDF generation failed.
 `;
@@ -772,25 +1244,65 @@ This is a locally generated ticket file as the PDF generation failed.
     <div className="max-w-5xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-gray-800">My Tickets</h2>
-        <button
-          onClick={fetchTickets}
-          className="inline-flex items-center gap-2 bg-orange-50 text-orange-600 px-4 py-2 rounded-lg hover:bg-orange-100 transition-colors cursor-pointer"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5"
-            viewBox="0 0 20 20"
-            fill="currentColor"
+        <div className="flex gap-2">
+          <button
+            onClick={forceRefreshTickets}
+            className="inline-flex items-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer"
+            disabled={loading}
           >
-            <path
-              fillRule="evenodd"
-              d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
-              clipRule="evenodd"
-            />
-          </svg>
-          Refresh
-        </button>
+            {loading ? (
+              <div className="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+            ) : (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            )}
+            {loading ? "Syncing..." : "Sync Status"}
+          </button>
+
+          <button
+            onClick={fetchTickets}
+            className="inline-flex items-center gap-2 bg-orange-50 text-orange-600 px-4 py-2 rounded-lg hover:bg-orange-100 transition-colors cursor-pointer"
+            disabled={loading}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+                clipRule="evenodd"
+              />
+            </svg>
+            Refresh
+          </button>
+        </div>
       </div>
+
+      {/* Status/Error Messages */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+          {error}
+        </div>
+      )}
+
+      {statusMessage && !error && (
+        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4">
+          {statusMessage}
+        </div>
+      )}
 
       {/* No tickets message */}
       {!loading && tickets.length === 0 && (
@@ -818,16 +1330,37 @@ This is a locally generated ticket file as the PDF generation failed.
           {tickets.map((ticket, index) => (
             <div
               key={ticket._id || ticket.orderId || index}
-              className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200 hover:shadow-xl transition-shadow duration-200"
+              className={`bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200 hover:shadow-xl transition-shadow duration-200 ${
+                ticket.isCancelled ? "opacity-60 grayscale" : ""
+              }`}
             >
+              {/* Cancelled Banner */}
+              {ticket.isCancelled && (
+                <div className="bg-red-500 text-white text-center py-2 px-4 text-sm font-medium">
+                  ❌ CANCELLED - Refund Processing
+                </div>
+              )}
+
               {/* Ticket UI inspired by checkout tickets */}
               <div className="ticket-card relative overflow-hidden">
                 {/* Ticket Header */}
-                <div className="bg-gradient-to-r from-orange-700 to-orange-500 p-4 flex justify-between items-center">
+                <div
+                  className={`${
+                    ticket.isCancelled
+                      ? "bg-gradient-to-r from-gray-600 to-gray-500"
+                      : "bg-gradient-to-r from-orange-700 to-orange-500"
+                  } p-4 flex justify-between items-center`}
+                >
                   <div className="font-bold text-white text-lg truncate">
-                    {ticket.event?.title || "Untitled Event"}
+                    {ticket.event?.title || "Event Title Loading..."}
                   </div>
-                  <div className="text-sm bg-orange-900 bg-opacity-50 rounded px-2 py-1 text-white">
+                  <div
+                    className={`text-sm ${
+                      ticket.isCancelled
+                        ? "bg-gray-800 bg-opacity-50"
+                        : "bg-orange-900 bg-opacity-50"
+                    } rounded px-2 py-1 text-white`}
+                  >
                     {ticket.quantity || ticket.selectedSeats?.length || 1}{" "}
                     Ticket
                     {(ticket.quantity || ticket.selectedSeats?.length || 1) !==
@@ -840,10 +1373,38 @@ This is a locally generated ticket file as the PDF generation failed.
                 {/* Ticket Body */}
                 <div className="p-4 md:p-6 flex flex-col md:flex-row">
                   {/* Left content */}
-                                      <div className="md:w-2/3">
+                  <div className="md:w-2/3">
+                    {/* User Info */}
+                    <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                      <div className="flex items-center gap-2 mb-1">
+                        <User size={16} className="text-blue-600" />
+                        <span className="text-sm font-semibold text-blue-700">
+                          Ticket Holder
+                        </span>
+                      </div>
+                      <div className="text-gray-800 font-medium">
+                        {ticket.userInfo?.name ||
+                          user?.name ||
+                          user?.firstName + " " + user?.lastName ||
+                          "Guest User"}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {ticket.userInfo?.email ||
+                          user?.email ||
+                          "No email provided"}
+                      </div>
+                    </div>
+
                     <div className="flex flex-wrap gap-4 mb-4">
                       <div className="flex items-center gap-1 text-gray-600">
-                        <Calendar size={18} className="text-orange-500" />
+                        <Calendar
+                          size={18}
+                          className={
+                            ticket.isCancelled
+                              ? "text-gray-400"
+                              : "text-orange-500"
+                          }
+                        />
                         <span>
                           {formatDate(
                             ticket.event?.date || ticket.purchaseDate
@@ -851,11 +1412,25 @@ This is a locally generated ticket file as the PDF generation failed.
                         </span>
                       </div>
                       <div className="flex items-center gap-1 text-gray-600">
-                        <Clock size={18} className="text-orange-500" />
+                        <Clock
+                          size={18}
+                          className={
+                            ticket.isCancelled
+                              ? "text-gray-400"
+                              : "text-orange-500"
+                          }
+                        />
                         <span>{formatTime(ticket.event?.time)}</span>
                       </div>
                       <div className="flex items-center gap-1 text-gray-600">
-                        <MapPin size={18} className="text-orange-500" />
+                        <MapPin
+                          size={18}
+                          className={
+                            ticket.isCancelled
+                              ? "text-gray-400"
+                              : "text-orange-500"
+                          }
+                        />
                         <span>{ticket.event?.location || "Location TBA"}</span>
                       </div>
                     </div>
@@ -899,14 +1474,36 @@ This is a locally generated ticket file as the PDF generation failed.
                   {/* Right content */}
                   <div className="md:w-1/3 mt-4 md:mt-0 md:border-l md:border-gray-200 md:pl-6 flex flex-col justify-between">
                     <div>
-                      <div className="text-2xl font-bold text-orange-600 mb-2">
-                        ${ticket.grandTotal || ticket.totalPrice || 0}
+                      <div
+                        className={`text-2xl font-bold mb-2 ${
+                          ticket.isCancelled
+                            ? "text-gray-500 line-through"
+                            : "text-orange-600"
+                        }`}
+                      >
+                        $
+                        {(ticket.grandTotal || ticket.totalPrice || 0).toFixed(
+                          2
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-500 mb-2">
+                        Total Amount
                       </div>
                       <div className="text-sm text-gray-500">
                         Purchased on{" "}
                         {new Date(
                           ticket.purchaseDate || ticket.createdAt || Date.now()
                         ).toLocaleDateString()}
+                      </div>
+                      <div
+                        className={`text-sm font-medium mt-1 ${
+                          ticket.isCancelled ? "text-red-600" : "text-green-600"
+                        }`}
+                      >
+                        Status:{" "}
+                        {ticket.isCancelled
+                          ? "Cancelled"
+                          : ticket.paymentStatus || "Paid"}
                       </div>
                     </div>
 
@@ -917,7 +1514,11 @@ This is a locally generated ticket file as the PDF generation failed.
                           {Array.from({ length: 30 }).map((_, i) => (
                             <div
                               key={i}
-                              className="w-0.5 bg-gray-900"
+                              className={`w-0.5 ${
+                                ticket.isCancelled
+                                  ? "bg-gray-400"
+                                  : "bg-gray-900"
+                              }`}
                               style={{
                                 height: `${6 + Math.random() * 14}px`,
                               }}
@@ -940,24 +1541,54 @@ This is a locally generated ticket file as the PDF generation failed.
                           viewTicketDetails(ticket._id || ticket.orderId)
                         }
                         className="inline-flex items-center gap-1 bg-blue-50 text-blue-600 px-3 py-2 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer"
+                        disabled={detailsLoading}
                       >
-                        <Eye size={18} />
+                        {detailsLoading ? (
+                          <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full mr-1"></div>
+                        ) : (
+                          <Eye size={18} />
+                        )}
                         View Details
                       </button>
-                      <button
-                        onClick={() =>
-                          downloadTicket(ticket._id || ticket.orderId)
-                        }
-                        className="inline-flex items-center gap-1 bg-green-50 text-green-600 px-3 py-2 rounded-lg hover:bg-green-100 transition-colors cursor-pointer"
-                        disabled={downloadLoading}
-                      >
-                        {downloadLoading ? (
-                          <div className="animate-spin h-4 w-4 border-2 border-green-600 border-t-transparent rounded-full mr-1"></div>
-                        ) : (
-                          <Download size={18} />
-                        )}
-                        Download
-                      </button>
+
+                      {!ticket.isCancelled && (
+                        <>
+                          <button
+                            onClick={() =>
+                              downloadTicket(ticket._id || ticket.orderId)
+                            }
+                            className="inline-flex items-center gap-1 bg-green-50 text-green-600 px-3 py-2 rounded-lg hover:bg-green-100 transition-colors cursor-pointer"
+                            disabled={downloadLoading}
+                          >
+                            {downloadLoading ? (
+                              <div className="animate-spin h-4 w-4 border-2 border-green-600 border-t-transparent rounded-full mr-1"></div>
+                            ) : (
+                              <Download size={18} />
+                            )}
+                            Download
+                          </button>
+
+                          <button
+                            onClick={() => showCancelConfirmation(ticket)}
+                            className="inline-flex items-center gap-1 bg-red-50 text-red-600 px-3 py-2 rounded-lg hover:bg-red-100 transition-colors cursor-pointer"
+                            disabled={cancelLoading}
+                          >
+                            {cancelLoading ? (
+                              <div className="animate-spin h-4 w-4 border-2 border-red-600 border-t-transparent rounded-full mr-1"></div>
+                            ) : (
+                              <X size={18} />
+                            )}
+                            Cancel Ticket
+                          </button>
+                        </>
+                      )}
+
+                      {ticket.isCancelled && (
+                        <div className="text-xs text-gray-500 italic mt-2">
+                          Ticket cancelled - Refund will be processed within 5-7
+                          business days
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -967,13 +1598,112 @@ This is a locally generated ticket file as the PDF generation failed.
         </div>
       )}
 
+      {/* Cancel Confirmation Modal */}
+      {showCancelModal && ticketToCancel && (
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-md">
+            {/* Modal header */}
+            <div className="bg-red-500 p-4 flex justify-between items-center rounded-t-lg">
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <AlertTriangle size={24} />
+                Cancel Ticket
+              </h3>
+              <button
+                onClick={closeCancelModal}
+                className="text-white hover:text-red-200 cursor-pointer"
+                disabled={cancelLoading}
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Modal content */}
+            <div className="p-6">
+              <div className="mb-4">
+                <h4 className="text-lg font-semibold text-gray-800 mb-2">
+                  Are you sure you want to cancel this ticket?
+                </h4>
+                <div className="bg-gray-50 p-3 rounded-lg mb-4">
+                  <p className="text-sm text-gray-600 mb-1">
+                    <strong>Event:</strong>{" "}
+                    {ticketToCancel.event?.title || "Event Title"}
+                  </p>
+                  <p className="text-sm text-gray-600 mb-1">
+                    <strong>Date:</strong>{" "}
+                    {formatDate(
+                      ticketToCancel.event?.date || ticketToCancel.purchaseDate
+                    )}
+                  </p>
+                  <p className="text-sm text-gray-600 mb-1">
+                    <strong>Tickets:</strong>{" "}
+                    {ticketToCancel.quantity ||
+                      ticketToCancel.selectedSeats?.length ||
+                      1}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <strong>Total Amount:</strong> $
+                    {(
+                      ticketToCancel.grandTotal ||
+                      ticketToCancel.totalPrice ||
+                      0
+                    ).toFixed(2)}
+                  </p>
+                </div>
+                <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg">
+                  <p className="text-sm text-yellow-800">
+                    <strong>⚠️ Important:</strong> Once cancelled, this action
+                    cannot be undone. A refund will be processed within 5-7
+                    business days.
+                  </p>
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={closeCancelModal}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 cursor-pointer"
+                  disabled={cancelLoading}
+                >
+                  Keep Ticket
+                </button>
+                <button
+                  onClick={() => cancelTicket(ticketToCancel)}
+                  className={`inline-flex items-center gap-2 px-4 py-2 ${
+                    cancelLoading
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-red-500 hover:bg-red-600 cursor-pointer"
+                  } text-white rounded-lg transition-all`}
+                  disabled={cancelLoading}
+                >
+                  {cancelLoading ? (
+                    <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+                  ) : (
+                    <X size={18} />
+                  )}
+                  {cancelLoading ? "Cancelling..." : "Yes, Cancel Ticket"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Ticket details modal */}
       {selectedTicket && (
         <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             {/* Modal header */}
-            <div className="bg-gradient-to-r from-orange-700 to-orange-500 p-4 flex justify-between items-center">
-              <h3 className="text-xl font-bold text-white">Ticket Details</h3>
+            <div
+              className={`${
+                selectedTicket.isCancelled
+                  ? "bg-gradient-to-r from-gray-600 to-gray-500"
+                  : "bg-gradient-to-r from-orange-700 to-orange-500"
+              } p-4 flex justify-between items-center`}
+            >
+              <h3 className="text-xl font-bold text-white">
+                Ticket Details {selectedTicket.isCancelled && "(Cancelled)"}
+              </h3>
               <button
                 onClick={closeModal}
                 className="text-white hover:text-orange-200 cursor-pointer"
@@ -995,16 +1725,36 @@ This is a locally generated ticket file as the PDF generation failed.
               </button>
             </div>
 
+            {/* Cancelled Notice in Modal */}
+            {selectedTicket.isCancelled && (
+              <div className="bg-red-50 border-l-4 border-red-500 p-4">
+                <div className="flex items-center">
+                  <AlertTriangle className="text-red-500 mr-2" size={20} />
+                  <p className="text-red-700 font-medium">
+                    This ticket has been cancelled. Refund will be processed
+                    within 5-7 business days.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Ticket content */}
             <div className="p-6">
               {/* Event info */}
               <div className="border-b border-gray-200 pb-4 mb-6">
                 <h4 className="text-2xl font-bold text-gray-800 mb-2">
-                  {selectedTicket.event?.title || "Untitled Event"}
+                  {selectedTicket.event?.title || "Event Title Loading..."}
                 </h4>
                 <div className="flex flex-wrap gap-4 mb-3">
                   <div className="flex items-center gap-1 text-gray-600">
-                    <Calendar size={18} className="text-orange-500" />
+                    <Calendar
+                      size={18}
+                      className={
+                        selectedTicket.isCancelled
+                          ? "text-gray-400"
+                          : "text-orange-500"
+                      }
+                    />
                     <span>
                       {formatDate(
                         selectedTicket.event?.date ||
@@ -1013,11 +1763,25 @@ This is a locally generated ticket file as the PDF generation failed.
                     </span>
                   </div>
                   <div className="flex items-center gap-1 text-gray-600">
-                    <Clock size={18} className="text-orange-500" />
+                    <Clock
+                      size={18}
+                      className={
+                        selectedTicket.isCancelled
+                          ? "text-gray-400"
+                          : "text-orange-500"
+                      }
+                    />
                     <span>{formatTime(selectedTicket.event?.time)}</span>
                   </div>
                   <div className="flex items-center gap-1 text-gray-600">
-                    <MapPin size={18} className="text-orange-500" />
+                    <MapPin
+                      size={18}
+                      className={
+                        selectedTicket.isCancelled
+                          ? "text-gray-400"
+                          : "text-orange-500"
+                      }
+                    />
                     <span>
                       {selectedTicket.event?.location || "Location TBA"}
                     </span>
@@ -1036,8 +1800,29 @@ This is a locally generated ticket file as the PDF generation failed.
                   <h4 className="font-bold text-gray-700 mb-3">
                     Ticket Information
                   </h4>
-                  <div className="bg-orange-50 p-4 rounded-lg">
+                  <div
+                    className={`p-4 rounded-lg ${
+                      selectedTicket.isCancelled ? "bg-gray-50" : "bg-orange-50"
+                    }`}
+                  >
                     <div className="space-y-3">
+                      <div>
+                        <p className="text-sm text-gray-500">Ticket Holder</p>
+                        <p className="font-medium text-gray-800">
+                          {selectedTicket.userInfo?.name ||
+                            user?.name ||
+                            user?.firstName + " " + user?.lastName ||
+                            "Guest User"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Email</p>
+                        <p className="font-medium text-gray-800">
+                          {selectedTicket.userInfo?.email ||
+                            user?.email ||
+                            "No email provided"}
+                        </p>
+                      </div>
                       <div>
                         <p className="text-sm text-gray-500">Order ID</p>
                         <p className="font-medium text-gray-800 break-all">
@@ -1057,17 +1842,25 @@ This is a locally generated ticket file as the PDF generation failed.
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Ticket Type</p>
-                        <p className="font-medium text-gray-800">
-                          {selectedTicket.ticketType?.name || "Regular"}
-                        </p>
-                      </div>
-                      <div>
                         <p className="text-sm text-gray-500">Quantity</p>
                         <p className="font-medium text-gray-800">
                           {selectedTicket.quantity ||
                             selectedTicket.selectedSeats?.length ||
                             1}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Payment Status</p>
+                        <p
+                          className={`font-medium ${
+                            selectedTicket.isCancelled
+                              ? "text-red-600"
+                              : "text-green-600"
+                          }`}
+                        >
+                          {selectedTicket.isCancelled
+                            ? "Cancelled"
+                            : selectedTicket.paymentStatus || "Paid"}
                         </p>
                       </div>
                     </div>
@@ -1081,26 +1874,25 @@ This is a locally generated ticket file as the PDF generation failed.
                   </h4>
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Subtotal</span>
-                        <span className="font-medium">
-                          ${selectedTicket.totalPrice || 0}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Service Fee</span>
-                        <span className="font-medium">
-                          ${selectedTicket.serviceFee || 0}
-                        </span>
-                      </div>
                       <div className="border-t border-gray-200 pt-2 mt-2">
                         <div className="flex justify-between font-bold">
-                          <span>Total</span>
-                          <span className="text-orange-600">
+                          <span>
+                            Total{" "}
+                            {selectedTicket.isCancelled ? "Refunded" : "Paid"}
+                          </span>
+                          <span
+                            className={
+                              selectedTicket.isCancelled
+                                ? "text-gray-500 line-through"
+                                : "text-orange-600"
+                            }
+                          >
                             $
-                            {selectedTicket.grandTotal ||
+                            {(
+                              selectedTicket.grandTotal ||
                               selectedTicket.totalPrice ||
-                              0}
+                              0
+                            ).toFixed(2)}
                           </span>
                         </div>
                       </div>
@@ -1121,7 +1913,11 @@ This is a locally generated ticket file as the PDF generation failed.
                         {selectedTicket.selectedSeats.map((seat, idx) => (
                           <div
                             key={idx}
-                            className="bg-white border border-gray-200 rounded-md p-3 text-center"
+                            className={`border border-gray-200 rounded-md p-3 text-center ${
+                              selectedTicket.isCancelled
+                                ? "bg-gray-100"
+                                : "bg-white"
+                            }`}
                           >
                             <div className="font-bold text-gray-800">
                               {seat.name || `Seat ${idx + 1}`}
@@ -1142,19 +1938,44 @@ This is a locally generated ticket file as the PDF generation failed.
               {/* Ticket visualization */}
               <div className="mb-6 border-t border-gray-200 pt-6">
                 <h4 className="font-bold text-gray-700 mb-3">Ticket Preview</h4>
-                <div className="bg-white rounded-lg border border-gray-300 overflow-hidden shadow-md">
+                <div
+                  className={`rounded-lg border border-gray-300 overflow-hidden shadow-md ${
+                    selectedTicket.isCancelled
+                      ? "opacity-60 grayscale"
+                      : "bg-white"
+                  }`}
+                >
                   {/* Ticket header */}
-                  <div className="bg-gradient-to-r from-orange-700 to-orange-500 p-3 flex justify-between items-center">
+                  <div
+                    className={`p-3 flex justify-between items-center ${
+                      selectedTicket.isCancelled
+                        ? "bg-gradient-to-r from-gray-600 to-gray-500"
+                        : "bg-gradient-to-r from-orange-700 to-orange-500"
+                    }`}
+                  >
                     <div className="font-bold text-white truncate">
-                      {selectedTicket.event?.title || "Event"}
+                      {selectedTicket.event?.title || "Event Title Loading..."}
                     </div>
-                    <div className="text-xs bg-orange-900 bg-opacity-50 rounded px-2 py-1 text-white">
+                    <div
+                      className={`text-xs rounded px-2 py-1 text-white ${
+                        selectedTicket.isCancelled
+                          ? "bg-gray-800 bg-opacity-50"
+                          : "bg-orange-900 bg-opacity-50"
+                      }`}
+                    >
                       Admit{" "}
                       {selectedTicket.quantity ||
                         selectedTicket.selectedSeats?.length ||
                         1}
                     </div>
                   </div>
+
+                  {/* Cancelled overlay for ticket preview */}
+                  {selectedTicket.isCancelled && (
+                    <div className="bg-red-500 text-white text-center py-1 text-xs font-bold">
+                      CANCELLED
+                    </div>
+                  )}
 
                   {/* Ticket body */}
                   <div className="p-4 flex justify-between">
@@ -1163,7 +1984,20 @@ This is a locally generated ticket file as the PDF generation failed.
                         <div>
                           <div className="text-xs text-gray-500">Event</div>
                           <div className="font-medium">
-                            {selectedTicket.event?.title || "Untitled Event"}
+                            {selectedTicket.event?.title ||
+                              "Event Title Loading..."}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-xs text-gray-500">
+                            Ticket Holder
+                          </div>
+                          <div className="font-medium">
+                            {selectedTicket.userInfo?.name ||
+                              user?.name ||
+                              user?.firstName + " " + user?.lastName ||
+                              "Guest User"}
                           </div>
                         </div>
 
@@ -1204,8 +2038,14 @@ This is a locally generated ticket file as the PDF generation failed.
 
                     <div className="w-1/3 flex flex-col items-end justify-between">
                       <div className="text-right">
-                        <div className="text-xs text-gray-500">Price</div>
-                        <div className="font-bold text-orange-600">
+                        <div className="text-xs text-gray-500">Total</div>
+                        <div
+                          className={`font-bold ${
+                            selectedTicket.isCancelled
+                              ? "text-gray-500 line-through"
+                              : "text-orange-600"
+                          }`}
+                        >
                           $
                           {(
                             selectedTicket.grandTotal ||
@@ -1222,7 +2062,11 @@ This is a locally generated ticket file as the PDF generation failed.
                             {Array.from({ length: 20 }).map((_, i) => (
                               <div
                                 key={i}
-                                className="w-0.5 bg-gray-900"
+                                className={`w-0.5 ${
+                                  selectedTicket.isCancelled
+                                    ? "bg-gray-400"
+                                    : "bg-gray-900"
+                                }`}
                                 style={{
                                   height: `${6 + Math.random() * 14}px`,
                                 }}
@@ -1240,9 +2084,16 @@ This is a locally generated ticket file as the PDF generation failed.
                     </div>
                   </div>
 
-                  <div className="bg-gray-100 p-2 text-center text-xs text-gray-500 border-t border-gray-300">
-                    This ticket is valid for entry. Please present this at the
-                    event.
+                  <div
+                    className={`p-2 text-center text-xs border-t border-gray-300 ${
+                      selectedTicket.isCancelled
+                        ? "bg-gray-100 text-gray-500"
+                        : "bg-gray-100 text-gray-500"
+                    }`}
+                  >
+                    {selectedTicket.isCancelled
+                      ? "This ticket has been cancelled and is no longer valid for entry."
+                      : "This ticket is valid for entry. Please present this at the event."}
                   </div>
                 </div>
               </div>
@@ -1255,24 +2106,48 @@ This is a locally generated ticket file as the PDF generation failed.
                 >
                   Close
                 </button>
-                <button
-                  onClick={() =>
-                    downloadTicket(selectedTicket._id || selectedTicket.orderId)
-                  }
-                  className={`inline-flex items-center gap-2 px-4 py-2 ${
-                    downloadLoading
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-gradient-to-r from-orange-500 to-orange-600 hover:shadow-lg cursor-pointer"
-                  } text-white rounded-lg transition-all`}
-                  disabled={downloadLoading}
-                >
-                  {downloadLoading ? (
-                    <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
-                  ) : (
-                    <Download size={18} />
-                  )}
-                  Download Ticket
-                </button>
+
+                {!selectedTicket.isCancelled && (
+                  <>
+                    <button
+                      onClick={() =>
+                        downloadTicket(
+                          selectedTicket._id || selectedTicket.orderId
+                        )
+                      }
+                      className={`inline-flex items-center gap-2 px-4 py-2 ${
+                        downloadLoading
+                          ? "bg-gray-400 cursor-not-allowed"
+                          : "bg-gradient-to-r from-green-500 to-green-600 hover:shadow-lg cursor-pointer"
+                      } text-white rounded-lg transition-all`}
+                      disabled={downloadLoading}
+                    >
+                      {downloadLoading ? (
+                        <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+                      ) : (
+                        <Download size={18} />
+                      )}
+                      Download Ticket
+                    </button>
+
+                    <button
+                      onClick={() => showCancelConfirmation(selectedTicket)}
+                      className={`inline-flex items-center gap-2 px-4 py-2 ${
+                        cancelLoading
+                          ? "bg-gray-400 cursor-not-allowed"
+                          : "bg-gradient-to-r from-red-500 to-red-600 hover:shadow-lg cursor-pointer"
+                      } text-white rounded-lg transition-all`}
+                      disabled={cancelLoading}
+                    >
+                      {cancelLoading ? (
+                        <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+                      ) : (
+                        <X size={18} />
+                      )}
+                      Cancel Ticket
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
