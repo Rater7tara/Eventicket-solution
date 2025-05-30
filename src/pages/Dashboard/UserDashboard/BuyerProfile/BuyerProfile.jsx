@@ -20,7 +20,9 @@ import {
   LogOut,
   Calendar,
   Shield,
-  Send
+  Send,
+  Upload,
+  ImageIcon
 } from "lucide-react";
 import serverURL from "../../../../ServerConfig";
 import { AuthContext } from "../../../../providers/AuthProvider";
@@ -62,6 +64,11 @@ const BuyerProfile = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Image upload states
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [imageUploading, setImageUploading] = useState(false);
+
   // Delete confirmation
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
@@ -100,6 +107,76 @@ const BuyerProfile = () => {
     };
   };
 
+  // Set up headers for file upload
+  const getFileUploadHeaders = () => {
+    const token = getAuthToken();
+    return {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'multipart/form-data'
+      }
+    };
+  };
+
+  // Handle image file selection
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+      if (!validTypes.includes(file.type)) {
+        toast.error('Please select a valid image file (JPEG, PNG, or GIF)');
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+      if (file.size > maxSize) {
+        toast.error('Image file size must be less than 5MB');
+        return;
+      }
+
+      setSelectedImage(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+      setError(''); // Clear any previous errors
+    }
+  };
+
+  // Upload image to server
+  const uploadImage = async () => {
+    if (!selectedImage) return null;
+
+    try {
+      setImageUploading(true);
+      const formData = new FormData();
+      formData.append('image', selectedImage);
+
+      // Upload to your image upload endpoint
+      const response = await axios.post(
+        `${serverURL.url}upload/image`, // Adjust this endpoint as needed
+        formData,
+        getFileUploadHeaders()
+      );
+
+      if (response.data && response.data.imageUrl) {
+        return response.data.imageUrl;
+      } else {
+        throw new Error('No image URL returned from server');
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      throw new Error('Failed to upload image. Please try again.');
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
   // Fetch user profile
   const fetchProfile = async () => {
     try {
@@ -129,6 +206,11 @@ const BuyerProfile = () => {
           profilePicture: profileData.profilePicture || "",
         });
         
+        // Set current image preview if exists
+        if (profileData.profilePicture) {
+          setImagePreview(profileData.profilePicture);
+        }
+        
         // Set email in password form
         setPasswordData(prev => ({ ...prev, email: profileData.email || "" }));
       } else {
@@ -152,7 +234,7 @@ const BuyerProfile = () => {
     }
   };
 
-  // Update user profile - FIXED VERSION
+  // Update user profile - ENHANCED WITH IMAGE UPLOAD
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -180,13 +262,25 @@ const BuyerProfile = () => {
       if (!authHeaders) return;
 
       // Clean the data - remove empty strings and trim whitespace
-      const cleanedData = {
+      let cleanedData = {
         name: editFormData.name.trim(),
         email: editFormData.email.trim(),
         phone: editFormData.phone?.trim() || null,
         address: editFormData.address?.trim() || null,
         profilePicture: editFormData.profilePicture?.trim() || null,
       };
+
+      // Upload new image if selected
+      if (selectedImage) {
+        try {
+          const uploadedImageUrl = await uploadImage();
+          cleanedData.profilePicture = uploadedImageUrl;
+        } catch (uploadError) {
+          toast.error(uploadError.message);
+          setIsSubmitting(false);
+          return;
+        }
+      }
 
       console.log("Sending update data:", cleanedData);
 
@@ -201,6 +295,7 @@ const BuyerProfile = () => {
       if (response.data?.success) {
         toast.success("Profile updated successfully!");
         setIsEditing(false);
+        setSelectedImage(null); // Clear selected image
         
         // Update the profile state with new data
         const updatedProfile = { ...profile, ...cleanedData };
@@ -444,6 +539,14 @@ const BuyerProfile = () => {
       address: profile?.address || "",
       profilePicture: profile?.profilePicture || "",
     });
+    
+    // Reset image preview to original
+    if (profile?.profilePicture) {
+      setImagePreview(profile.profilePicture);
+    } else {
+      setImagePreview(null);
+    }
+    setSelectedImage(null);
     setIsEditing(false);
   };
 
@@ -508,10 +611,15 @@ const BuyerProfile = () => {
                             src={profile.profilePicture}
                             alt={profile.name}
                             className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              e.target.nextSibling.style.display = 'flex';
+                            }}
                           />
-                        ) : (
+                        ) : null}
+                        <div className={`w-full h-full items-center justify-center ${profile?.profilePicture ? 'hidden' : 'flex'}`}>
                           <User className="text-orange-500" size={48} />
-                        )}
+                        </div>
                       </div>
                       <div className="flex-1">
                         <h2 className="text-2xl font-bold text-gray-800 mb-1">
@@ -586,6 +694,15 @@ const BuyerProfile = () => {
                             {profile?.updatedAt ? formatDate(profile.updatedAt) : "N/A"}
                           </p>
                         </div>
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <div className="flex items-center mb-1">
+                            <User className="text-orange-500 mr-2" size={18} />
+                            <p className="text-sm font-medium text-gray-500">User ID</p>
+                          </div>
+                          <p className="text-gray-800 text-sm font-mono">
+                            {profile?.id || profile?._id || "N/A"}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -597,10 +714,10 @@ const BuyerProfile = () => {
                     <div className="grid grid-cols-1 gap-6">
                       <div className="flex justify-center mb-4">
                         <div className="relative w-32 h-32 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden border-4 border-orange-200">
-                          {editFormData.profilePicture ? (
+                          {imagePreview ? (
                             <img
-                              src={editFormData.profilePicture}
-                              alt={editFormData.name}
+                              src={imagePreview}
+                              alt={editFormData.name || "Profile"}
                               className="w-full h-full object-cover"
                               onError={(e) => {
                                 e.target.style.display = 'none';
@@ -616,19 +733,39 @@ const BuyerProfile = () => {
                         </div>
                       </div>
 
-                      <div>
-                        <label htmlFor="profilePicture" className="block text-sm font-medium text-gray-700 mb-1">
-                          Profile Picture URL
+                      {/* Image Upload */}
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-2 text-gray-700 font-medium">
+                          <ImageIcon size={18} className="text-orange-500" />
+                          Profile Picture
                         </label>
-                        <input
-                          id="profilePicture"
-                          name="profilePicture"
-                          type="text"
-                          value={editFormData.profilePicture}
-                          onChange={handleInputChange}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                          placeholder="Enter image URL"
-                        />
+                        
+                        {/* File Upload Input */}
+                        <div className="flex items-center justify-center w-full">
+                          <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors duration-200">
+                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                              <Upload className="w-8 h-8 mb-2 text-gray-500" />
+                              <p className="mb-2 text-sm text-gray-500">
+                                <span className="font-semibold">Click to upload</span> or drag and drop
+                              </p>
+                              <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+                            </div>
+                            <input 
+                              type="file" 
+                              className="hidden" 
+                              accept="image/*"
+                              onChange={handleImageChange}
+                            />
+                          </label>
+                        </div>
+                        
+                        {/* Upload Status */}
+                        {imageUploading && (
+                          <div className="flex items-center gap-2 text-blue-600">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                            <span className="text-sm">Uploading image...</span>
+                          </div>
+                        )}
                       </div>
 
                       <div>
@@ -700,12 +837,17 @@ const BuyerProfile = () => {
                         <button
                           type="submit"
                           className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors duration-200 shadow-md font-medium cursor-pointer flex items-center"
-                          disabled={isSubmitting}
+                          disabled={isSubmitting || imageUploading}
                         >
                           {isSubmitting ? (
                             <>
                               <RefreshCw className="animate-spin mr-2" size={16} />
                               Saving...
+                            </>
+                          ) : imageUploading ? (
+                            <>
+                              <RefreshCw className="animate-spin mr-2" size={16} />
+                              Uploading Image...
                             </>
                           ) : (
                             <>

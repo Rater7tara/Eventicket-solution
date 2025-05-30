@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { Calendar, Clock, MapPin, DollarSign, TicketIcon, Trash2, Edit, PlusCircle, AlertCircle, X, Save, ImageIcon, Ticket, Users } from 'lucide-react';
+import { Calendar, Clock, MapPin, DollarSign, TicketIcon, Trash2, Edit, PlusCircle, AlertCircle, X, Save, ImageIcon, Ticket, Users, Upload } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../../../providers/AuthProvider';
 import serverURL from "../../../../ServerConfig";
@@ -17,6 +17,11 @@ const MyEvents = () => {
     const [editingEvent, setEditingEvent] = useState(null);
     const [updatedEventData, setUpdatedEventData] = useState({});
     const [updateLoading, setUpdateLoading] = useState(false);
+    
+    // Image upload states
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
+    const [imageUploading, setImageUploading] = useState(false);
 
     // Get auth token from localStorage
     const getAuthToken = () => {
@@ -30,6 +35,17 @@ const MyEvents = () => {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
+            }
+        };
+    };
+
+    // Set up headers for file upload
+    const getFileUploadHeaders = () => {
+        const token = getAuthToken();
+        return {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'multipart/form-data'
             }
         };
     };
@@ -111,6 +127,65 @@ const MyEvents = () => {
         setDeleteConfirmation(null);
     };
 
+    // Handle image file selection
+    const handleImageChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            // Validate file type
+            const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+            if (!validTypes.includes(file.type)) {
+                setErrorMessage('Please select a valid image file (JPEG, PNG, or GIF)');
+                return;
+            }
+
+            // Validate file size (max 5MB)
+            const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+            if (file.size > maxSize) {
+                setErrorMessage('Image file size must be less than 5MB');
+                return;
+            }
+
+            setSelectedImage(file);
+            
+            // Create preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                setImagePreview(e.target.result);
+            };
+            reader.readAsDataURL(file);
+            setErrorMessage(''); // Clear any previous errors
+        }
+    };
+
+    // Upload image to server
+    const uploadImage = async () => {
+        if (!selectedImage) return null;
+
+        try {
+            setImageUploading(true);
+            const formData = new FormData();
+            formData.append('image', selectedImage);
+
+            // Upload to your image upload endpoint
+            const response = await axios.post(
+                `${serverURL.url}upload/image`, // Adjust this endpoint as needed
+                formData,
+                getFileUploadHeaders()
+            );
+
+            if (response.data && response.data.imageUrl) {
+                return response.data.imageUrl;
+            } else {
+                throw new Error('No image URL returned from server');
+            }
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            throw new Error('Failed to upload image. Please try again.');
+        } finally {
+            setImageUploading(false);
+        }
+    };
+
     // Handle event editing
     const openEditModal = (event) => {
         setEditingEvent(event);
@@ -124,6 +199,15 @@ const MyEvents = () => {
             price: event.price || 0,
             ticketsAvailable: event.ticketsAvailable || 0
         });
+        
+        // Set current image preview if exists
+        if (event.image) {
+            setImagePreview(event.image);
+        } else {
+            setImagePreview(null);
+        }
+        setSelectedImage(null);
+        
         setIsEditModalOpen(true);
     };
 
@@ -131,6 +215,9 @@ const MyEvents = () => {
         setIsEditModalOpen(false);
         setEditingEvent(null);
         setUpdatedEventData({});
+        setSelectedImage(null);
+        setImagePreview(null);
+        setImageUploading(false);
     };
 
     const handleUpdateChange = (e) => {
@@ -156,6 +243,20 @@ const MyEvents = () => {
             setStatusMessage('');
             setErrorMessage('');
             
+            let finalEventData = { ...updatedEventData };
+            
+            // Upload new image if selected
+            if (selectedImage) {
+                try {
+                    const uploadedImageUrl = await uploadImage();
+                    finalEventData.image = uploadedImageUrl;
+                } catch (uploadError) {
+                    setErrorMessage(uploadError.message);
+                    setUpdateLoading(false);
+                    return;
+                }
+            }
+            
             // Create a function to attempt multiple endpoint patterns
             const attemptUpdateWithMultipleEndpoints = async () => {
                 const possibleEndpoints = [
@@ -176,9 +277,9 @@ const MyEvents = () => {
                             
                             let response;
                             if (method === 'patch') {
-                                response = await axios.patch(endpoint, updatedEventData, getAuthHeaders());
+                                response = await axios.patch(endpoint, finalEventData, getAuthHeaders());
                             } else {
-                                response = await axios.put(endpoint, updatedEventData, getAuthHeaders());
+                                response = await axios.put(endpoint, finalEventData, getAuthHeaders());
                             }
                             
                             console.log('Update successful with response:', response.data);
@@ -201,7 +302,7 @@ const MyEvents = () => {
             // Update the event in the local state
             setEvents(events.map(event => 
                 event._id === editingEvent._id 
-                    ? { ...event, ...updatedEventData } 
+                    ? { ...event, ...finalEventData } 
                     : event
             ));
             
@@ -567,20 +668,50 @@ const MyEvents = () => {
                                 />
                             </div>
                             
-                            {/* Image URL */}
+                            {/* Image Upload */}
                             <div className="space-y-2">
                                 <label className="flex items-center gap-2 text-gray-700 font-medium">
                                     <ImageIcon size={18} className="text-orange-500" />
-                                    Image URL
+                                    Event Image
                                 </label>
-                                <input
-                                    type="text"
-                                    name="image"
-                                    value={updatedEventData.image}
-                                    onChange={handleUpdateChange}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                                    placeholder="https://example.com/image.jpg"
-                                />
+                                
+                                {/* Current/Preview Image */}
+                                {imagePreview && (
+                                    <div className="mb-4">
+                                        <img 
+                                            src={imagePreview} 
+                                            alt="Event preview" 
+                                            className="w-full h-48 object-cover rounded-lg border border-gray-300"
+                                        />
+                                    </div>
+                                )}
+                                
+                                {/* File Upload Input */}
+                                <div className="flex items-center justify-center w-full">
+                                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors duration-200">
+                                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                            <Upload className="w-8 h-8 mb-2 text-gray-500" />
+                                            <p className="mb-2 text-sm text-gray-500">
+                                                <span className="font-semibold">Click to upload</span> or drag and drop
+                                            </p>
+                                            <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+                                        </div>
+                                        <input 
+                                            type="file" 
+                                            className="hidden" 
+                                            accept="image/*"
+                                            onChange={handleImageChange}
+                                        />
+                                    </label>
+                                </div>
+                                
+                                {/* Upload Status */}
+                                {imageUploading && (
+                                    <div className="flex items-center gap-2 text-blue-600">
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                        <span className="text-sm">Uploading image...</span>
+                                    </div>
+                                )}
                             </div>
                             
                             {/* Price and Tickets - 2 column layout */}
@@ -590,24 +721,6 @@ const MyEvents = () => {
                                     <label className="flex items-center gap-2 text-gray-700 font-medium">
                                         <DollarSign size={18} className="text-orange-500" />
                                         Price (BDT) *
-                                    </label>
-                                    <input
-                                        type="number"
-                                        name="price"
-                                        value={updatedEventData.price}
-                                        onChange={handleUpdateChange}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                                        placeholder="500"
-                                        min="0"
-                                        required
-                                    />
-                                </div>
-                                
-                                {/* Tickets Available */}
-                                <div className="space-y-2">
-                                    <label className="flex items-center gap-2 text-gray-700 font-medium">
-                                        <TicketIcon size={18} className="text-orange-500" />
-                                        Tickets Available *
                                     </label>
                                     <input
                                         type="number"
@@ -633,9 +746,9 @@ const MyEvents = () => {
                                 </button>
                                 <button
                                     type="submit"
-                                    disabled={updateLoading}
+                                    disabled={updateLoading || imageUploading}
                                     className={`px-6 py-2.5 rounded-lg text-white font-medium flex items-center cursor-pointer ${
-                                        updateLoading 
+                                        updateLoading || imageUploading
                                             ? 'bg-gray-400' 
                                             : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:shadow-lg'
                                     }`}
@@ -647,6 +760,14 @@ const MyEvents = () => {
                                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                             </svg>
                                             Updating...
+                                        </>
+                                    ) : imageUploading ? (
+                                        <>
+                                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Uploading Image...
                                         </>
                                     ) : (
                                         <>

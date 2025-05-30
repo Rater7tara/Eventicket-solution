@@ -64,6 +64,14 @@ const SellerCoupons = () => {
     };
   };
 
+  // Helper function to extract event ID from eventId (handles both string and object)
+  const extractEventId = (eventId) => {
+    if (typeof eventId === "object" && eventId?._id) {
+      return eventId._id;
+    }
+    return eventId;
+  };
+
   // Fetch seller's events - Clean version
   const fetchEvents = async () => {
     try {
@@ -130,13 +138,6 @@ const SellerCoupons = () => {
       setLoading(false);
     }
   }, [user]);
-
-  // Remove the separate useEffect for coupons since we're handling it above
-  // useEffect(() => {
-  //   if (events.length > 0) {
-  //     fetchCoupons();
-  //   }
-  // }, [events]);
 
   // Handle form input changes
   const handleInputChange = (e) => {
@@ -358,18 +359,57 @@ const SellerCoupons = () => {
     }
   };
 
-  // Open edit modal
+  // Open edit modal - ENHANCED DEBUG VERSION
   const openEditModal = (coupon) => {
-    setEditingCoupon(coupon);
-    setFormData({
-      eventId: coupon.eventId,
-      code: coupon.code,
-      discountPercentage: coupon.discountPercentage,
-      startDate: coupon.startDate.split("T")[0],
-      endDate: coupon.endDate.split("T")[0],
-      minPurchaseAmount: coupon.minPurchaseAmount || 0,
-    });
-    setIsEditModalOpen(true);
+    console.log("=== EDIT BUTTON CLICKED ===");
+    console.log("Coupon object:", coupon);
+    console.log("Coupon eventId:", coupon.eventId);
+    console.log("Events array:", events);
+    console.log("Current modals state:", { isCreateModalOpen, isEditModalOpen });
+    
+    try {
+      setEditingCoupon(coupon);
+      
+      // Extract the actual event ID from eventId (handles both string and object)
+      const actualEventId = extractEventId(coupon.eventId);
+      console.log("Extracted eventId:", actualEventId);
+      
+      // Validate that we have the necessary data
+      if (!coupon.code || !coupon.discountPercentage || !coupon.startDate || !coupon.endDate) {
+        console.error("Missing required coupon data:", {
+          code: coupon.code,
+          discountPercentage: coupon.discountPercentage,
+          startDate: coupon.startDate,
+          endDate: coupon.endDate
+        });
+        setErrorMessage("Error: Missing coupon data. Please refresh and try again.");
+        return;
+      }
+      
+      const newFormData = {
+        eventId: actualEventId || "",
+        code: coupon.code || "",
+        discountPercentage: coupon.discountPercentage || "",
+        startDate: coupon.startDate ? coupon.startDate.split("T")[0] : "",
+        endDate: coupon.endDate ? coupon.endDate.split("T")[0] : "",
+        minPurchaseAmount: coupon.minPurchaseAmount || 0,
+      };
+      
+      console.log("Setting form data:", newFormData);
+      setFormData(newFormData);
+      
+      console.log("Opening edit modal...");
+      setIsEditModalOpen(true);
+      
+      // Clear any previous error/success messages
+      setErrorMessage("");
+      setSuccessMessage("");
+      
+      console.log("Edit modal should now be open");
+    } catch (error) {
+      console.error("Error in openEditModal:", error);
+      setErrorMessage("Failed to open edit modal. Please try again.");
+    }
   };
 
   // Close edit modal
@@ -522,10 +562,7 @@ const SellerCoupons = () => {
     }
 
     // Handle case where eventId is an object with _id property
-    let actualEventId = eventId;
-    if (typeof eventId === "object" && eventId._id) {
-      actualEventId = eventId._id;
-    }
+    const actualEventId = extractEventId(eventId);
 
     // Find event by matching _id with actualEventId
     const event = events.find((e) => {
@@ -659,16 +696,35 @@ const SellerCoupons = () => {
                 <div className="flex justify-between items-center pt-4 border-t border-gray-100">
                   <div className="flex gap-2">
                     <button
-                      onClick={() => openEditModal(coupon)}
-                      className="p-2 text-blue-500 hover:bg-blue-50 rounded-full transition-colors duration-200 cursor-pointer"
-                      title="Edit Coupon"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log("Edit button clicked for coupon:", coupon);
+                        if (coupon.status === "approved") {
+                          console.log("Cannot edit approved coupon");
+                          setErrorMessage("Cannot edit approved coupons.");
+                          return;
+                        }
+                        openEditModal(coupon);
+                      }}
+                      className={`p-2 rounded-full transition-colors duration-200 ${
+                        coupon.status === "approved"
+                          ? "text-gray-400 cursor-not-allowed"
+                          : "text-blue-500 hover:bg-blue-50 cursor-pointer"
+                      }`}
+                      title={coupon.status === "approved" ? "Cannot edit approved coupon" : "Edit Coupon"}
                       disabled={coupon.status === "approved"}
                     >
                       <Edit size={16} />
                     </button>
 
                     <button
-                      onClick={() => setDeleteConfirmation(coupon._id)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log("Delete button clicked for coupon:", coupon._id);
+                        setDeleteConfirmation(coupon._id);
+                      }}
                       className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors duration-200 cursor-pointer"
                       title="Delete Coupon"
                     >

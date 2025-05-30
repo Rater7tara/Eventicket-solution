@@ -811,7 +811,7 @@ const handlePaymentComplete = async (orderId) => {
           {/* Footer */}
           <div className="text-center text-sm text-gray-500 border-t border-gray-700 pt-4">
             <p>
-              Need assistance? Contact our support team at support@youreventsite.com
+              Need assistance? Contact our support team at info@eventntickets.com
             </p>
           </div>
         </div>

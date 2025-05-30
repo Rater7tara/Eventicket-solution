@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { Calendar, Clock, MapPin, DollarSign, TicketIcon, ImageIcon, FileText, CalendarIcon, Upload, ChevronDown } from 'lucide-react';
+import { Calendar, Clock, MapPin, DollarSign, TicketIcon, Upload, FileText, CalendarIcon } from 'lucide-react';
 import { AuthContext } from '../../../../providers/AuthProvider';
 import serverURL from "../../../../ServerConfig";
 
@@ -22,8 +22,6 @@ const AddEvent = () => {
     const [showTimePicker, setShowTimePicker] = useState(false);
     
     // Image handling states
-    const [imageInputType, setImageInputType] = useState('url'); // 'url' or 'upload'
-    const [showImageDropdown, setShowImageDropdown] = useState(false);
     const [uploadedImage, setUploadedImage] = useState(null);
     
     // Calendar state variables
@@ -44,9 +42,6 @@ const AddEvent = () => {
             if (!e.target.closest('.time-picker-container') && !e.target.closest('.time-input-container')) {
                 setShowTimePicker(false);
             }
-            if (!e.target.closest('.image-dropdown-container') && !e.target.closest('.image-dropdown-trigger')) {
-                setShowImageDropdown(false);
-            }
         };
 
         document.addEventListener('mousedown', handleOutsideClick);
@@ -64,14 +59,6 @@ const AddEvent = () => {
             setUploadedImage(file);
             setEventData({ ...eventData, image: imageUrl });
         }
-    };
-
-    const handleImageInputTypeChange = (type) => {
-        setImageInputType(type);
-        setShowImageDropdown(false);
-        // Clear image data when switching types
-        setEventData({ ...eventData, image: '' });
-        setUploadedImage(null);
     };
 
     // Calendar functions
@@ -539,102 +526,44 @@ const AddEvent = () => {
                     />
                 </div>
                 
-                {/* Image Upload/URL with Dropdown */}
+                {/* Image Upload */}
                 <div className="space-y-2">
                     <label className="flex items-center gap-2 text-gray-700 font-medium">
-                        <ImageIcon size={18} className="text-orange-500" />
+                        <Upload size={18} className="text-orange-500" />
                         Event Image
                     </label>
                     
-                    {/* Image Input Type Selector */}
-                    <div className="relative">
-                        <button
-                            type="button"
-                            className="image-dropdown-trigger w-full flex items-center justify-between px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
-                            onClick={() => setShowImageDropdown(!showImageDropdown)}
-                        >
-                            <span className="flex items-center gap-2">
-                                {imageInputType === 'upload' ? (
-                                    <>
-                                        <Upload size={18} className="text-orange-500" />
-                                        Upload Image
-                                    </>
-                                ) : (
-                                    <>
-                                        <ImageIcon size={18} className="text-orange-500" />
-                                        Image URL
-                                    </>
-                                )}
-                            </span>
-                            <ChevronDown size={18} className="text-gray-500" />
-                        </button>
-                        
-                        {/* Dropdown Menu */}
-                        {showImageDropdown && (
-                            <div className="image-dropdown-container absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg">
-                                <button
-                                    type="button"
-                                    className="w-full flex items-center gap-2 px-4 py-3 hover:bg-gray-50 text-left"
-                                    onClick={() => handleImageInputTypeChange('url')}
-                                >
-                                    <ImageIcon size={18} className="text-orange-500" />
-                                    Image URL
-                                </button>
-                                <button
-                                    type="button"
-                                    className="w-full flex items-center gap-2 px-4 py-3 hover:bg-gray-50 text-left border-t border-gray-100"
-                                    onClick={() => handleImageInputTypeChange('upload')}
-                                >
-                                    <Upload size={18} className="text-orange-500" />
-                                    Upload Image
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                    
-                    {/* Image Input Field */}
-                    {imageInputType === 'url' ? (
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-orange-500 transition-colors">
                         <input
-                            type="text"
-                            name="image"
-                            value={eventData.image}
-                            onChange={handleChange}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                            placeholder="https://example.com/image.jpg"
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            className="hidden"
+                            id="image-upload"
                         />
-                    ) : (
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-orange-500 transition-colors">
-                            <input
-                                type="file"
-                                accept="image/*"
-                                onChange={handleImageUpload}
-                                className="hidden"
-                                id="image-upload"
-                            />
-                            <label htmlFor="image-upload" className="cursor-pointer">
-                                {uploadedImage ? (
-                                    <div className="space-y-2">
-                                        <div className="text-green-600 font-medium">
-                                            ✓ {uploadedImage.name}
-                                        </div>
-                                        <div className="text-sm text-gray-500">
-                                            Click to change image
-                                        </div>
+                        <label htmlFor="image-upload" className="cursor-pointer">
+                            {uploadedImage ? (
+                                <div className="space-y-2">
+                                    <div className="text-green-600 font-medium">
+                                        ✓ {uploadedImage.name}
                                     </div>
-                                ) : (
-                                    <div className="space-y-2">
-                                        <Upload size={32} className="mx-auto text-gray-400" />
-                                        <div className="text-gray-600">
-                                            Click to upload an image
-                                        </div>
-                                        <div className="text-sm text-gray-500">
-                                            PNG, JPG, GIF up to 10MB
-                                        </div>
+                                    <div className="text-sm text-gray-500">
+                                        Click to change image
                                     </div>
-                                )}
-                            </label>
-                        </div>
-                    )}
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    <Upload size={32} className="mx-auto text-gray-400" />
+                                    <div className="text-gray-600">
+                                        Click to upload an image
+                                    </div>
+                                    <div className="text-sm text-gray-500">
+                                        PNG, JPG, GIF up to 10MB
+                                    </div>
+                                </div>
+                            )}
+                        </label>
+                    </div>
                     
                     {/* Image Preview */}
                     {eventData.image && (
