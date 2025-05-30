@@ -50,12 +50,14 @@ const DashboardLayout = () => {
 
     const roleLinks = {
         admin: [
-            { to: '/dashboard/manage-users', label: 'Manage Users', icon: <UserCircle size={20} /> },
-            { to: '/dashboard/manage-sellers', label: 'Manage Seller', icon: <UserCircle size={20} /> },
+            
             { to: '/dashboard/create-events', label: 'Create Events', icon: <Calendar size={20} /> },
             // { to: '/dashboard/manage-my-events', label: 'Manage My Events', icon: <Calendar size={20} /> },
             { to: '/dashboard/manage-events', label: 'Manage All Events', icon: <Calendar size={20} /> },
+            { to: '/dashboard/coupons', label: 'My Coupons', icon: <Ticket size={20} /> },
             { to: '/dashboard/sold-tickets', label: 'Sold Tickets', icon: <Ticket size={20} /> },
+            { to: '/dashboard/manage-users', label: 'Manage Users', icon: <UserCircle size={20} /> },
+            { to: '/dashboard/manage-sellers', label: 'Manage Seller', icon: <UserCircle size={20} /> },
             { to: '/dashboard/reports', label: 'Reports', icon: <FileText size={20} /> },
             { to: '/dashboard/admin-profile', label: 'Settings', icon: <Settings size={20} /> },
         ],
