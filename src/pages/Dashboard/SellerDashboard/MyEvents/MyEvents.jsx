@@ -479,7 +479,7 @@ const MyEvents = () => {
                             
                             <div className="flex justify-between items-center mt-4">
                                 <div className="text-xl font-bold text-orange-600">
-                                    ৳{event.price}
+                                    ${event.price}
                                 </div>
                                 
                                 <div className="flex gap-2">
