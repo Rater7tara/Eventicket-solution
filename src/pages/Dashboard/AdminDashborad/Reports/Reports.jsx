@@ -130,7 +130,7 @@ const Reports = () => {
 
   // Format currency
   const formatCurrency = (amount) => {
-    return `৳${amount?.toLocaleString() || 0}`;
+    return `$${amount?.toLocaleString() || 0}`;
   };
 
   // Format date

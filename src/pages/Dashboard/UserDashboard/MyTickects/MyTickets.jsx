@@ -15,6 +15,7 @@ import { Link } from "react-router-dom";
 import { AuthContext } from "../../../../providers/AuthProvider";
 import { jsPDF } from "jspdf";
 import serverURL from "../../../../ServerConfig";
+import logo from "../../../../assets/logo.png";
 
 const API_BASE_URL = serverURL.url;
 
@@ -847,344 +848,668 @@ const cancelTicket = async (ticket) => {
     }
   };
 
-  // Simplified PDF generator with reliable fonts
-  const generateLocalTicketPDF = (ticketId) => {
-    // Find the ticket in our state
-    const ticket = tickets.find(
-      (t) => t._id === ticketId || t.orderId === ticketId
-    );
+// Replace your existing generateLocalTicketPDF function with this enhanced version
+// const generateLocalTicketPDF = (ticketId) => {
+//   // Find the ticket in our state
+//   const ticket = tickets.find(
+//     (t) => t._id === ticketId || t.orderId === ticketId
+//   );
 
-    if (!ticket) {
-      setError("Could not find ticket data for local generation");
-      return;
-    }
+//   if (!ticket) {
+//     setError("Could not find ticket data for local generation");
+//     return;
+//   }
 
+//   try {
+//     // Create new PDF document
+//     const doc = new jsPDF();
+
+//     // Set up dimensions and colors
+//     const pageWidth = doc.internal.pageSize.getWidth();
+//     const pageHeight = doc.internal.pageSize.getHeight();
+//     const margin = 15;
+//     const contentWidth = pageWidth - margin * 2;
+    
+//     // Color palette (RGB values for jsPDF)
+//     const colors = {
+//       primary: [224, 88, 41],      // Orange
+//       secondary: [180, 71, 35],    // Darker orange
+//       dark: [45, 55, 72],          // Dark gray
+//       light: [247, 250, 252],      // Light gray
+//       white: [255, 255, 255],
+//       success: [34, 197, 94],      // Green
+//       danger: [239, 68, 68],       // Red
+//       border: [229, 231, 235]      // Border gray
+//     };
+
+//     // ----- MAIN TICKET CONTAINER -----
+    
+//     // Background with subtle gradient effect
+//     doc.setFillColor(...colors.light);
+//     doc.rect(0, 0, pageWidth, pageHeight, "F");
+    
+//     // Main ticket card
+//     doc.setFillColor(...colors.white);
+//     doc.roundedRect(margin, margin, contentWidth, 240, 5, 5, "F");
+    
+//     // Card border
+//     doc.setDrawColor(...colors.border);
+//     doc.setLineWidth(1);
+//     doc.roundedRect(margin, margin, contentWidth, 240, 5, 5, "S");
+
+//     // ----- HEADER SECTION -----
+    
+//     // Main header background
+//     doc.setFillColor(...colors.primary);
+//     doc.roundedRect(margin, margin, contentWidth, 35, 5, 5, "F");
+    
+//     // Header bottom rectangle to square off bottom corners
+//     doc.rect(margin, margin + 30, contentWidth, 5, "F");
+
+//     // Logo placeholder (you can replace this with actual logo loading)
+//     // Logo background circle
+//     doc.setFillColor(...colors.white);
+//     doc.circle(margin + 20, margin + 17.5, 12, "F");
+    
+//     // Logo text placeholder (replace with actual logo)
+//     doc.setTextColor(...colors.primary);
+//     doc.setFontSize(10);
+//     doc.setFont("helvetica", "bold");
+//     doc.text("LOGO", margin + 20, margin + 20, { align: "center" });
+    
+//     // Website name
+//     doc.setTextColor(...colors.white);
+//     doc.setFontSize(12);
+//     doc.setFont("helvetica", "bold");
+//     doc.text("YourEventSite.com", margin + 40, margin + 22);
+
+//     // Ticket status badge
+//     const isValidTicket = !ticket.isCancelled;
+//     const statusColor = isValidTicket ? colors.success : colors.danger;
+//     const statusText = isValidTicket ? "VALID TICKET" : "CANCELLED";
+    
+//     doc.setFillColor(...statusColor);
+//     const statusWidth = 35;
+//     doc.roundedRect(margin + contentWidth - statusWidth - 5, margin + 8, statusWidth, 20, 3, 3, "F");
+    
+//     doc.setTextColor(...colors.white);
+//     doc.setFontSize(8);
+//     doc.setFont("helvetica", "bold");
+//     doc.text(statusText, margin + contentWidth - statusWidth/2 - 5, margin + 20, { align: "center" });
+
+//     // ----- EVENT TITLE SECTION -----
+    
+//     const titleY = margin + 50;
+    
+//     // Event title background
+//     doc.setFillColor(245, 245, 245);
+//     doc.rect(margin + 5, titleY - 5, contentWidth - 10, 25, "F");
+    
+//     // Event title
+//     doc.setTextColor(...colors.dark);
+//     doc.setFontSize(16);
+//     doc.setFont("helvetica", "bold");
+    
+//     const title = ticket.event?.title || "Untitled Event";
+//     let displayTitle = title;
+//     if (title.length > 50) {
+//       displayTitle = title.substring(0, 47) + "...";
+//     }
+    
+//     doc.text(displayTitle, margin + 10, titleY + 8);
+    
+//     // Ticket quantity
+//     const ticketCount = ticket.quantity || ticket.selectedSeats?.length || 1;
+//     const ticketText = `${ticketCount} Ticket${ticketCount !== 1 ? "s" : ""}`;
+    
+//     doc.setFontSize(12);
+//     doc.setTextColor(...colors.secondary);
+//     doc.text(ticketText, margin + contentWidth - 15, titleY + 8, { align: "right" });
+
+//     // ----- MAIN CONTENT AREA -----
+    
+//     const contentY = titleY + 35;
+//     const leftColWidth = contentWidth * 0.55;
+//     const rightColStart = margin + leftColWidth + 10;
+//     const rightColWidth = contentWidth * 0.4;
+
+//     // ----- LEFT COLUMN: EVENT & TICKET DETAILS -----
+    
+//     let currentY = contentY;
+    
+//     // Section: Event Information
+//     doc.setFontSize(12);
+//     doc.setFont("helvetica", "bold");
+//     doc.setTextColor(...colors.primary);
+//     doc.text("EVENT INFORMATION", margin + 5, currentY);
+//     currentY += 8;
+    
+//     // Date & Time
+//     doc.setFontSize(10);
+//     doc.setFont("helvetica", "normal");
+//     doc.setTextColor(...colors.dark);
+    
+//     const eventDate = formatDate(ticket.event?.date || ticket.purchaseDate);
+//     const eventTime = formatTime(ticket.event?.time);
+    
+//     doc.text(`Date: ${eventDate}`, margin + 5, currentY);
+//     currentY += 6;
+//     doc.text(`Time: ${eventTime}`, margin + 5, currentY);
+//     currentY += 6;
+//     doc.text(`Location: ${ticket.event?.location || "Location TBA"}`, margin + 5, currentY);
+//     currentY += 12;
+    
+//     // Section: Ticket Holder Information
+//     doc.setFont("helvetica", "bold");
+//     doc.setTextColor(...colors.primary);
+//     doc.text("TICKET HOLDER", margin + 5, currentY);
+//     currentY += 8;
+    
+//     doc.setFont("helvetica", "normal");
+//     doc.setTextColor(...colors.dark);
+//     doc.text(`Name: ${ticket.userInfo?.name || "Guest User"}`, margin + 5, currentY);
+//     currentY += 6;
+//     doc.text(`Email: ${ticket.userInfo?.email || "No email provided"}`, margin + 5, currentY);
+//     currentY += 12;
+    
+//     // Section: Seat Information (if available)
+//     if (ticket.selectedSeats && ticket.selectedSeats.length > 0) {
+//       doc.setFont("helvetica", "bold");
+//       doc.setTextColor(...colors.primary);
+//       doc.text("SEAT ASSIGNMENT", margin + 5, currentY);
+//       currentY += 8;
+      
+//       doc.setFont("helvetica", "normal");
+//       doc.setTextColor(...colors.dark);
+      
+//       // Show up to 6 seats, then summarize
+//       const maxSeatsToShow = Math.min(6, ticket.selectedSeats.length);
+      
+//       for (let i = 0; i < maxSeatsToShow; i++) {
+//         const seat = ticket.selectedSeats[i];
+//         const seatInfo = seat.section && seat.row && seat.number 
+//           ? `${seat.section} - Row ${seat.row}, Seat ${seat.number}`
+//           : seat.name || `Seat ${i + 1}`;
+//         doc.text(`${seatInfo}`, margin + 5, currentY);
+//         currentY += 6;
+//       }
+      
+//       if (ticket.selectedSeats.length > 6) {
+//         doc.setFont("helvetica", "italic");
+//         doc.text(`... and ${ticket.selectedSeats.length - 6} more seats`, margin + 5, currentY);
+//         currentY += 6;
+//       }
+//       currentY += 6;
+//     }
+    
+//     // Section: Order Information
+//     doc.setFont("helvetica", "bold");
+//     doc.setTextColor(...colors.primary);
+//     doc.text("ORDER DETAILS", margin + 5, currentY);
+//     currentY += 8;
+    
+//     doc.setFont("helvetica", "normal");
+//     doc.setTextColor(...colors.dark);
+//     const orderIdDisplay = (ticket._id || ticket.orderId || "N/A").substring(0, 20);
+//     doc.text(`Order ID: ${orderIdDisplay}`, margin + 5, currentY);
+//     currentY += 6;
+    
+//     if (ticket.bookingId) {
+//       doc.text(`Booking ID: ${ticket.bookingId.substring(0, 20)}`, margin + 5, currentY);
+//       currentY += 6;
+//     }
+    
+//     const purchaseDate = new Date(ticket.purchaseDate || ticket.createdAt || Date.now());
+//     doc.text(`Purchased: ${purchaseDate.toLocaleDateString()}`, margin + 5, currentY);
+
+//     // ----- RIGHT COLUMN: PRICING & VALIDATION -----
+    
+//     // Right column border
+//     doc.setDrawColor(...colors.border);
+//     doc.setLineWidth(0.5);
+//     doc.line(rightColStart - 5, contentY - 10, rightColStart - 5, contentY + 120);
+    
+//     let rightY = contentY;
+    
+//     // Price section
+//     doc.setFontSize(12);
+//     doc.setFont("helvetica", "bold");
+//     doc.setTextColor(...colors.primary);
+//     doc.text("PAYMENT", rightColStart, rightY);
+//     rightY += 12;
+    
+//     // Total price - larger and prominent
+//     doc.setFontSize(24);
+//     doc.setFont("helvetica", "bold");
+//     doc.setTextColor(...(isValidTicket ? colors.primary : colors.danger));
+//     const totalPrice = (ticket.grandTotal || ticket.totalPrice || 0).toFixed(2);
+//     doc.text(`$${totalPrice}`, rightColStart, rightY);
+//     rightY += 12;
+    
+//     // Payment status
+//     doc.setFontSize(10);
+//     doc.setFont("helvetica", "normal");
+//     doc.setTextColor(...(isValidTicket ? colors.success : colors.danger));
+//     doc.text(`Status: ${ticket.isCancelled ? "Cancelled" : ticket.paymentStatus || "Paid"}`, rightColStart, rightY);
+//     rightY += 15;
+    
+//     // QR Code placeholder section
+//     doc.setFont("helvetica", "bold");
+//     doc.setTextColor(...colors.primary);
+//     doc.text("VALIDATION", rightColStart, rightY);
+//     rightY += 10;
+    
+//     // QR Code placeholder
+//     doc.setFillColor(240, 240, 240);
+//     doc.rect(rightColStart, rightY, 40, 40, "F");
+    
+//     // QR Code border
+//     doc.setDrawColor(...colors.border);
+//     doc.rect(rightColStart, rightY, 40, 40, "S");
+    
+//     // QR placeholder text
+//     doc.setFontSize(8);
+//     doc.setTextColor(...colors.dark);
+//     doc.text("QR CODE", rightColStart + 20, rightY + 22, { align: "center" });
+    
+//     rightY += 45;
+    
+//     // Barcode section
+//     doc.setFontSize(9);
+//     doc.setFont("helvetica", "bold");
+//     doc.setTextColor(...colors.primary);
+//     doc.text("BARCODE", rightColStart, rightY);
+//     rightY += 8;
+    
+//     // Enhanced barcode
+//     doc.setFillColor(250, 250, 250);
+//     doc.rect(rightColStart, rightY, rightColWidth - 5, 20, "F");
+    
+//     // Barcode lines with more realistic pattern
+//     doc.setFillColor(...colors.dark);
+//     for (let i = 0; i < 45; i++) {
+//       const barX = rightColStart + 2 + i * (rightColWidth - 10) / 45;
+//       const barWidth = Math.random() > 0.7 ? 1.5 : 0.8;
+//       const barHeight = 12 + Math.random() * 6;
+//       doc.rect(barX, rightY + (20 - barHeight) / 2, barWidth, barHeight, "F");
+//     }
+    
+//     rightY += 25;
+    
+//     // Ticket validation number
+//     const ticketNumber = ticket.orderId 
+//       ? ticket.orderId.substring(0, 12).toUpperCase()
+//       : `TIX${Math.floor(Math.random() * 1000000)}`;
+    
+//     doc.setFontSize(8);
+//     doc.setTextColor(...colors.dark);
+//     doc.text(ticketNumber, rightColStart + rightColWidth/2, rightY, { align: "center" });
+
+//     // ----- FOOTER SECTION -----
+    
+//     const footerY = margin + 220;
+    
+//     // Footer background
+//     doc.setFillColor(...colors.light);
+//     doc.rect(margin, footerY, contentWidth, 35, "F");
+    
+//     // Footer border
+//     doc.setDrawColor(...colors.border);
+//     doc.line(margin, footerY, margin + contentWidth, footerY);
+    
+//     // Terms and conditions
+//     doc.setFontSize(8);
+//     doc.setFont("helvetica", "normal");
+//     doc.setTextColor(...colors.dark);
+    
+//     const footerText1 = "This ticket is valid for entry to the specified event.";
+//     const footerText2 = isValidTicket 
+//       ? "Present this ticket along with valid ID at the venue entrance."
+//       : "This ticket has been cancelled. Entry will be denied.";
+//     const footerText3 = "For support, contact: support@youreventsite.com";
+    
+//     doc.text(footerText1, margin + contentWidth/2, footerY + 8, { align: "center" });
+//     doc.text(footerText2, margin + contentWidth/2, footerY + 16, { align: "center" });
+//     doc.text(footerText3, margin + contentWidth/2, footerY + 24, { align: "center" });
+    
+//     // Watermark for cancelled tickets
+//     if (ticket.isCancelled) {
+//       doc.setFontSize(60);
+//       doc.setFont("helvetica", "bold");
+//       doc.setTextColor(220, 38, 38);
+//       doc.setGState(new doc.GState({opacity: 0.3}));
+//       doc.text("CANCELLED", pageWidth/2, pageHeight/2, { 
+//         align: "center",
+//         angle: 45 
+//       });
+//     }
+
+//     // Save the PDF with descriptive filename
+//     const shortId = (ticket._id || ticket.orderId || "ticket").substring(0, 8);
+//     const userName = (ticket.userInfo?.name || "user").replace(/[^a-zA-Z0-9]/g, "_");
+//     const eventName = (ticket.event?.title || "event").replace(/[^a-zA-Z0-9]/g, "_").substring(0, 20);
+    
+//     doc.save(`${eventName}_ticket_${userName}_${shortId}.pdf`);
+
+//     setStatusMessage("Enhanced ticket PDF generated successfully!");
+    
+//   } catch (err) {
+//     console.error("Error generating enhanced PDF:", err);
+//     setError(`Failed to generate PDF: ${err.message}`);
+//   }
+// };
+
+const generateLocalTicketPDF = (ticketId) => {
+  // Find the ticket in our state
+  const ticket = tickets.find(
+    (t) => t._id === ticketId || t.orderId === ticketId
+  );
+
+  if (!ticket) {
+    setError("Could not find ticket data for local generation");
+    return;
+  }
+
+  try {
+    // Create new PDF document
+    const doc = new jsPDF();
+
+    // Set up dimensions and colors
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 15;
+    const contentWidth = pageWidth - margin * 2;
+    
+    // Color palette (RGB values for jsPDF)
+    const colors = {
+      primary: [224, 88, 41],      // Orange
+      secondary: [180, 71, 35],    // Darker orange
+      dark: [45, 55, 72],          // Dark gray
+      light: [247, 250, 252],      // Light gray
+      white: [255, 255, 255],
+      success: [34, 197, 94],      // Green
+      danger: [239, 68, 68],       // Red
+      border: [229, 231, 235]      // Border gray
+    };
+
+    // ----- MAIN TICKET CONTAINER -----
+    
+    // Background with subtle gradient effect
+    doc.setFillColor(...colors.light);
+    doc.rect(0, 0, pageWidth, pageHeight, "F");
+    
+    // Main ticket card
+    doc.setFillColor(...colors.white);
+    doc.roundedRect(margin, margin, contentWidth, 240, 5, 5, "F");
+    
+    // Card border
+    doc.setDrawColor(...colors.border);
+    doc.setLineWidth(1);
+    doc.roundedRect(margin, margin, contentWidth, 240, 5, 5, "S");
+
+    // ----- HEADER SECTION -----
+    
+    // Main header background
+    doc.setFillColor(...colors.primary);
+    doc.roundedRect(margin, margin, contentWidth, 35, 5, 5, "F");
+    
+    // Header bottom rectangle to square off bottom corners
+    doc.rect(margin, margin + 30, contentWidth, 5, "F");
+
+    // Add your imported logo
     try {
-      // Create new PDF document
-      const doc = new jsPDF();
-
-      // Set up dimensions
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const margin = 15;
-      const contentWidth = pageWidth - margin * 2;
-
-      // ----- TICKET CARD STYLING -----
-
-      // Card background
-      doc.setFillColor(255, 255, 255);
-      doc.roundedRect(margin, margin, contentWidth, 200, 3, 3, "F");
-
-      // Card border
-      doc.setDrawColor(230, 230, 230);
-      doc.setLineWidth(0.5);
-      doc.roundedRect(margin, margin, contentWidth, 200, 3, 3, "S");
-
-      // ----- HEADER SECTION -----
-
-      // Orange gradient header
-      doc.setFillColor(224, 88, 41); // Close to your orange color
-      doc.rect(margin, margin, contentWidth, 25, "F");
-
-      // Event title
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(16);
-      doc.setFont("helvetica", "bold");
-
-      // Truncate long event titles
-      const title = ticket.event?.title || "Untitled Event";
-      let displayTitle = title;
-      if (title.length > 40) {
-        displayTitle = title.substring(0, 37) + "...";
-      }
-
-      doc.text(displayTitle, margin + 5, margin + 15);
-
-      // Ticket count badge
-      const ticketCount = ticket.quantity || ticket.selectedSeats?.length || 1;
-      const ticketText = `${ticketCount} Ticket${ticketCount !== 1 ? "s" : ""}`;
-
-      // Draw badge
-      doc.setFillColor(180, 71, 35, 0.5);
-      const badgeWidth =
-        (doc.getStringUnitWidth(ticketText) * 10) / doc.internal.scaleFactor +
-        10;
-      doc.roundedRect(
-        margin + contentWidth - badgeWidth - 5,
-        margin + 7,
-        badgeWidth,
-        12,
-        2,
-        2,
-        "F"
-      );
-
-      // Badge text
+      // Use your imported logo (supports PNG, JPG, JPEG)
+      doc.addImage(logo, 'PNG', margin + 8, margin + 5, 24, 24);
+    } catch (logoError) {
+      console.log("Logo failed to load, using fallback");
+      // Fallback to text logo if image fails
+      doc.setFillColor(...colors.white);
+      doc.circle(margin + 20, margin + 17.5, 12, "F");
+      doc.setTextColor(...colors.primary);
       doc.setFontSize(10);
-      doc.text(
-        ticketText,
-        margin + contentWidth - badgeWidth / 2 - 5,
-        margin + 15,
-        { align: "center" }
-      );
-
-      // ----- TICKET BODY -----
-
-      // Set up layout
-      const bodyTop = margin + 35;
-      const leftColWidth = contentWidth * 0.65;
-      const rightColStart = margin + leftColWidth + 5;
-
-      // Body text styling
-      doc.setTextColor(70, 70, 70);
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "normal");
-
-      // ----- LEFT COLUMN -----
-      let currentY = bodyTop + 10;
-
-      // User Info
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(224, 88, 41);
-      doc.text("• ", margin + 5, currentY);
-      doc.setTextColor(70, 70, 70);
-      doc.setFont("helvetica", "normal");
-      doc.text(
-        `Ticket Holder: ${ticket.userInfo?.name || "Guest User"}`,
-        margin + 12,
-        currentY
-      );
-      currentY += 15;
-
-      // Date
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(224, 88, 41);
-      doc.text("• ", margin + 5, currentY);
-      doc.setTextColor(70, 70, 70);
-      doc.setFont("helvetica", "normal");
-      doc.text(
-        `Date: ${formatDate(ticket.event?.date || ticket.purchaseDate)}`,
-        margin + 12,
-        currentY
-      );
-      currentY += 15;
-
-      // Time
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(224, 88, 41);
-      doc.text("• ", margin + 5, currentY);
-      doc.setTextColor(70, 70, 70);
-      doc.setFont("helvetica", "normal");
-      doc.text(
-        `Time: ${formatTime(ticket.event?.time)}`,
-        margin + 12,
-        currentY
-      );
-      currentY += 15;
-
-      // Location
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(224, 88, 41);
-      doc.text("• ", margin + 5, currentY);
-      doc.setTextColor(70, 70, 70);
-      doc.setFont("helvetica", "normal");
-      doc.text(
-        `Location: ${ticket.event?.location || "Location TBA"}`,
-        margin + 12,
-        currentY
-      );
-      currentY += 20;
-
-      // Seats section (if available)
-      if (ticket.selectedSeats && ticket.selectedSeats.length > 0) {
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "bold");
-        doc.text("Selected Seats:", margin + 5, currentY);
-        currentY += 10;
-
-        // Reset to normal style for seats
-        doc.setFont("helvetica", "normal");
-
-        // Show seats in a list format
-        const maxSeatsToShow = Math.min(4, ticket.selectedSeats.length);
-
-        for (let i = 0; i < maxSeatsToShow; i++) {
-          const seat = ticket.selectedSeats[i];
-          const seatName = seat.name || `Seat ${i + 1}`;
-          doc.text(`- ${seatName}`, margin + 10, currentY);
-          currentY += 7;
-        }
-
-        // Add "more" indicator if needed
-        if (ticket.selectedSeats.length > 4) {
-          doc.text(
-            `+ ${ticket.selectedSeats.length - 4} more seats`,
-            margin + 10,
-            currentY
-          );
-          currentY += 7;
-        }
-
-        currentY += 5;
-      }
-
-      // Order info
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(224, 88, 41);
-      doc.text("• ", margin + 5, currentY);
-      doc.setTextColor(70, 70, 70);
-      doc.setFont("helvetica", "normal");
-      doc.text(
-        `Order ID: ${ticket._id || ticket.orderId || "N/A"}`,
-        margin + 12,
-        currentY
-      );
-
-      // ----- RIGHT COLUMN -----
-
-      // Add right column border
-      doc.setDrawColor(229, 231, 235);
-      doc.setLineWidth(0.5);
-      doc.line(rightColStart - 5, bodyTop, rightColStart - 5, bodyTop + 130);
-
-      // Price info
-      currentY = bodyTop + 15;
-      doc.setFontSize(16);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(224, 88, 41);
-      doc.text(
-        `$${(ticket.grandTotal || ticket.totalPrice || 0).toFixed(2)}`,
-        rightColStart + 10,
-        currentY
-      );
-
-      // Purchase date
-      currentY += 15;
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(100, 100, 100);
-      doc.text(
-        `Purchased on ${new Date(
-          ticket.purchaseDate || ticket.createdAt || Date.now()
-        ).toLocaleDateString()}`,
-        rightColStart + 10,
-        currentY
-      );
-
-      // Payment status
-      currentY += 12;
-      doc.setFontSize(10);
-      doc.setTextColor(34, 197, 94); // Green color for paid status
-      doc.text(
-        `Status: ${ticket.paymentStatus || "Paid"}`,
-        rightColStart + 10,
-        currentY
-      );
-
-      // Barcode
-      currentY += 25;
-      doc.setFillColor(229, 231, 235);
-      doc.rect(rightColStart + 10, currentY, contentWidth * 0.25, 15, "F");
-
-      // Draw barcode lines
-      doc.setFillColor(17, 24, 39);
-
-      for (let i = 0; i < 30; i++) {
-        const barX = rightColStart + 10 + i * 1.5;
-        const barHeight = 6 + Math.random() * 14;
-        doc.setFillColor(17, 24, 39);
-        doc.rect(barX, currentY + (15 - barHeight) / 2, 0.5, barHeight, "F");
-      }
-
-      // Barcode ID
-      currentY += 20;
-      doc.setFontSize(9);
-      doc.setTextColor(150, 150, 150);
-      const ticketNumber = ticket.orderId
-        ? ticket.orderId.substring(0, 12)
-        : `TIX-${Math.floor(Math.random() * 1000000)}`;
-      doc.text(
-        ticketNumber,
-        rightColStart + 10 + (contentWidth * 0.25) / 2,
-        currentY,
-        { align: "center" }
-      );
-
-      // ----- FOOTER -----
-      const footerY = margin + 175;
-
-      // Footer text
-      doc.setFillColor(245, 245, 245);
-      doc.rect(margin, footerY, contentWidth, 20, "F");
-
-      doc.setDrawColor(229, 231, 235);
-      doc.setLineWidth(0.5);
-      doc.line(margin, footerY, margin + contentWidth, footerY);
-
-      doc.setFontSize(9);
-      doc.setTextColor(100, 100, 100);
-      doc.text(
-        "This ticket is valid for entry. Please present this at the event.",
-        margin + contentWidth / 2,
-        footerY + 12,
-        { align: "center" }
-      );
-
-      // Save the PDF
-      const shortId = (ticket._id || ticket.orderId || "ticket").substring(
-        0,
-        8
-      );
-      const userName = ticket.userInfo?.name?.replace(/\s+/g, "_") || "user";
-      doc.save(`ticket-${userName}-${shortId}.pdf`);
-
-      setStatusMessage("Ticket PDF generated successfully!");
-    } catch (err) {
-      console.error("Error generating PDF:", err);
-
-      // Fallback to simple text file
-      try {
-        const ticketText = `TICKET DETAILS
-Event: ${ticket.event?.title || "Untitled Event"}
-Ticket Holder: ${ticket.userInfo?.name || "Guest User"}
-Email: ${ticket.userInfo?.email || "No email provided"}
-Date: ${formatDate(ticket.event?.date || ticket.purchaseDate)}
-Time: ${formatTime(ticket.event?.time)}
-Location: ${ticket.event?.location || "Location TBA"}
-Order ID: ${ticket._id || ticket.orderId || "N/A"}
-Purchased: ${new Date(
-          ticket.purchaseDate || ticket.createdAt || Date.now()
-        ).toLocaleString()}
-Total Price: ${(ticket.grandTotal || ticket.totalPrice || 0).toFixed(2)}
-Payment Status: ${ticket.paymentStatus || "Paid"}
-
-This is a locally generated ticket file as the PDF generation failed.
-`;
-
-        // Create a Blob containing the ticket text
-        const blob = new Blob([ticketText], { type: "text/plain" });
-        const url = window.URL.createObjectURL(blob);
-
-        // Create and click a download link
-        const a = document.createElement("a");
-        a.style.display = "none";
-        a.href = url;
-        a.download = `ticket-${ticketId}.txt`;
-        document.body.appendChild(a);
-        a.click();
-
-        // Clean up
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-
-        setStatusMessage("Ticket text file created as fallback");
-      } catch (fallbackErr) {
-        console.error("Error in text fallback:", fallbackErr);
-        setError("Failed to generate ticket file");
-      }
+      doc.text("LOGO", margin + 20, margin + 20, { align: "center" });
     }
-  };
+    
+    // Event name in header
+    const title = ticket.event?.title || "Untitled Event";
+    let displayTitle = title.length > 40 ? title.substring(0, 37) + "..." : title;
+    
+    doc.setTextColor(...colors.white);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text(displayTitle, margin + 40, margin + 18);
+    
+    // Ticket quantity badge
+    const ticketCount = ticket.quantity || ticket.selectedSeats?.length || 1;
+    const ticketText = `${ticketCount} Ticket${ticketCount !== 1 ? "s" : ""}`;
+    
+    doc.setFillColor(...colors.secondary);
+    const badgeWidth = 30;
+    doc.roundedRect(margin + contentWidth - badgeWidth - 5, margin + 8, badgeWidth, 20, 3, 3, "F");
+    
+    doc.setTextColor(...colors.white);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.text(ticketText, margin + contentWidth - badgeWidth/2 - 5, margin + 20, { align: "center" });
 
+    // ----- MAIN CONTENT AREA -----
+    
+    const contentY = margin + 50; // Start content right after header
+    const leftColWidth = contentWidth * 0.55;
+    const rightColStart = margin + leftColWidth + 10;
+    const rightColWidth = contentWidth * 0.4;
+
+    // ----- LEFT COLUMN: EVENT & TICKET DETAILS -----
+    
+    let currentY = contentY;
+    
+    // Section: Event Information
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...colors.primary);
+    doc.text("EVENT INFORMATION", margin + 5, currentY);
+    currentY += 8;
+    
+    // Date & Time
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...colors.dark);
+    
+    const eventDate = formatDate(ticket.event?.date || ticket.purchaseDate);
+    const eventTime = formatTime(ticket.event?.time);
+    
+    doc.text(`Date: ${eventDate}`, margin + 5, currentY);
+    currentY += 6;
+    doc.text(`Time: ${eventTime}`, margin + 5, currentY);
+    currentY += 6;
+    doc.text(`Location: ${ticket.event?.location || "Location TBA"}`, margin + 5, currentY);
+    currentY += 12;
+    
+    // Section: Ticket Holder Information
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...colors.primary);
+    doc.text("TICKET HOLDER", margin + 5, currentY);
+    currentY += 8;
+    
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...colors.dark);
+    doc.text(`Name: ${ticket.userInfo?.name || "Guest User"}`, margin + 5, currentY);
+    currentY += 6;
+    doc.text(`Email: ${ticket.userInfo?.email || "No email provided"}`, margin + 5, currentY);
+    currentY += 12;
+    
+    // Section: Seat Information (if available)
+    if (ticket.selectedSeats && ticket.selectedSeats.length > 0) {
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...colors.primary);
+      doc.text("SEAT ASSIGNMENT", margin + 5, currentY);
+      currentY += 8;
+      
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...colors.dark);
+      
+      // Show up to 6 seats, then summarize
+      const maxSeatsToShow = Math.min(6, ticket.selectedSeats.length);
+      
+      for (let i = 0; i < maxSeatsToShow; i++) {
+        const seat = ticket.selectedSeats[i];
+        const seatInfo = seat.section && seat.row && seat.number 
+          ? `${seat.section} - Row ${seat.row}, Seat ${seat.number}`
+          : seat.name || `Seat ${i + 1}`;
+        doc.text(`${seatInfo}`, margin + 5, currentY);
+        currentY += 6;
+      }
+      
+      if (ticket.selectedSeats.length > 6) {
+        doc.setFont("helvetica", "italic");
+        doc.text(`... and ${ticket.selectedSeats.length - 6} more seats`, margin + 5, currentY);
+        currentY += 6;
+      }
+      currentY += 6;
+    }
+    
+    // Section: Order Information
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...colors.primary);
+    doc.text("ORDER DETAILS", margin + 5, currentY);
+    currentY += 8;
+    
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...colors.dark);
+    const orderIdDisplay = (ticket._id || ticket.orderId || "N/A").substring(0, 20);
+    doc.text(`Order ID: ${orderIdDisplay}`, margin + 5, currentY);
+    currentY += 6;
+    
+    if (ticket.bookingId) {
+      doc.text(`Booking ID: ${ticket.bookingId.substring(0, 20)}`, margin + 5, currentY);
+      currentY += 6;
+    }
+    
+    const purchaseDate = new Date(ticket.purchaseDate || ticket.createdAt || Date.now());
+    doc.text(`Purchased: ${purchaseDate.toLocaleDateString()}`, margin + 5, currentY);
+
+    // ----- RIGHT COLUMN: PRICING & VALIDATION -----
+    
+    // Right column border
+    doc.setDrawColor(...colors.border);
+    doc.setLineWidth(0.5);
+    doc.line(rightColStart - 5, contentY - 10, rightColStart - 5, contentY + 120);
+    
+    let rightY = contentY;
+    
+    // Price section
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...colors.primary);
+    doc.text("PAYMENT", rightColStart, rightY);
+    rightY += 12;
+    
+    // Total price - larger and prominent
+    doc.setFontSize(24);
+    doc.setFont("helvetica", "bold");
+    const isValidTicket = !ticket.isCancelled;
+    doc.setTextColor(...(isValidTicket ? colors.primary : colors.danger));
+    const totalPrice = (ticket.grandTotal || ticket.totalPrice || 0).toFixed(2);
+    doc.text(`$${totalPrice}`, rightColStart, rightY);
+    rightY += 12;
+    
+    // Payment status
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...(isValidTicket ? colors.success : colors.danger));
+    doc.text(`Status: ${ticket.isCancelled ? "Cancelled" : ticket.paymentStatus || "Paid"}`, rightColStart, rightY);
+    rightY += 15;
+    
+    // Barcode section (moved up since QR code is removed)
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...colors.primary);
+    doc.text("VALIDATION", rightColStart, rightY);
+    rightY += 10;
+    
+    // Barcode
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...colors.primary);
+    doc.text("BARCODE", rightColStart, rightY);
+    rightY += 8;
+    
+    // Enhanced barcode
+    doc.setFillColor(250, 250, 250);
+    doc.rect(rightColStart, rightY, rightColWidth - 5, 20, "F");
+    
+    // Barcode lines with more realistic pattern
+    doc.setFillColor(...colors.dark);
+    for (let i = 0; i < 45; i++) {
+      const barX = rightColStart + 2 + i * (rightColWidth - 10) / 45;
+      const barWidth = Math.random() > 0.7 ? 1.5 : 0.8;
+      const barHeight = 12 + Math.random() * 6;
+      doc.rect(barX, rightY + (20 - barHeight) / 2, barWidth, barHeight, "F");
+    }
+    
+    rightY += 25;
+    
+    // Ticket validation number
+    const ticketNumber = ticket.orderId 
+      ? ticket.orderId.substring(0, 12).toUpperCase()
+      : `TIX${Math.floor(Math.random() * 1000000)}`;
+    
+    doc.setFontSize(8);
+    doc.setTextColor(...colors.dark);
+    doc.text(ticketNumber, rightColStart + rightColWidth/2, rightY, { align: "center" });
+
+    // ----- FOOTER SECTION -----
+    
+    const footerY = margin + 220;
+    
+    // Footer background
+    doc.setFillColor(...colors.light);
+    doc.rect(margin, footerY, contentWidth, 35, "F");
+    
+    // Footer border
+    doc.setDrawColor(...colors.border);
+    doc.line(margin, footerY, margin + contentWidth, footerY);
+    
+    // Terms and conditions
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...colors.dark);
+    
+    const footerText1 = "This ticket is valid for entry to the specified event.";
+    const footerText2 = isValidTicket 
+      ? "Present this ticket along with valid ID at the venue entrance."
+      : "This ticket has been cancelled. Entry will be denied.";
+    const footerText3 = "For support, contact: support@youreventsite.com";
+    
+    doc.text(footerText1, margin + contentWidth/2, footerY + 8, { align: "center" });
+    doc.text(footerText2, margin + contentWidth/2, footerY + 16, { align: "center" });
+    doc.text(footerText3, margin + contentWidth/2, footerY + 24, { align: "center" });
+    
+    // Watermark for cancelled tickets
+    if (ticket.isCancelled) {
+      doc.setFontSize(60);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(220, 38, 38, 0.3);
+      doc.text("CANCELLED", pageWidth/2, pageHeight/2, { 
+        align: "center"
+      });
+    }
+
+    // Save the PDF with descriptive filename
+    const shortId = (ticket._id || ticket.orderId || "ticket").substring(0, 8);
+    const userName = (ticket.userInfo?.name || "user").replace(/[^a-zA-Z0-9]/g, "_");
+    const eventName = (ticket.event?.title || "event").replace(/[^a-zA-Z0-9]/g, "_").substring(0, 20);
+    
+    doc.save(`${eventName}_ticket_${userName}_${shortId}.pdf`);
+
+    setStatusMessage("Enhanced ticket PDF generated successfully!");
+    
+  } catch (err) {
+    console.error("Error generating enhanced PDF:", err);
+    setError(`Failed to generate PDF: ${err.message}`);
+  }
+};
   // Modified downloadTicket function that prioritizes local generation
   const downloadTicket = async (ticketId) => {
     setDownloadLoading(true);

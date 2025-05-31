@@ -67,7 +67,7 @@ const BuyerProfile = () => {
   // Image upload states
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  const [imageUploading, setImageUploading] = useState(false);
+  const [imageProcessing, setImageProcessing] = useState(false);
 
   // Delete confirmation
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -107,19 +107,18 @@ const BuyerProfile = () => {
     };
   };
 
-  // Set up headers for file upload
-  const getFileUploadHeaders = () => {
-    const token = getAuthToken();
-    return {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'multipart/form-data'
-      }
-    };
+  // Convert file to Base64
+  const convertToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
   };
 
   // Handle image file selection
-  const handleImageChange = (e) => {
+  const handleImageChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
       // Validate file type
@@ -136,44 +135,29 @@ const BuyerProfile = () => {
         return;
       }
 
-      setSelectedImage(file);
-      
-      // Create preview
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreview(e.target.result);
-      };
-      reader.readAsDataURL(file);
-      setError(''); // Clear any previous errors
-    }
-  };
-
-  // Upload image to server
-  const uploadImage = async () => {
-    if (!selectedImage) return null;
-
-    try {
-      setImageUploading(true);
-      const formData = new FormData();
-      formData.append('image', selectedImage);
-
-      // Upload to your image upload endpoint
-      const response = await axios.post(
-        `${serverURL.url}upload/image`, // Adjust this endpoint as needed
-        formData,
-        getFileUploadHeaders()
-      );
-
-      if (response.data && response.data.imageUrl) {
-        return response.data.imageUrl;
-      } else {
-        throw new Error('No image URL returned from server');
+      try {
+        setImageProcessing(true);
+        
+        // Convert to Base64
+        const base64String = await convertToBase64(file);
+        
+        setSelectedImage(file);
+        setImagePreview(base64String);
+        
+        // Update form data with Base64 string
+        setEditFormData(prev => ({
+          ...prev,
+          profilePicture: base64String
+        }));
+        
+        setError(''); // Clear any previous errors
+        toast.success('Image selected successfully!');
+      } catch (error) {
+        console.error('Error processing image:', error);
+        toast.error('Failed to process image. Please try again.');
+      } finally {
+        setImageProcessing(false);
       }
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      throw new Error('Failed to upload image. Please try again.');
-    } finally {
-      setImageUploading(false);
     }
   };
 
@@ -186,12 +170,14 @@ const BuyerProfile = () => {
       const authHeaders = getAuthHeaders();
       if (!authHeaders) return;
 
+      console.log("Fetching profile with headers:", authHeaders);
+
       const response = await axios.get(
         `${serverURL.url}auth/profile`,
         authHeaders
       );
 
-      console.log("Profile data:", response.data);
+      console.log("Profile response:", response.data);
       
       if (response.data?.success && response.data?.data) {
         const profileData = response.data.data;
@@ -234,9 +220,13 @@ const BuyerProfile = () => {
     }
   };
 
-  // Update user profile - ENHANCED WITH IMAGE UPLOAD
+  // Update user profile - WITH BASE64 IMAGE
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
+    
+    // Prevent double submission
+    if (isSubmitting || imageProcessing) return;
+    
     setIsSubmitting(true);
     
     try {
@@ -253,40 +243,42 @@ const BuyerProfile = () => {
 
       // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(editFormData.email)) {
+      if (!emailRegex.test(editFormData.email.trim())) {
         toast.error("Please enter a valid email address!");
         return;
       }
 
+      console.log("Starting profile update...");
+      console.log("Selected image:", selectedImage);
+      console.log("Current form data:", editFormData);
+
+      // Get fresh auth headers
       const authHeaders = getAuthHeaders();
       if (!authHeaders) return;
 
-      // Clean the data - remove empty strings and trim whitespace
-      let cleanedData = {
+      // Prepare update data (always send as JSON)
+      const updateData = {
         name: editFormData.name.trim(),
         email: editFormData.email.trim(),
-        phone: editFormData.phone?.trim() || null,
-        address: editFormData.address?.trim() || null,
-        profilePicture: editFormData.profilePicture?.trim() || null,
+        phone: editFormData.phone?.trim() || "",
+        address: editFormData.address?.trim() || "",
       };
 
-      // Upload new image if selected
-      if (selectedImage) {
-        try {
-          const uploadedImageUrl = await uploadImage();
-          cleanedData.profilePicture = uploadedImageUrl;
-        } catch (uploadError) {
-          toast.error(uploadError.message);
-          setIsSubmitting(false);
-          return;
-        }
+      // Include profile picture (Base64 string or existing URL)
+      if (editFormData.profilePicture) {
+        updateData.profilePicture = editFormData.profilePicture;
       }
 
-      console.log("Sending update data:", cleanedData);
+      console.log("Sending update data:", {
+        ...updateData,
+        profilePicture: updateData.profilePicture ? 
+          (updateData.profilePicture.startsWith('data:') ? '[Base64 Image Data]' : updateData.profilePicture) 
+          : 'No image'
+      });
 
       const response = await axios.put(
         `${serverURL.url}auth/profile`,
-        cleanedData,
+        updateData,
         authHeaders
       );
       
@@ -298,15 +290,15 @@ const BuyerProfile = () => {
         setSelectedImage(null); // Clear selected image
         
         // Update the profile state with new data
-        const updatedProfile = { ...profile, ...cleanedData };
+        const updatedProfile = { ...profile, ...updateData };
         setProfile(updatedProfile);
         
         // Update user context if available
         if (setUser) {
-          setUser(prev => ({ ...prev, ...cleanedData }));
+          setUser(prev => ({ ...prev, ...updateData }));
         }
         
-        // Optionally refetch to get server data
+        // Optionally refresh profile data from server
         // await fetchProfile();
       } else {
         const errorMsg = response.data?.message || "Update failed. Please try again.";
@@ -315,6 +307,7 @@ const BuyerProfile = () => {
       }
     } catch (err) {
       console.error("Error updating profile:", err);
+      console.error("Error response:", err.response);
       
       let errorMessage = "Failed to update profile. Please try again.";
       
@@ -502,9 +495,10 @@ const BuyerProfile = () => {
     }
   };
 
-  // Handle form field changes - IMPROVED
+  // Handle form field changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    console.log(`Input changed: ${name} = ${value}`);
     setEditFormData(prev => ({
       ...prev,
       [name]: value
@@ -529,7 +523,7 @@ const BuyerProfile = () => {
     });
   };
 
-  // Cancel editing - IMPROVED
+  // Cancel editing
   const handleCancelEdit = () => {
     // Reset form data to original profile data
     setEditFormData({
@@ -755,15 +749,24 @@ const BuyerProfile = () => {
                               className="hidden" 
                               accept="image/*"
                               onChange={handleImageChange}
+                              disabled={imageProcessing}
                             />
                           </label>
                         </div>
                         
-                        {/* Upload Status */}
-                        {imageUploading && (
+                        {/* Processing Status */}
+                        {imageProcessing && (
                           <div className="flex items-center gap-2 text-blue-600">
                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                            <span className="text-sm">Uploading image...</span>
+                            <span className="text-sm">Processing image...</span>
+                          </div>
+                        )}
+                        
+                        {/* Selected File Info */}
+                        {selectedImage && !imageProcessing && (
+                          <div className="flex items-center gap-2 text-green-600 mt-2">
+                            <ImageIcon size={16} />
+                            <span className="text-sm">Selected: {selectedImage.name}</span>
                           </div>
                         )}
                       </div>
@@ -800,7 +803,7 @@ const BuyerProfile = () => {
 
                       <div>
                         <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                          Phone Number
+                          Contact Number
                         </label>
                         <input
                           id="phone"
@@ -808,6 +811,7 @@ const BuyerProfile = () => {
                           type="text"
                           value={editFormData.phone}
                           onChange={handleInputChange}
+                          placeholder="Enter your contact number"
                           className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                         />
                       </div>
@@ -837,17 +841,17 @@ const BuyerProfile = () => {
                         <button
                           type="submit"
                           className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors duration-200 shadow-md font-medium cursor-pointer flex items-center"
-                          disabled={isSubmitting || imageUploading}
+                          disabled={isSubmitting || imageProcessing}
                         >
                           {isSubmitting ? (
                             <>
                               <RefreshCw className="animate-spin mr-2" size={16} />
                               Saving...
                             </>
-                          ) : imageUploading ? (
+                          ) : imageProcessing ? (
                             <>
                               <RefreshCw className="animate-spin mr-2" size={16} />
-                              Uploading Image...
+                              Processing...
                             </>
                           ) : (
                             <>

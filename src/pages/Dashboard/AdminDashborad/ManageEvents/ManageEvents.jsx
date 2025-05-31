@@ -315,7 +315,7 @@ const ManageEvents = () => {
                 <div>
                   <p className="text-sm font-medium text-gray-500">Price</p>
                   <p className="text-gray-900">
-                    {selectedEvent.price ? `৳${selectedEvent.price}` : "Free"}
+                    {selectedEvent.price ? `$${selectedEvent.price}` : "Free"}
                   </p>
                 </div>
               </div>
@@ -555,7 +555,7 @@ const ManageEvents = () => {
                           <span>{formatTime(event.time)}</span>
                         </div>
                         <div className="text-sm font-medium text-blue-600">
-                          {event.price ? `৳${event.price}` : "Free"}
+                          {event.price ? `$${event.price}` : "Free"}
                         </div>
                       </div>
 
