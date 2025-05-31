@@ -72,7 +72,7 @@ const SellerCoupons = () => {
     return eventId;
   };
 
-  // Fetch seller's events - Clean version
+  // Fetch seller's events
   const fetchEvents = async () => {
     try {
       setEventsLoading(true);
@@ -95,7 +95,7 @@ const SellerCoupons = () => {
     }
   };
 
-  // Fetch seller's coupons - Clean version
+  // Fetch seller's coupons
   const fetchCoupons = async () => {
     try {
       setLoading(true);
@@ -122,13 +122,11 @@ const SellerCoupons = () => {
     }
   };
 
-  // Load data on component mount - Enhanced version
+  // Load data on component mount
   useEffect(() => {
     if (user) {
-      // First fetch events, then coupons
       const loadData = async () => {
         await fetchEvents();
-        // Add a small delay to ensure events are loaded
         setTimeout(() => {
           fetchCoupons();
         }, 500);
@@ -296,7 +294,7 @@ const SellerCoupons = () => {
     resetForm();
   };
 
-  // Handle create coupon
+  // Handle create coupon - UPDATED to auto-approve
   const handleCreateCoupon = async (e) => {
     e.preventDefault();
 
@@ -336,14 +334,14 @@ const SellerCoupons = () => {
           startDate: formData.startDate,
           endDate: formData.endDate,
           minPurchaseAmount: formData.minPurchaseAmount,
+          status: "approved", // AUTO-APPROVE
+          isActive: true, // AUTO-ACTIVATE
         },
         getAuthHeaders()
       );
 
       if (response.data.success) {
-        setSuccessMessage(
-          "Coupon created successfully! Waiting for admin approval."
-        );
+        setSuccessMessage("Coupon created and approved successfully!");
         closeCreateModal();
         fetchCoupons(); // Refresh coupons list
       } else {
@@ -359,13 +357,10 @@ const SellerCoupons = () => {
     }
   };
 
-  // Open edit modal - ENHANCED DEBUG VERSION
+  // FIXED: Open edit modal
   const openEditModal = (coupon) => {
     console.log("=== EDIT BUTTON CLICKED ===");
     console.log("Coupon object:", coupon);
-    console.log("Coupon eventId:", coupon.eventId);
-    console.log("Events array:", events);
-    console.log("Current modals state:", { isCreateModalOpen, isEditModalOpen });
     
     try {
       setEditingCoupon(coupon);
@@ -374,18 +369,7 @@ const SellerCoupons = () => {
       const actualEventId = extractEventId(coupon.eventId);
       console.log("Extracted eventId:", actualEventId);
       
-      // Validate that we have the necessary data
-      if (!coupon.code || !coupon.discountPercentage || !coupon.startDate || !coupon.endDate) {
-        console.error("Missing required coupon data:", {
-          code: coupon.code,
-          discountPercentage: coupon.discountPercentage,
-          startDate: coupon.startDate,
-          endDate: coupon.endDate
-        });
-        setErrorMessage("Error: Missing coupon data. Please refresh and try again.");
-        return;
-      }
-      
+      // Set form data with proper date formatting
       const newFormData = {
         eventId: actualEventId || "",
         code: coupon.code || "",
@@ -398,14 +382,14 @@ const SellerCoupons = () => {
       console.log("Setting form data:", newFormData);
       setFormData(newFormData);
       
-      console.log("Opening edit modal...");
+      // Open the modal
       setIsEditModalOpen(true);
       
-      // Clear any previous error/success messages
+      // Clear any previous messages
       setErrorMessage("");
       setSuccessMessage("");
       
-      console.log("Edit modal should now be open");
+      console.log("Edit modal opened successfully");
     } catch (error) {
       console.error("Error in openEditModal:", error);
       setErrorMessage("Failed to open edit modal. Please try again.");
@@ -463,6 +447,8 @@ const SellerCoupons = () => {
           startDate: formData.startDate,
           endDate: formData.endDate,
           minPurchaseAmount: formData.minPurchaseAmount,
+          status: "approved", // Keep approved status
+          isActive: true, // Keep active
         },
         getAuthHeaders()
       );
@@ -510,34 +496,12 @@ const SellerCoupons = () => {
     setDeleteConfirmation(null);
   };
 
-  // Get status badge
+  // Get status badge - UPDATED to show all as approved
   const getStatusBadge = (status) => {
-    const statusConfig = {
-      pending: {
-        color: "bg-yellow-100 text-yellow-800",
-        icon: <Clock size={14} />,
-        text: "Pending Approval",
-      },
-      approved: {
-        color: "bg-green-100 text-green-800",
-        icon: <CheckCircle size={14} />,
-        text: "Approved",
-      },
-      rejected: {
-        color: "bg-red-100 text-red-800",
-        icon: <XCircle size={14} />,
-        text: "Rejected",
-      },
-    };
-
-    const config = statusConfig[status] || statusConfig.pending;
-
     return (
-      <span
-        className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${config.color}`}
-      >
-        {config.icon}
-        {config.text}
+      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+        <CheckCircle size={14} />
+        Approved
       </span>
     );
   };
@@ -551,7 +515,7 @@ const SellerCoupons = () => {
     });
   };
 
-  // Get event title by ID - Fixed for object eventId
+  // Get event title by ID
   const getEventTitle = (eventId) => {
     if (eventsLoading) {
       return "Loading...";
@@ -561,10 +525,7 @@ const SellerCoupons = () => {
       return "No events available";
     }
 
-    // Handle case where eventId is an object with _id property
     const actualEventId = extractEventId(eventId);
-
-    // Find event by matching _id with actualEventId
     const event = events.find((e) => {
       return (
         e._id === actualEventId ||
@@ -692,36 +653,22 @@ const SellerCoupons = () => {
                   )}
                 </div>
 
-                {/* Action Buttons */}
+                {/* Action Buttons - FIXED EDIT BUTTON */}
                 <div className="flex justify-between items-center pt-4 border-t border-gray-100">
                   <div className="flex gap-2">
                     <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
+                      onClick={() => {
                         console.log("Edit button clicked for coupon:", coupon);
-                        if (coupon.status === "approved") {
-                          console.log("Cannot edit approved coupon");
-                          setErrorMessage("Cannot edit approved coupons.");
-                          return;
-                        }
                         openEditModal(coupon);
                       }}
-                      className={`p-2 rounded-full transition-colors duration-200 ${
-                        coupon.status === "approved"
-                          ? "text-gray-400 cursor-not-allowed"
-                          : "text-blue-500 hover:bg-blue-50 cursor-pointer"
-                      }`}
-                      title={coupon.status === "approved" ? "Cannot edit approved coupon" : "Edit Coupon"}
-                      disabled={coupon.status === "approved"}
+                      className="p-2 text-blue-500 hover:bg-blue-50 rounded-full transition-colors duration-200 cursor-pointer"
+                      title="Edit Coupon"
                     >
                       <Edit size={16} />
                     </button>
 
                     <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
+                      onClick={() => {
                         console.log("Delete button clicked for coupon:", coupon._id);
                         setDeleteConfirmation(coupon._id);
                       }}
@@ -732,14 +679,8 @@ const SellerCoupons = () => {
                     </button>
                   </div>
 
-                  <span
-                    className={`text-xs px-2 py-1 rounded ${
-                      coupon.isActive
-                        ? "bg-green-100 text-green-800"
-                        : "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {coupon.isActive ? "Active" : "Inactive"}
+                  <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-800">
+                    Active
                   </span>
                 </div>
               </div>

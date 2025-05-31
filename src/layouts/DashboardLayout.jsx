@@ -59,6 +59,7 @@ const DashboardLayout = () => {
             { to: '/dashboard/manage-users', label: 'Manage Users', icon: <UserCircle size={20} /> },
             { to: '/dashboard/manage-sellers', label: 'Manage Seller', icon: <UserCircle size={20} /> },
             { to: '/dashboard/reports', label: 'Reports', icon: <FileText size={20} /> },
+            { to: '/dashboard/add-blogs', label: 'Add Blogs', icon: <FileText size={20} /> },
             { to: '/dashboard/admin-profile', label: 'Settings', icon: <Settings size={20} /> },
         ],
         seller: [

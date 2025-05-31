@@ -30,6 +30,7 @@ const MyTickets = () => {
   const [cancelLoading, setCancelLoading] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [ticketToCancel, setTicketToCancel] = useState(null);
+  
 
   // Function to format time to 12-hour format
   const formatTime = (timeString) => {
@@ -562,116 +563,120 @@ const MyTickets = () => {
     }
   };
 
-  const cancelTicket = async (ticket) => {
-    setCancelLoading(true);
-    setError("");
+const cancelTicket = async (ticket) => {
+  setCancelLoading(true);
+  setError("");
 
-    try {
-      // Check if ticket is already cancelled
-      if (ticket.isCancelled) {
-        setStatusMessage("This ticket is already cancelled.");
-        setShowCancelModal(false);
-        setTicketToCancel(null);
-        setCancelLoading(false);
-        return;
-      }
-
-      // Check if refreshToken function is available
-      if (typeof refreshToken === "function") {
-        await refreshToken();
-      }
-
-      // Get token from localStorage
-      const token = localStorage.getItem("auth-token");
-
-      if (!token) {
-        throw new Error("Authentication token not found. Please log in again.");
-      }
-
-      // Validate bookingId exists
-      if (!ticket.bookingId) {
-        throw new Error("Booking ID is missing. Cannot cancel this ticket.");
-      }
-
-      // Updated request body to only include bookingId
-      const requestBody = {
-        bookingId: ticket.bookingId,
-      };
-
-      console.log("Cancelling ticket with body:", requestBody);
-
-      // Call the cancel ticket API
-      const response = await fetch(`${API_BASE_URL}payments/booking/cancel`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      const data = await response.json();
-      console.log("Cancel API response:", data);
-
-      if (!response.ok) {
-        // Check if the error is about booking already being cancelled
-        if (response.status === 400 && data.message) {
-          const errorMessage = data.message.toLowerCase();
-
-          if (
-            errorMessage.includes("already cancelled") ||
-            errorMessage.includes("already canceled") ||
-            errorMessage.includes("booking already cancelled") ||
-            errorMessage.includes("booking already canceled")
-          ) {
-            // If booking is already cancelled, update the local state to reflect this
-            setTickets((prevTickets) =>
-              prevTickets.map((t) =>
-                t._id === ticket._id ||
-                t.orderId === ticket.orderId ||
-                t.bookingId === ticket.bookingId
-                  ? { ...t, isCancelled: true, paymentStatus: "cancelled" }
-                  : t
-              )
-            );
-            setStatusMessage(
-              "This ticket was already cancelled on the server. The display has been updated."
-            );
-            setShowCancelModal(false);
-            setTicketToCancel(null);
-            return; // Exit the function early
-          }
-        }
-
-        // For other errors, throw them
-        throw new Error(
-          data.message || `Failed to cancel ticket (Status: ${response.status})`
-        );
-      }
-
-      // If cancellation was successful, update the ticket status in the local state
+  try {
+    // Check if ticket is already cancelled
+    if (ticket.isCancelled) {
+      // Remove already cancelled tickets from the list
       setTickets((prevTickets) =>
-        prevTickets.map((t) =>
-          t._id === ticket._id ||
-          t.orderId === ticket.orderId ||
-          t.bookingId === ticket.bookingId
-            ? { ...t, isCancelled: true, paymentStatus: "cancelled" }
-            : t
+        prevTickets.filter((t) => 
+          t._id !== ticket._id && 
+          t.orderId !== ticket.orderId && 
+          t.bookingId !== ticket.bookingId
         )
       );
-
-      setStatusMessage(
-        "Ticket cancelled successfully. Refund will be processed shortly."
-      );
+      setStatusMessage("Cancelled ticket has been removed from your list.");
       setShowCancelModal(false);
       setTicketToCancel(null);
-    } catch (err) {
-      console.error("Error cancelling ticket:", err);
-      setError(`Failed to cancel ticket: ${err.message}`);
-    } finally {
       setCancelLoading(false);
+      return;
     }
-  };
+
+    // Check if refreshToken function is available
+    if (typeof refreshToken === "function") {
+      await refreshToken();
+    }
+
+    // Get token from localStorage
+    const token = localStorage.getItem("auth-token");
+
+    if (!token) {
+      throw new Error("Authentication token not found. Please log in again.");
+    }
+
+    // Validate bookingId exists
+    if (!ticket.bookingId) {
+      throw new Error("Booking ID is missing. Cannot cancel this ticket.");
+    }
+
+    // Updated request body to only include bookingId
+    const requestBody = {
+      bookingId: ticket.bookingId,
+    };
+
+    console.log("Cancelling ticket with body:", requestBody);
+
+    // Call the cancel ticket API
+    const response = await fetch(`${API_BASE_URL}payments/booking/cancel`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    const data = await response.json();
+    console.log("Cancel API response:", data);
+
+    if (!response.ok) {
+      // Check if the error is about booking already being cancelled
+      if (response.status === 400 && data.message) {
+        const errorMessage = data.message.toLowerCase();
+
+        if (
+          errorMessage.includes("already cancelled") ||
+          errorMessage.includes("already canceled") ||
+          errorMessage.includes("booking already cancelled") ||
+          errorMessage.includes("booking already canceled")
+        ) {
+          // If booking is already cancelled, REMOVE the ticket from the list
+          setTickets((prevTickets) =>
+            prevTickets.filter((t) => 
+              t._id !== ticket._id && 
+              t.orderId !== ticket.orderId && 
+              t.bookingId !== ticket.bookingId
+            )
+          );
+          setStatusMessage(
+            "This ticket was already cancelled and has been removed from your list."
+          );
+          setShowCancelModal(false);
+          setTicketToCancel(null);
+          return; // Exit the function early
+        }
+      }
+
+      // For other errors, throw them
+      throw new Error(
+        data.message || `Failed to cancel ticket (Status: ${response.status})`
+      );
+    }
+
+    // If cancellation was successful, REMOVE the ticket from the list
+    setTickets((prevTickets) =>
+      prevTickets.filter((t) => 
+        t._id !== ticket._id && 
+        t.orderId !== ticket.orderId && 
+        t.bookingId !== ticket.bookingId
+      )
+    );
+
+    setStatusMessage(
+      "Ticket cancelled successfully and removed from your list. Refund will be processed shortly."
+    );
+    setShowCancelModal(false);
+    setTicketToCancel(null);
+  } catch (err) {
+    console.error("Error cancelling ticket:", err);
+    setError(`Failed to cancel ticket: ${err.message}`);
+  } finally {
+    setCancelLoading(false);
+  }
+};
 
   // Function to show cancel confirmation modal
   const showCancelConfirmation = (ticket) => {

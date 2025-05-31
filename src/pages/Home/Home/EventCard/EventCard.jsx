@@ -50,7 +50,7 @@ const EventCard = ({ event }) => {
   };
 
   return (
-    <div onClick={handleClick} className="w-80 h-full">
+    <div onClick={handleClick} className="w-72 h-full">
       {" "}
       {/* Added h-full for consistent height */}
       {/* Main card container with 3D-like effect */}

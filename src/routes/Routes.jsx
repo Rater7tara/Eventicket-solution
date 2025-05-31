@@ -34,6 +34,9 @@ import SellerProfile from "../pages/Dashboard/SellerDashboard/SellerProfile/Sell
 import BuyerProfile from "../pages/Dashboard/UserDashboard/BuyerProfile/BuyerProfile";
 import SellerCoupons from "../pages/Dashboard/SellerDashboard/SellerCoupons/SellerCoupons";
 import EventList from "../pages/Home/Home/EventCard/EventList";
+import Blog from "../pages/Blog/Blog";
+import AddBlogs from "../pages/Dashboard/AdminDashborad/AddBlog/AddBlog";
+import BlogPost from "../pages/Blog/BlogPost";
 
 export const router = createBrowserRouter([
   {
@@ -76,6 +79,14 @@ export const router = createBrowserRouter([
       {
         path: "/disclaimer",
         element: <Disclaimer />,
+      },
+      {
+        path: "/blogs",
+        element: <Blog />,
+      },
+      {
+        path: "/blog/:id",
+        element: <BlogPost />,
       },
       {
         path: "/user-details",
@@ -141,6 +152,10 @@ export const router = createBrowserRouter([
       {
         path: "admin-profile",
         element: <AdminProfile />,
+      },
+      {
+        path: "add-blogs",
+        element: <AddBlogs />,
       },
       {
         path: "reports",
