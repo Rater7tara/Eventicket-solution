@@ -816,7 +816,7 @@ const SellerCoupons = () => {
               </div>
 
               {/* Minimum Purchase Amount */}
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <label className="flex items-center gap-2 text-gray-700 font-medium">
                   <DollarSign size={18} className="text-orange-500" />
                   Minimum Purchase Amount (Optional)
@@ -830,7 +830,7 @@ const SellerCoupons = () => {
                   placeholder="0"
                   min="0"
                 />
-              </div>
+              </div> */}
 
               {/* Action Buttons */}
               <div className="flex justify-end gap-4 pt-4 border-t border-gray-200">

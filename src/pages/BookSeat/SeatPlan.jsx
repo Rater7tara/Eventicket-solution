@@ -101,11 +101,21 @@ const fetchBookedSeats = async () => {
     const data = await response.json();
     console.log("Booked seats API response:", data);
 
-    // Extract booked seats from the new API response structure
-    if (data.success && data.bookedSeats) {
-      setBookedSeatsData(data.bookedSeats);
-      console.log("Booked seats loaded:", data.bookedSeats);
-      console.log("Total booked seats:", data.totalBookedSeats);
+    // FIXED: The API returns 'seats' array, not 'bookedSeats'
+    if (data.success && data.seats && data.seats.length > 0) {
+      setBookedSeatsData(data.seats); // Use 'seats' instead of 'bookedSeats'
+      console.log("Booked seats loaded:", data.seats);
+      console.log("Total booked seats:", data.totalSeats || data.seats.length);
+      
+      // Log each booked seat for debugging
+      data.seats.forEach((seat, index) => {
+        console.log(`Booked seat ${index + 1}:`, {
+          section: seat.section,
+          row: seat.row,
+          seatNumber: seat.seatNumber,
+          id: seat._id
+        });
+      });
     } else {
       console.log("No booked seats found for this event");
       setBookedSeatsData([]);

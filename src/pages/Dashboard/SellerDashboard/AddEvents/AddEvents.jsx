@@ -132,6 +132,12 @@ const AddEvent = () => {
             return;
         }
         
+        // Check if image is required and uploaded
+        if (!uploadedImage) {
+            setErrorMessage('Please upload an event image');
+            return;
+        }
+        
         try {
             setLoading(true);
             
@@ -142,22 +148,32 @@ const AddEvent = () => {
                 throw new Error('Authentication required. Please log in.');
             }
             
-            // Prepare data for API
-            const eventPayload = {
-                ...eventData,
-                price: parseInt(eventData.price),
-                ticketsAvailable: parseInt(eventData.ticketsAvailable),
-                createdBy: user?.email || 'unknown_user'
-            };
+            // Create FormData for file upload
+            const formData = new FormData();
             
-            // Send to API with authentication
+            // Append all form fields
+            formData.append('title', eventData.title);
+            formData.append('description', eventData.description);
+            formData.append('date', eventData.date);
+            formData.append('time', eventData.time);
+            formData.append('location', eventData.location);
+            formData.append('price', parseInt(eventData.price));
+            formData.append('ticketsAvailable', parseInt(eventData.ticketsAvailable));
+            formData.append('createdBy', user?.email || 'unknown_user');
+            
+            // Append the image file
+            if (uploadedImage) {
+                formData.append('image', uploadedImage);
+            }
+            
+            // Send to API with authentication (Note: removed Content-Type header for FormData)
             const response = await fetch(`${serverURL.url}event/create-event`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
+                    // Don't set Content-Type - let the browser set it for FormData
                 },
-                body: JSON.stringify(eventPayload)
+                body: formData // Send FormData instead of JSON
             });
             
             if (!response.ok) {
@@ -530,7 +546,7 @@ const AddEvent = () => {
                 <div className="space-y-2">
                     <label className="flex items-center gap-2 text-gray-700 font-medium">
                         <Upload size={18} className="text-orange-500" />
-                        Event Image
+                        Event Image *
                     </label>
                     
                     <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-orange-500 transition-colors">

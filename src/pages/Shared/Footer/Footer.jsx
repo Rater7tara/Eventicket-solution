@@ -69,7 +69,7 @@ const Footer = () => {
               Your premier destination for Event n tickets. Experience the thrill of live music with easy booking and secure transactions.
             </p>
             <div className="flex space-x-4">
-              <a href="#" className="w-10 h-10 rounded-full bg-orange-500 text-white flex items-center justify-center transform transition-transform duration-300 hover:scale-110 hover:bg-orange-600">
+              <a href="https://www.facebook.com/share/1BUxxEVuy7/?mibextid=wwXIfr" className="w-10 h-10 rounded-full bg-orange-500 text-white flex items-center justify-center transform transition-transform duration-300 hover:scale-110 hover:bg-orange-600">
                 <Facebook size={18} />
               </a>
               <a href="#" className="w-10 h-10 rounded-full bg-orange-500 text-white flex items-center justify-center transform transition-transform duration-300 hover:scale-110 hover:bg-orange-600">
@@ -173,10 +173,10 @@ const Footer = () => {
                 <MapPin size={20} className="text-orange-500 mt-1 flex-shrink-0" />
                 <span className="text-gray-600">123 Music Avenue, Concert City, CS 12345</span>
               </li>
-              <li className="flex items-center space-x-3">
+              {/* <li className="flex items-center space-x-3">
                 <Phone size={20} className="text-orange-500 flex-shrink-0" />
                 <span className="text-gray-600">+6 (143) 324-0314</span>
-              </li>
+              </li> */}
               <li className="flex items-center space-x-3">
                 <Mail size={20} className="text-orange-500 flex-shrink-0" />
                 <span className="text-gray-600">info@eventntickets.com</span>
@@ -211,7 +211,7 @@ const Footer = () => {
           <div className="flex items-center space-x-1">
             <span className="text-gray-500 text-sm mr-2">Developed By</span>
             <Code size={16} className="text-red-500 animate-pulse" />
-            <span className="text-gray-500 text-sm ml-1">CodeClub It Solution</span>
+            <span className="text-gray-500 text-sm ml-1 font-bold"><a href="http://www.codeclubitsolutions.com">CodeClub It Solution</a></span>
           </div>
         </div>
       </div>
