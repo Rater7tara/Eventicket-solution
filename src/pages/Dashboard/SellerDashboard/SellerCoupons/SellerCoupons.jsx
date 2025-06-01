@@ -406,69 +406,91 @@ const SellerCoupons = () => {
   };
 
   // Handle update coupon
-  const handleUpdateCoupon = async (e) => {
-    e.preventDefault();
 
-    if (!editingCoupon) return;
+const handleUpdateCoupon = async (e) => {
+  e.preventDefault();
 
-    // Same validation as create
-    if (
-      !formData.eventId ||
-      !formData.code ||
-      !formData.discountPercentage ||
-      !formData.startDate ||
-      !formData.endDate
-    ) {
-      setErrorMessage("Please fill in all required fields.");
-      return;
+  if (!editingCoupon) return;
+
+  // Same validation as create
+  if (
+    !formData.eventId ||
+    !formData.code ||
+    !formData.discountPercentage ||
+    !formData.startDate ||
+    !formData.endDate
+  ) {
+    setErrorMessage("Please fill in all required fields.");
+    return;
+  }
+
+  if (formData.discountPercentage < 1 || formData.discountPercentage > 100) {
+    setErrorMessage("Discount percentage must be between 1 and 100.");
+    return;
+  }
+
+  if (new Date(formData.startDate) >= new Date(formData.endDate)) {
+    setErrorMessage("End date must be after start date.");
+    return;
+  }
+
+  try {
+    setIsSubmitting(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    // Debug logging
+    console.log("🔧 Updating coupon:", editingCoupon._id);
+    console.log("📤 Update data:", {
+      eventId: formData.eventId,
+      code: formData.code.toUpperCase(),
+      discountPercentage: formData.discountPercentage,
+      startDate: formData.startDate,
+      endDate: formData.endDate,
+      minPurchaseAmount: formData.minPurchaseAmount,
+    });
+
+    // FIXED: Changed from PUT to PATCH to match your backend API
+    const response = await axios.patch(
+      `${serverURL.url}coupons/update/${editingCoupon._id}`,
+      {
+        eventId: formData.eventId,
+        code: formData.code.toUpperCase(),
+        discountPercentage: formData.discountPercentage,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
+        minPurchaseAmount: formData.minPurchaseAmount,
+        status: "approved", // Keep approved status
+        isActive: true, // Keep active
+      },
+      getAuthHeaders()
+    );
+
+    console.log("✅ Update response:", response.data);
+
+    if (response.data.success) {
+      setSuccessMessage("Coupon updated successfully!");
+      closeEditModal();
+      fetchCoupons(); // Refresh coupons list
+    } else {
+      setErrorMessage(response.data.message || "Failed to update coupon.");
     }
-
-    if (formData.discountPercentage < 1 || formData.discountPercentage > 100) {
-      setErrorMessage("Discount percentage must be between 1 and 100.");
-      return;
-    }
-
-    if (new Date(formData.startDate) >= new Date(formData.endDate)) {
-      setErrorMessage("End date must be after start date.");
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-      setErrorMessage("");
-      setSuccessMessage("");
-
-      const response = await axios.put(
-        `${serverURL.url}coupons/update/${editingCoupon._id}`,
-        {
-          eventId: formData.eventId,
-          code: formData.code.toUpperCase(),
-          discountPercentage: formData.discountPercentage,
-          startDate: formData.startDate,
-          endDate: formData.endDate,
-          minPurchaseAmount: formData.minPurchaseAmount,
-          status: "approved", // Keep approved status
-          isActive: true, // Keep active
-        },
-        getAuthHeaders()
-      );
-
-      if (response.data.success) {
-        setSuccessMessage("Coupon updated successfully!");
-        closeEditModal();
-        fetchCoupons(); // Refresh coupons list
-      } else {
-        setErrorMessage(response.data.message || "Failed to update coupon.");
-      }
-    } catch (error) {
-      console.error("Error updating coupon:", error);
-      setErrorMessage(
-        error.response?.data?.message || "Failed to update coupon."
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  } catch (error) {
+    console.error("❌ Error updating coupon:", {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      url: error.config?.url,
+      method: error.config?.method
+    });
+    
+    setErrorMessage(
+      error.response?.data?.message || "Failed to update coupon."
+    );
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   // Handle delete coupon
   const handleDeleteCoupon = async (couponId) => {

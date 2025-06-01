@@ -22,7 +22,7 @@ import {
   Shield,
   Send,
   Upload,
-  ImageIcon
+  ImageIcon,
 } from "lucide-react";
 import serverURL from "../../../../ServerConfig";
 import { AuthContext } from "../../../../providers/AuthProvider";
@@ -52,15 +52,15 @@ const BuyerProfile = () => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   // Edit states
   const [isEditing, setIsEditing] = useState(false);
   const [editFormData, setEditFormData] = useState({
     name: "",
     email: "",
-    phone: "",
+    contactNumber: "", // Changed from phone to contactNumber
     address: "",
-    profilePicture: "",
+    profileImg: "", // Also changed from profilePicture to profileImg
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -71,7 +71,7 @@ const BuyerProfile = () => {
 
   // Delete confirmation
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  
+
   // Password states
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -79,13 +79,13 @@ const BuyerProfile = () => {
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
-    email: ""
+    email: "",
   });
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [resetToken, setResetToken] = useState("");
   const [resetPasswordView, setResetPasswordView] = useState(false);
-  
+
   // Get auth token from localStorage
   const getAuthToken = () => {
     return localStorage.getItem("auth-token");
@@ -96,7 +96,7 @@ const BuyerProfile = () => {
     const token = getAuthToken();
     if (!token) {
       toast.error("No authentication token found. Please login again.");
-      navigate('/login');
+      navigate("/login");
       return null;
     }
     return {
@@ -122,39 +122,39 @@ const BuyerProfile = () => {
     const file = e.target.files[0];
     if (file) {
       // Validate file type
-      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+      const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif"];
       if (!validTypes.includes(file.type)) {
-        toast.error('Please select a valid image file (JPEG, PNG, or GIF)');
+        toast.error("Please select a valid image file (JPEG, PNG, or GIF)");
         return;
       }
 
       // Validate file size (max 5MB)
       const maxSize = 5 * 1024 * 1024; // 5MB in bytes
       if (file.size > maxSize) {
-        toast.error('Image file size must be less than 5MB');
+        toast.error("Image file size must be less than 5MB");
         return;
       }
 
       try {
         setImageProcessing(true);
-        
+
         // Convert to Base64
         const base64String = await convertToBase64(file);
-        
+
         setSelectedImage(file);
         setImagePreview(base64String);
-        
+
         // Update form data with Base64 string
-        setEditFormData(prev => ({
+        setEditFormData((prev) => ({
           ...prev,
-          profilePicture: base64String
+          profilePicture: base64String,
         }));
-        
-        setError(''); // Clear any previous errors
-        toast.success('Image selected successfully!');
+
+        setError(""); // Clear any previous errors
+        toast.success("Image selected successfully!");
       } catch (error) {
-        console.error('Error processing image:', error);
-        toast.error('Failed to process image. Please try again.');
+        console.error("Error processing image:", error);
+        toast.error("Failed to process image. Please try again.");
       } finally {
         setImageProcessing(false);
       }
@@ -166,7 +166,7 @@ const BuyerProfile = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const authHeaders = getAuthHeaders();
       if (!authHeaders) return;
 
@@ -178,42 +178,47 @@ const BuyerProfile = () => {
       );
 
       console.log("Profile response:", response.data);
-      
+
       if (response.data?.success && response.data?.data) {
         const profileData = response.data.data;
         setProfile(profileData);
-        
+
         // Initialize edit form with current data
         setEditFormData({
           name: profileData.name || "",
           email: profileData.email || "",
-          phone: profileData.phone || "",
+          contactNumber: profileData.contactNumber || "", // Changed from phone to contactNumber
           address: profileData.address || "",
-          profilePicture: profileData.profilePicture || "",
+          profileImg: profileData.profileImg || "", // Changed from profilePicture to profileImg
         });
-        
+
         // Set current image preview if exists
-        if (profileData.profilePicture) {
-          setImagePreview(profileData.profilePicture);
+        if (profileData.profileImg) {
+          // Changed from profilePicture to profileImg
+          setImagePreview(profileData.profileImg);
         }
-        
+
         // Set email in password form
-        setPasswordData(prev => ({ ...prev, email: profileData.email || "" }));
+        setPasswordData((prev) => ({
+          ...prev,
+          email: profileData.email || "",
+        }));
       } else {
         throw new Error(response.data?.message || "Invalid response format");
       }
     } catch (err) {
       console.error("Error fetching profile:", err);
-      const errorMessage = err.response?.data?.message || 
-                          err.message || 
-                          "Failed to fetch profile data. Please try again.";
+      const errorMessage =
+        err.response?.data?.message ||
+        err.message ||
+        "Failed to fetch profile data. Please try again.";
       setError(errorMessage);
       toast.error(errorMessage);
-      
+
       // If unauthorized, redirect to login
       if (err.response?.status === 401) {
         localStorage.removeItem("auth-token");
-        navigate('/login');
+        navigate("/login");
       }
     } finally {
       setLoading(false);
@@ -223,19 +228,19 @@ const BuyerProfile = () => {
   // Update user profile - WITH BASE64 IMAGE
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
-    
+
     // Prevent double submission
     if (isSubmitting || imageProcessing) return;
-    
+
     setIsSubmitting(true);
-    
+
     try {
       // Validate required fields
       if (!editFormData.name.trim()) {
         toast.error("Name is required!");
         return;
       }
-      
+
       if (!editFormData.email.trim()) {
         toast.error("Email is required!");
         return;
@@ -260,7 +265,7 @@ const BuyerProfile = () => {
       const updateData = {
         name: editFormData.name.trim(),
         email: editFormData.email.trim(),
-        phone: editFormData.phone?.trim() || "",
+        contactNumber: editFormData.contactNumber?.trim() || "", // Changed from phone to contactNumber
         address: editFormData.address?.trim() || "",
       };
 
@@ -271,9 +276,11 @@ const BuyerProfile = () => {
 
       console.log("Sending update data:", {
         ...updateData,
-        profilePicture: updateData.profilePicture ? 
-          (updateData.profilePicture.startsWith('data:') ? '[Base64 Image Data]' : updateData.profilePicture) 
-          : 'No image'
+        profilePicture: updateData.profilePicture
+          ? updateData.profilePicture.startsWith("data:")
+            ? "[Base64 Image Data]"
+            : updateData.profilePicture
+          : "No image",
       });
 
       const response = await axios.put(
@@ -281,36 +288,37 @@ const BuyerProfile = () => {
         updateData,
         authHeaders
       );
-      
+
       console.log("Update response:", response.data);
-      
+
       if (response.data?.success) {
         toast.success("Profile updated successfully!");
         setIsEditing(false);
         setSelectedImage(null); // Clear selected image
-        
+
         // Update the profile state with new data
         const updatedProfile = { ...profile, ...updateData };
         setProfile(updatedProfile);
-        
+
         // Update user context if available
         if (setUser) {
-          setUser(prev => ({ ...prev, ...updateData }));
+          setUser((prev) => ({ ...prev, ...updateData }));
         }
-        
+
         // Optionally refresh profile data from server
         // await fetchProfile();
       } else {
-        const errorMsg = response.data?.message || "Update failed. Please try again.";
+        const errorMsg =
+          response.data?.message || "Update failed. Please try again.";
         toast.error(errorMsg);
         console.error("Update failed:", response.data);
       }
     } catch (err) {
       console.error("Error updating profile:", err);
       console.error("Error response:", err.response);
-      
+
       let errorMessage = "Failed to update profile. Please try again.";
-      
+
       if (err.response?.data?.message) {
         errorMessage = err.response.data.message;
       } else if (err.response?.data?.error) {
@@ -318,13 +326,13 @@ const BuyerProfile = () => {
       } else if (err.message) {
         errorMessage = err.message;
       }
-      
+
       toast.error(errorMessage);
-      
+
       // If unauthorized, redirect to login
       if (err.response?.status === 401) {
         localStorage.removeItem("auth-token");
-        navigate('/login');
+        navigate("/login");
       }
     } finally {
       setIsSubmitting(false);
@@ -334,20 +342,20 @@ const BuyerProfile = () => {
   // Change password
   const handleChangePassword = async (e) => {
     e.preventDefault();
-    
+
     // Validate passwords
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       toast.error("New passwords don't match!");
       return;
     }
-    
+
     if (passwordData.newPassword.length < 6) {
       toast.error("New password must be at least 6 characters long!");
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
       const authHeaders = getAuthHeaders();
       if (!authHeaders) return;
@@ -356,13 +364,13 @@ const BuyerProfile = () => {
         `${serverURL.url}auth/change-password`,
         {
           currentPassword: passwordData.currentPassword,
-          newPassword: passwordData.newPassword
+          newPassword: passwordData.newPassword,
         },
         authHeaders
       );
-      
+
       console.log("Password change response:", response.data);
-      
+
       if (response.data?.success) {
         toast.success("Password changed successfully!");
         setShowChangePassword(false);
@@ -371,16 +379,18 @@ const BuyerProfile = () => {
           currentPassword: "",
           newPassword: "",
           confirmPassword: "",
-          email: profile?.email || ""
+          email: profile?.email || "",
         });
       } else {
-        toast.error(response.data?.message || "Password change failed. Please try again.");
+        toast.error(
+          response.data?.message || "Password change failed. Please try again."
+        );
       }
     } catch (err) {
       console.error("Error changing password:", err);
       toast.error(
-        err.response?.data?.message || 
-        "Failed to change password. Please try again."
+        err.response?.data?.message ||
+          "Failed to change password. Please try again."
       );
     } finally {
       setIsSubmitting(false);
@@ -390,33 +400,35 @@ const BuyerProfile = () => {
   // Forgot password
   const handleForgotPassword = async (e) => {
     e.preventDefault();
-    
+
     if (!passwordData.email) {
       toast.error("Email is required!");
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
       const response = await axios.post(
         `${serverURL.url}auth/forget-password`,
         { email: passwordData.email }
       );
-      
+
       console.log("Forgot password response:", response.data);
-      
+
       if (response.data?.success) {
         toast.success("Password reset link sent to your email!");
         setShowForgotPassword(false);
       } else {
-        toast.error(response.data?.message || "Request failed. Please try again.");
+        toast.error(
+          response.data?.message || "Request failed. Please try again."
+        );
       }
     } catch (err) {
       console.error("Error in forgot password:", err);
       toast.error(
-        err.response?.data?.message || 
-        "Failed to process request. Please try again."
+        err.response?.data?.message ||
+          "Failed to process request. Please try again."
       );
     } finally {
       setIsSubmitting(false);
@@ -426,37 +438,39 @@ const BuyerProfile = () => {
   // Reset password (simulated - in a real app, this would be on a separate page)
   const handleResetPassword = async (e) => {
     e.preventDefault();
-    
+
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       toast.error("Passwords don't match!");
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
       const response = await axios.post(
         `${serverURL.url}auth/reset-password/${resetToken}`,
-        { 
+        {
           newPassword: passwordData.newPassword,
-          confirmPassword: passwordData.confirmPassword
+          confirmPassword: passwordData.confirmPassword,
         }
       );
-      
+
       console.log("Reset password response:", response.data);
-      
+
       if (response.data?.success) {
         toast.success("Password reset successfully! Please log in.");
         setResetPasswordView(false);
-        navigate('/login');
+        navigate("/login");
       } else {
-        toast.error(response.data?.message || "Reset failed. Please try again.");
+        toast.error(
+          response.data?.message || "Reset failed. Please try again."
+        );
       }
     } catch (err) {
       console.error("Error in reset password:", err);
       toast.error(
-        err.response?.data?.message || 
-        "Failed to reset password. Please try again."
+        err.response?.data?.message ||
+          "Failed to reset password. Please try again."
       );
     } finally {
       setIsSubmitting(false);
@@ -473,24 +487,27 @@ const BuyerProfile = () => {
         `${serverURL.url}auth/profile`,
         authHeaders
       );
-      
+
       console.log("Delete account response:", response.data);
-      
+
       if (response.data?.success) {
         toast.success("Account deleted successfully!");
         localStorage.removeItem("auth-token");
         if (logout) {
           logout();
         }
-        navigate('/login');
+        navigate("/login");
       } else {
-        toast.error(response.data?.message || "Failed to delete account. Please try again.");
+        toast.error(
+          response.data?.message ||
+            "Failed to delete account. Please try again."
+        );
       }
     } catch (err) {
       console.error("Error deleting account:", err);
       toast.error(
-        err.response?.data?.message || 
-        "Failed to delete account. Please try again."
+        err.response?.data?.message ||
+          "Failed to delete account. Please try again."
       );
     }
   };
@@ -499,18 +516,18 @@ const BuyerProfile = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     console.log(`Input changed: ${name} = ${value}`);
-    setEditFormData(prev => ({
+    setEditFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
   // Handle password form changes
   const handlePasswordChange = (e) => {
     const { name, value } = e.target;
-    setPasswordData(prev => ({
+    setPasswordData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
@@ -529,14 +546,14 @@ const BuyerProfile = () => {
     setEditFormData({
       name: profile?.name || "",
       email: profile?.email || "",
-      phone: profile?.phone || "",
+      contactNumber: profile?.contactNumber || "", // Changed from phone to contactNumber
       address: profile?.address || "",
-      profilePicture: profile?.profilePicture || "",
+      profileImg: profile?.profileImg || "", // Changed from profilePicture to profileImg
     });
-    
+
     // Reset image preview to original
-    if (profile?.profilePicture) {
-      setImagePreview(profile.profilePicture);
+    if (profile?.profileImg) {
+      setImagePreview(profile.profileImg);
     } else {
       setImagePreview(null);
     }
@@ -558,7 +575,7 @@ const BuyerProfile = () => {
       currentPassword: "",
       newPassword: "",
       confirmPassword: "",
-      email: profile?.email || ""
+      email: profile?.email || "",
     });
   };
 
@@ -600,18 +617,23 @@ const BuyerProfile = () => {
                   <div className="animate-fade-in-up">
                     <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-8">
                       <div className="relative w-24 h-24 md:w-32 md:h-32 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden border-4 border-orange-200">
-                        {profile?.profilePicture ? (
+                        {profile?.profileImg ? ( // Changed from profilePicture to profileImg
                           <img
-                            src={profile.profilePicture}
+                            src={profile.profileImg} // Changed from profilePicture to profileImg
                             alt={profile.name}
                             className="w-full h-full object-cover"
                             onError={(e) => {
-                              e.target.style.display = 'none';
-                              e.target.nextSibling.style.display = 'flex';
+                              e.target.style.display = "none";
+                              e.target.nextSibling.style.display = "flex";
                             }}
                           />
                         ) : null}
-                        <div className={`w-full h-full items-center justify-center ${profile?.profilePicture ? 'hidden' : 'flex'}`}>
+
+                        <div
+                          className={`w-full h-full items-center justify-center ${
+                            profile?.profileImg ? "hidden" : "flex" // Changed from profilePicture to profileImg
+                          }`}
+                        >
                           <User className="text-orange-500" size={48} />
                         </div>
                       </div>
@@ -625,7 +647,8 @@ const BuyerProfile = () => {
                         </p>
                         <p className="text-gray-500 mb-2 flex items-center">
                           <Phone className="mr-2" size={16} />
-                          {profile?.phone || "No phone provided"}
+                          {profile?.contactNumber || "No phone provided"}{" "}
+                          {/* Changed from phone to contactNumber */}
                         </p>
                         <p className="text-gray-500 flex items-center">
                           <MapPin className="mr-2" size={16} />
@@ -659,21 +682,35 @@ const BuyerProfile = () => {
 
                     {/* Additional Info */}
                     <div className="border-t border-gray-200 pt-6 mt-6">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Account Information</h3>
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                        Account Information
+                      </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="bg-gray-50 rounded-lg p-4">
                           <div className="flex items-center mb-1">
-                            <Calendar className="text-orange-500 mr-2" size={18} />
-                            <p className="text-sm font-medium text-gray-500">Joined On</p>
+                            <Calendar
+                              className="text-orange-500 mr-2"
+                              size={18}
+                            />
+                            <p className="text-sm font-medium text-gray-500">
+                              Joined On
+                            </p>
                           </div>
                           <p className="text-gray-800">
-                            {profile?.createdAt ? formatDate(profile.createdAt) : "N/A"}
+                            {profile?.createdAt
+                              ? formatDate(profile.createdAt)
+                              : "N/A"}
                           </p>
                         </div>
                         <div className="bg-gray-50 rounded-lg p-4">
                           <div className="flex items-center mb-1">
-                            <Shield className="text-orange-500 mr-2" size={18} />
-                            <p className="text-sm font-medium text-gray-500">Role</p>
+                            <Shield
+                              className="text-orange-500 mr-2"
+                              size={18}
+                            />
+                            <p className="text-sm font-medium text-gray-500">
+                              Role
+                            </p>
                           </div>
                           <p className="capitalize text-gray-800">
                             {profile?.role || "User"}
@@ -681,17 +718,26 @@ const BuyerProfile = () => {
                         </div>
                         <div className="bg-gray-50 rounded-lg p-4">
                           <div className="flex items-center mb-1">
-                            <Calendar className="text-orange-500 mr-2" size={18} />
-                            <p className="text-sm font-medium text-gray-500">Last Updated</p>
+                            <Calendar
+                              className="text-orange-500 mr-2"
+                              size={18}
+                            />
+                            <p className="text-sm font-medium text-gray-500">
+                              Last Updated
+                            </p>
                           </div>
                           <p className="text-gray-800">
-                            {profile?.updatedAt ? formatDate(profile.updatedAt) : "N/A"}
+                            {profile?.updatedAt
+                              ? formatDate(profile.updatedAt)
+                              : "N/A"}
                           </p>
                         </div>
                         <div className="bg-gray-50 rounded-lg p-4">
                           <div className="flex items-center mb-1">
                             <User className="text-orange-500 mr-2" size={18} />
-                            <p className="text-sm font-medium text-gray-500">User ID</p>
+                            <p className="text-sm font-medium text-gray-500">
+                              User ID
+                            </p>
                           </div>
                           <p className="text-gray-800 text-sm font-mono">
                             {profile?.id || profile?._id || "N/A"}
@@ -704,7 +750,10 @@ const BuyerProfile = () => {
 
                 {/* Edit Mode */}
                 {isEditing && (
-                  <form onSubmit={handleUpdateProfile} className="animate-fade-in-up">
+                  <form
+                    onSubmit={handleUpdateProfile}
+                    className="animate-fade-in-up"
+                  >
                     <div className="grid grid-cols-1 gap-6">
                       <div className="flex justify-center mb-4">
                         <div className="relative w-32 h-32 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden border-4 border-orange-200">
@@ -714,8 +763,8 @@ const BuyerProfile = () => {
                               alt={editFormData.name || "Profile"}
                               className="w-full h-full object-cover"
                               onError={(e) => {
-                                e.target.style.display = 'none';
-                                e.target.nextSibling.style.display = 'flex';
+                                e.target.style.display = "none";
+                                e.target.nextSibling.style.display = "flex";
                               }}
                             />
                           ) : (
@@ -733,27 +782,32 @@ const BuyerProfile = () => {
                           <ImageIcon size={18} className="text-orange-500" />
                           Profile Picture
                         </label>
-                        
+
                         {/* File Upload Input */}
                         <div className="flex items-center justify-center w-full">
                           <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors duration-200">
                             <div className="flex flex-col items-center justify-center pt-5 pb-6">
                               <Upload className="w-8 h-8 mb-2 text-gray-500" />
                               <p className="mb-2 text-sm text-gray-500">
-                                <span className="font-semibold">Click to upload</span> or drag and drop
+                                <span className="font-semibold">
+                                  Click to upload
+                                </span>{" "}
+                                or drag and drop
                               </p>
-                              <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+                              <p className="text-xs text-gray-500">
+                                PNG, JPG, GIF up to 5MB
+                              </p>
                             </div>
-                            <input 
-                              type="file" 
-                              className="hidden" 
+                            <input
+                              type="file"
+                              className="hidden"
                               accept="image/*"
                               onChange={handleImageChange}
                               disabled={imageProcessing}
                             />
                           </label>
                         </div>
-                        
+
                         {/* Processing Status */}
                         {imageProcessing && (
                           <div className="flex items-center gap-2 text-blue-600">
@@ -761,18 +815,23 @@ const BuyerProfile = () => {
                             <span className="text-sm">Processing image...</span>
                           </div>
                         )}
-                        
+
                         {/* Selected File Info */}
                         {selectedImage && !imageProcessing && (
                           <div className="flex items-center gap-2 text-green-600 mt-2">
                             <ImageIcon size={16} />
-                            <span className="text-sm">Selected: {selectedImage.name}</span>
+                            <span className="text-sm">
+                              Selected: {selectedImage.name}
+                            </span>
                           </div>
                         )}
                       </div>
 
                       <div>
-                        <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                        <label
+                          htmlFor="name"
+                          className="block text-sm font-medium text-gray-700 mb-1"
+                        >
                           Full Name *
                         </label>
                         <input
@@ -787,7 +846,10 @@ const BuyerProfile = () => {
                       </div>
 
                       <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                        <label
+                          htmlFor="email"
+                          className="block text-sm font-medium text-gray-700 mb-1"
+                        >
                           Email Address *
                         </label>
                         <input
@@ -802,14 +864,17 @@ const BuyerProfile = () => {
                       </div>
 
                       <div>
-                        <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                          Contact Number
+                        <label
+                          htmlFor="contactNumber"
+                          className="block text-sm font-medium text-gray-700 mb-1"
+                        >
+                          Contact Number {/* Updated label */}
                         </label>
                         <input
-                          id="phone"
-                          name="phone"
+                          id="contactNumber" // Changed from phone to contactNumber
+                          name="contactNumber" // Changed from phone to contactNumber
                           type="text"
-                          value={editFormData.phone}
+                          value={editFormData.contactNumber} // Changed from phone to contactNumber
                           onChange={handleInputChange}
                           placeholder="Enter your contact number"
                           className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -817,7 +882,10 @@ const BuyerProfile = () => {
                       </div>
 
                       <div>
-                        <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
+                        <label
+                          htmlFor="address"
+                          className="block text-sm font-medium text-gray-700 mb-1"
+                        >
                           Address
                         </label>
                         <textarea
@@ -845,12 +913,18 @@ const BuyerProfile = () => {
                         >
                           {isSubmitting ? (
                             <>
-                              <RefreshCw className="animate-spin mr-2" size={16} />
+                              <RefreshCw
+                                className="animate-spin mr-2"
+                                size={16}
+                              />
                               Saving...
                             </>
                           ) : imageProcessing ? (
                             <>
-                              <RefreshCw className="animate-spin mr-2" size={16} />
+                              <RefreshCw
+                                className="animate-spin mr-2"
+                                size={16}
+                              />
                               Processing...
                             </>
                           ) : (
@@ -878,7 +952,9 @@ const BuyerProfile = () => {
             style={{ animation: "fadeInUp 0.3s ease-out" }}
           >
             <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-amber-50">
-              <h2 className="text-xl font-bold text-gray-800">Change Password</h2>
+              <h2 className="text-xl font-bold text-gray-800">
+                Change Password
+              </h2>
               <button
                 className="text-gray-500 hover:text-gray-700"
                 onClick={resetModals}
@@ -890,7 +966,10 @@ const BuyerProfile = () => {
             <form onSubmit={handleChangePassword} className="p-6">
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label
+                    htmlFor="currentPassword"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
                     Current Password
                   </label>
                   <div className="relative">
@@ -903,11 +982,16 @@ const BuyerProfile = () => {
                       className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                       required
                     />
-                    <Lock className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                    <Lock
+                      className="absolute left-3 top-2.5 text-gray-400"
+                      size={18}
+                    />
                     <button
                       type="button"
                       className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
-                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      onClick={() =>
+                        setShowCurrentPassword(!showCurrentPassword)
+                      }
                     >
                       {showCurrentPassword ? (
                         <EyeOff size={18} />
@@ -919,7 +1003,10 @@ const BuyerProfile = () => {
                 </div>
 
                 <div>
-                  <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label
+                    htmlFor="newPassword"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
                     New Password
                   </label>
                   <div className="relative">
@@ -933,7 +1020,10 @@ const BuyerProfile = () => {
                       required
                       minLength="6"
                     />
-                    <Key className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                    <Key
+                      className="absolute left-3 top-2.5 text-gray-400"
+                      size={18}
+                    />
                     <button
                       type="button"
                       className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
@@ -949,7 +1039,10 @@ const BuyerProfile = () => {
                 </div>
 
                 <div>
-                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label
+                    htmlFor="confirmPassword"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
                     Confirm New Password
                   </label>
                   <div className="relative">
@@ -962,7 +1055,10 @@ const BuyerProfile = () => {
                       className="w-full pl-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                       required
                     />
-                    <Key className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                    <Key
+                      className="absolute left-3 top-2.5 text-gray-400"
+                      size={18}
+                    />
                   </div>
                 </div>
 
@@ -1020,7 +1116,9 @@ const BuyerProfile = () => {
             style={{ animation: "fadeInUp 0.3s ease-out" }}
           >
             <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-amber-50">
-              <h2 className="text-xl font-bold text-gray-800">Forgot Password</h2>
+              <h2 className="text-xl font-bold text-gray-800">
+                Forgot Password
+              </h2>
               <button
                 className="text-gray-500 hover:text-gray-700"
                 onClick={resetModals}
@@ -1033,15 +1131,22 @@ const BuyerProfile = () => {
               <div className="mb-6">
                 <div className="bg-orange-50 border-l-4 border-orange-500 p-4 mb-6">
                   <div className="flex items-start">
-                    <AlertTriangle className="text-orange-500 mr-3 mt-0.5" size={20} />
+                    <AlertTriangle
+                      className="text-orange-500 mr-3 mt-0.5"
+                      size={20}
+                    />
                     <p className="text-sm text-orange-700">
-                      We'll send you a password reset link to your email address. Please check your inbox after submitting.
+                      We'll send you a password reset link to your email
+                      address. Please check your inbox after submitting.
                     </p>
                   </div>
                 </div>
 
                 <div>
-                  <label htmlFor="forgotEmail" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label
+                    htmlFor="forgotEmail"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
                     Email Address
                   </label>
                   <div className="relative">
@@ -1054,7 +1159,10 @@ const BuyerProfile = () => {
                       className="w-full pl-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                       required
                     />
-                    <Mail className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                    <Mail
+                      className="absolute left-3 top-2.5 text-gray-400"
+                      size={18}
+                    />
                   </div>
                 </div>
               </div>
@@ -1098,7 +1206,9 @@ const BuyerProfile = () => {
             style={{ animation: "fadeInUp 0.3s ease-out" }}
           >
             <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-amber-50">
-              <h2 className="text-xl font-bold text-gray-800">Reset Password</h2>
+              <h2 className="text-xl font-bold text-gray-800">
+                Reset Password
+              </h2>
               <button
                 className="text-gray-500 hover:text-gray-700"
                 onClick={resetModals}
@@ -1110,7 +1220,10 @@ const BuyerProfile = () => {
             <form onSubmit={handleResetPassword} className="p-6">
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="resetToken" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label
+                    htmlFor="resetToken"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
                     Reset Token
                   </label>
                   <input
@@ -1125,7 +1238,10 @@ const BuyerProfile = () => {
                 </div>
 
                 <div>
-                  <label htmlFor="resetNewPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label
+                    htmlFor="resetNewPassword"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
                     New Password
                   </label>
                   <div className="relative">
@@ -1139,7 +1255,10 @@ const BuyerProfile = () => {
                       required
                       minLength="6"
                     />
-                    <Key className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                    <Key
+                      className="absolute left-3 top-2.5 text-gray-400"
+                      size={18}
+                    />
                     <button
                       type="button"
                       className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
@@ -1155,7 +1274,10 @@ const BuyerProfile = () => {
                 </div>
 
                 <div>
-                  <label htmlFor="resetConfirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label
+                    htmlFor="resetConfirmPassword"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
                     Confirm New Password
                   </label>
                   <div className="relative">
@@ -1168,7 +1290,10 @@ const BuyerProfile = () => {
                       className="w-full pl-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                       required
                     />
-                    <Key className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                    <Key
+                      className="absolute left-3 top-2.5 text-gray-400"
+                      size={18}
+                    />
                   </div>
                 </div>
               </div>
@@ -1218,7 +1343,8 @@ const BuyerProfile = () => {
               </h3>
             </div>
             <p className="mb-6 text-gray-600">
-              Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed.
+              Are you sure you want to delete your account? This action cannot
+              be undone and all your data will be permanently removed.
             </p>
             <div className="flex justify-end space-x-3">
               <button
