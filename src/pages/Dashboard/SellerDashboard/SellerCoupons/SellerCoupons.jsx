@@ -645,12 +645,12 @@ const SellerCoupons = () => {
                     </span>
                   </div>
 
-                  {coupon.minPurchaseAmount > 0 && (
+                  {/* {coupon.minPurchaseAmount > 0 && (
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <DollarSign size={14} className="text-orange-500" />
-                      <span>Min. Purchase: ৳{coupon.minPurchaseAmount}</span>
+                      <span>Min. Purchase: ${coupon.minPurchaseAmount}</span>
                     </div>
-                  )}
+                  )} */}
                 </div>
 
                 {/* Action Buttons - FIXED EDIT BUTTON */}
@@ -990,7 +990,7 @@ const SellerCoupons = () => {
                 </div>
               </div>
 
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <label className="flex items-center gap-2 text-gray-700 font-medium">
                   <DollarSign size={18} className="text-orange-500" />
                   Minimum Purchase Amount (Optional)
@@ -1004,7 +1004,7 @@ const SellerCoupons = () => {
                   placeholder="0"
                   min="0"
                 />
-              </div>
+              </div> */}
 
               <div className="flex justify-end gap-4 pt-4 border-t border-gray-200">
                 <button

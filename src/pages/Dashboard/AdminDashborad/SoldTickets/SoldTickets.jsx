@@ -472,13 +472,19 @@ const SoldTickets = () => {
                               ticket.status ||
                               "paid") === "paid"
                               ? "bg-green-100 text-green-800"
-                              : (ticket.paymentStatus || ticket.status) ===
-                                "pending"
+                              : (ticket.paymentStatus ||
+                                  ticket.status ||
+                                  "paid") === "pending"
                               ? "bg-yellow-100 text-yellow-800"
-                              : (ticket.paymentStatus || ticket.status) ===
-                                "refunded"
+                              : (ticket.paymentStatus ||
+                                  ticket.status ||
+                                  "paid") === "refunded"
                               ? "bg-blue-100 text-blue-800"
-                              : "bg-red-100 text-red-800"
+                              : (ticket.paymentStatus ||
+                                  ticket.status ||
+                                  "paid") === "failed"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-green-100 text-green-800" // Default to green instead of red
                           }`}
                         >
                           {ticket.paymentStatus || ticket.status || "paid"}
