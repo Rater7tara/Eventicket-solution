@@ -22,7 +22,8 @@ import {
   Shield,
   Send,
   Upload,
-  ImageIcon
+  ImageIcon,
+  XCircle,
 } from "lucide-react";
 import serverURL from "../../../../ServerConfig";
 import { AuthContext } from "../../../../providers/AuthProvider";
@@ -52,26 +53,24 @@ const AdminProfile = () => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   // Edit states
   const [isEditing, setIsEditing] = useState(false);
   const [editFormData, setEditFormData] = useState({
     name: "",
     email: "",
-    phone: "",
+    contactNumber: "",
     address: "",
-    profilePicture: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Image upload states
-  const [selectedImage, setSelectedImage] = useState(null);
+  // Image upload states - Following ManageEvents pattern
   const [imagePreview, setImagePreview] = useState(null);
-  const [imageUploading, setImageUploading] = useState(false);
+  const [imageFile, setImageFile] = useState(null);
 
   // Delete confirmation
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  
+
   // Password states
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -79,13 +78,13 @@ const AdminProfile = () => {
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
-    email: ""
+    email: "",
   });
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [resetToken, setResetToken] = useState("");
   const [resetPasswordView, setResetPasswordView] = useState(false);
-  
+
   // Get auth token from localStorage
   const getAuthToken = () => {
     return localStorage.getItem("auth-token");
@@ -96,7 +95,7 @@ const AdminProfile = () => {
     const token = getAuthToken();
     if (!token) {
       toast.error("No authentication token found. Please login again.");
-      navigate('/login');
+      navigate("/login");
       return null;
     }
     return {
@@ -107,73 +106,46 @@ const AdminProfile = () => {
     };
   };
 
-  // Set up headers for file upload
-  const getFileUploadHeaders = () => {
-    const token = getAuthToken();
-    return {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'multipart/form-data'
-      }
-    };
-  };
-
-  // Handle image file selection
+  // Handle image file selection - Following ManageEvents pattern
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       // Validate file type
-      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
       if (!validTypes.includes(file.type)) {
-        toast.error('Please select a valid image file (JPEG, PNG, or GIF)');
+        toast.error('Please select a valid image file (JPEG, PNG, GIF, or WebP)');
         return;
       }
 
       // Validate file size (max 5MB)
       const maxSize = 5 * 1024 * 1024; // 5MB in bytes
       if (file.size > maxSize) {
-        toast.error('Image file size must be less than 5MB');
+        toast.error('Image size should be less than 5MB');
         return;
       }
 
-      setSelectedImage(file);
+      console.log("🖼️ Image selected:", file.name);
+      setImageFile(file);
       
-      // Create preview
+      // Create preview URL
       const reader = new FileReader();
       reader.onload = (e) => {
         setImagePreview(e.target.result);
       };
       reader.readAsDataURL(file);
-      setError(''); // Clear any previous errors
+      
+      toast.success("Image selected successfully!");
     }
   };
 
-  // Upload image to server
-  const uploadImage = async () => {
-    if (!selectedImage) return null;
-
-    try {
-      setImageUploading(true);
-      const formData = new FormData();
-      formData.append('image', selectedImage);
-
-      // Upload to your image upload endpoint
-      const response = await axios.post(
-        `${serverURL.url}upload/image`, // Adjust this endpoint as needed
-        formData,
-        getFileUploadHeaders()
-      );
-
-      if (response.data && response.data.imageUrl) {
-        return response.data.imageUrl;
-      } else {
-        throw new Error('No image URL returned from server');
-      }
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      throw new Error('Failed to upload image. Please try again.');
-    } finally {
-      setImageUploading(false);
+  // Remove image - Following ManageEvents pattern
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    // Clear the file input
+    const fileInput = document.getElementById('image-upload');
+    if (fileInput) {
+      fileInput.value = '';
     }
   };
 
@@ -182,70 +154,84 @@ const AdminProfile = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      const authHeaders = getAuthHeaders();
-      if (!authHeaders) return;
 
-      const response = await axios.get(
-        `${serverURL.url}auth/profile`,
-        authHeaders
-      );
+      const token = getAuthToken();
+      if (!token) {
+        navigate("/login");
+        return;
+      }
 
-      console.log("Profile data:", response.data);
-      
-      if (response.data?.success && response.data?.data) {
-        const profileData = response.data.data;
+      console.log("📡 Fetching profile...");
+
+      const response = await fetch(`${serverURL.url}auth/profile`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem("auth-token");
+          navigate("/login");
+          return;
+        }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log("📥 Profile response:", result);
+
+      if (result?.success && result?.data) {
+        const profileData = result.data;
         setProfile(profileData);
-        
-        // Initialize edit form with current data
+
+        // Initialize form data
         setEditFormData({
           name: profileData.name || "",
           email: profileData.email || "",
-          phone: profileData.phone || "",
+          contactNumber: profileData.contactNumber || "",
           address: profileData.address || "",
-          profilePicture: profileData.profilePicture || "",
         });
-        
-        // Set current image preview if exists
-        if (profileData.profilePicture) {
-          setImagePreview(profileData.profilePicture);
+
+        // Set image preview if exists
+        if (profileData.profileImg) {
+          setImagePreview(profileData.profileImg);
         }
-        
-        // Set email in password form
-        setPasswordData(prev => ({ ...prev, email: profileData.email || "" }));
+
+        // Set email for password form
+        setPasswordData(prev => ({
+          ...prev,
+          email: profileData.email || "",
+        }));
       } else {
-        throw new Error(response.data?.message || "Invalid response format");
+        throw new Error(result?.message || "Invalid response format");
       }
     } catch (err) {
-      console.error("Error fetching profile:", err);
-      const errorMessage = err.response?.data?.message || 
-                          err.message || 
-                          "Failed to fetch profile data. Please try again.";
+      console.error("❌ Error fetching profile:", err);
+      const errorMessage = err.message || "Failed to fetch profile data.";
       setError(errorMessage);
       toast.error(errorMessage);
-      
-      // If unauthorized, redirect to login
-      if (err.response?.status === 401) {
-        localStorage.removeItem("auth-token");
-        navigate('/login');
-      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Update user profile - ENHANCED WITH IMAGE UPLOAD
+  // Update user profile - Following ManageEvents pattern
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
+
+    if (isSubmitting) return;
     setIsSubmitting(true);
-    
+
     try {
       // Validate required fields
       if (!editFormData.name.trim()) {
         toast.error("Name is required!");
         return;
       }
-      
+
       if (!editFormData.email.trim()) {
         toast.error("Email is required!");
         return;
@@ -253,270 +239,223 @@ const AdminProfile = () => {
 
       // Validate email format
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(editFormData.email)) {
+      if (!emailRegex.test(editFormData.email.trim())) {
         toast.error("Please enter a valid email address!");
         return;
       }
 
-      const authHeaders = getAuthHeaders();
-      if (!authHeaders) return;
-
-      // Clean the data - remove empty strings and trim whitespace
-      let cleanedData = {
-        name: editFormData.name.trim(),
-        email: editFormData.email.trim(),
-        phone: editFormData.phone?.trim() || null,
-        address: editFormData.address?.trim() || null,
-        profilePicture: editFormData.profilePicture?.trim() || null,
-      };
-
-      // Upload new image if selected
-      if (selectedImage) {
-        try {
-          const uploadedImageUrl = await uploadImage();
-          cleanedData.profilePicture = uploadedImageUrl;
-        } catch (uploadError) {
-          toast.error(uploadError.message);
-          setIsSubmitting(false);
-          return;
-        }
+      const token = getAuthToken();
+      if (!token) {
+        throw new Error('Authentication required. Please log in.');
       }
 
-      console.log("Sending update data:", cleanedData);
+      let dataToSubmit;
+      let headers;
 
+      // Following ManageEvents pattern for handling FormData vs JSON
+      if (imageFile) {
+        // Use FormData if there's an image file
+        dataToSubmit = new FormData();
+        
+        // Append all text fields
+        Object.keys(editFormData).forEach(key => {
+          if (editFormData[key] !== null && editFormData[key] !== undefined) {
+            dataToSubmit.append(key, editFormData[key].toString().trim());
+          }
+        });
+
+        // Append the image file
+        dataToSubmit.append('profileImg', imageFile);
+
+        headers = {
+          'Authorization': `Bearer ${token}`,
+          // Don't set Content-Type for FormData, let browser set it with boundary
+        };
+      } else if (imagePreview === null) {
+        // If image was removed, use FormData with removeImage flag
+        dataToSubmit = new FormData();
+        
+        Object.keys(editFormData).forEach(key => {
+          if (editFormData[key] !== null && editFormData[key] !== undefined) {
+            dataToSubmit.append(key, editFormData[key].toString().trim());
+          }
+        });
+
+        dataToSubmit.append('removeImage', 'true');
+
+        headers = {
+          'Authorization': `Bearer ${token}`,
+        };
+      } else {
+        // Use regular JSON for text-only updates
+        dataToSubmit = {
+          name: editFormData.name.trim(),
+          email: editFormData.email.trim(),
+          contactNumber: editFormData.contactNumber?.trim() || '',
+          address: editFormData.address?.trim() || '',
+        };
+
+        headers = {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        };
+      }
+
+      console.log("📨 Sending update request...");
+
+      // Use axios following ManageEvents pattern
       const response = await axios.put(
         `${serverURL.url}auth/profile`,
-        cleanedData,
-        authHeaders
+        dataToSubmit,
+        { headers }
       );
-      
-      console.log("Update response:", response.data);
-      
+
+      console.log("📥 Update response:", response.data);
+
       if (response.data?.success) {
         toast.success("Profile updated successfully!");
         setIsEditing(false);
-        setSelectedImage(null); // Clear selected image
         
-        // Update the profile state with new data
-        const updatedProfile = { ...profile, ...cleanedData };
-        setProfile(updatedProfile);
-        
-        // Update user context if available
-        if (setUser) {
-          setUser(prev => ({ ...prev, ...cleanedData }));
+        // Clean up image states
+        setImageFile(null);
+
+        // Update profile state with new data
+        if (response.data.data) {
+          setProfile(response.data.data);
+          
+          // Update form data
+          setEditFormData({
+            name: response.data.data.name || "",
+            email: response.data.data.email || "",
+            contactNumber: response.data.data.contactNumber || "",
+            address: response.data.data.address || "",
+          });
+
+          // Handle image update
+          if (response.data.data.profileImg) {
+            setImagePreview(response.data.data.profileImg);
+            console.log("🖼️ Profile image updated successfully");
+          } else {
+            setImagePreview(null);
+          }
+
+          // Update user context
+          if (setUser) {
+            setUser(prev => ({ ...prev, ...response.data.data }));
+          }
+        } else {
+          // Refresh profile if no data returned
+          await fetchProfile();
         }
-        
-        // Optionally refetch to get server data
-        // await fetchProfile();
       } else {
-        const errorMsg = response.data?.message || "Update failed. Please try again.";
-        toast.error(errorMsg);
-        console.error("Update failed:", response.data);
+        toast.error(response.data?.message || "Update failed. Please try again.");
       }
-    } catch (err) {
-      console.error("Error updating profile:", err);
-      
-      let errorMessage = "Failed to update profile. Please try again.";
-      
-      if (err.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      } else if (err.response?.data?.error) {
-        errorMessage = err.response.data.error;
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-      
-      toast.error(errorMessage);
-      
-      // If unauthorized, redirect to login
-      if (err.response?.status === 401) {
-        localStorage.removeItem("auth-token");
-        navigate('/login');
-      }
+    } catch (error) {
+      console.error('❌ Error updating profile:', error);
+      toast.error(error.response?.data?.message || error.message || 'Failed to update profile. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Change password
+  // Change password - FIXED: Use oldPassword instead of currentPassword
   const handleChangePassword = async (e) => {
     e.preventDefault();
-    
-    // Validate passwords
+
+    // Enhanced validation
+    if (!passwordData.currentPassword.trim()) {
+      toast.error("Current password is required!");
+      return;
+    }
+
+    if (!passwordData.newPassword.trim()) {
+      toast.error("New password is required!");
+      return;
+    }
+
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       toast.error("New passwords don't match!");
       return;
     }
-    
+
     if (passwordData.newPassword.length < 6) {
       toast.error("New password must be at least 6 characters long!");
       return;
     }
-    
-    setIsSubmitting(true);
-    
-    try {
-      const authHeaders = getAuthHeaders();
-      if (!authHeaders) return;
 
-      const response = await axios.put(
-        `${serverURL.url}auth/change-password`,
-        {
-          currentPassword: passwordData.currentPassword,
-          newPassword: passwordData.newPassword
+    // Check if new password is different from current
+    if (passwordData.currentPassword === passwordData.newPassword) {
+      toast.error("New password must be different from current password!");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const token = getAuthToken();
+      if (!token) {
+        toast.error("Authentication required. Please log in again.");
+        navigate("/login");
+        return;
+      }
+
+      console.log("🔑 Attempting password change...");
+
+      // FIXED: Send oldPassword instead of currentPassword to match API
+      const response = await fetch(`${serverURL.url}auth/change-password`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         },
-        authHeaders
-      );
-      
-      console.log("Password change response:", response.data);
-      
-      if (response.data?.success) {
+        body: JSON.stringify({
+          oldPassword: passwordData.currentPassword.trim(),
+          newPassword: passwordData.newPassword.trim()
+        })
+      });
+
+      const result = await response.json();
+      console.log("🔑 Password change response:", result);
+
+      if (response.ok && result?.success) {
         toast.success("Password changed successfully!");
         setShowChangePassword(false);
         // Reset form
-        setPasswordData({
+        setPasswordData(prev => ({
+          ...prev,
           currentPassword: "",
           newPassword: "",
-          confirmPassword: "",
-          email: profile?.email || ""
-        });
+          confirmPassword: ""
+        }));
       } else {
-        toast.error(response.data?.message || "Password change failed. Please try again.");
+        const errorMessage = result?.message || `Error: ${response.status} ${response.statusText}`;
+        toast.error(errorMessage);
+        console.error("Password change failed:", result);
       }
     } catch (err) {
-      console.error("Error changing password:", err);
-      toast.error(
-        err.response?.data?.message || 
-        "Failed to change password. Please try again."
-      );
+      console.error("❌ Error changing password:", err);
+      toast.error("Network error. Please check your connection and try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Forgot password
-  const handleForgotPassword = async (e) => {
-    e.preventDefault();
-    
-    if (!passwordData.email) {
-      toast.error("Email is required!");
-      return;
-    }
-    
-    setIsSubmitting(true);
-    
-    try {
-      const response = await axios.post(
-        `${serverURL.url}auth/forget-password`,
-        { email: passwordData.email }
-      );
-      
-      console.log("Forgot password response:", response.data);
-      
-      if (response.data?.success) {
-        toast.success("Password reset link sent to your email!");
-        setShowForgotPassword(false);
-      } else {
-        toast.error(response.data?.message || "Request failed. Please try again.");
-      }
-    } catch (err) {
-      console.error("Error in forgot password:", err);
-      toast.error(
-        err.response?.data?.message || 
-        "Failed to process request. Please try again."
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Reset password (simulated - in a real app, this would be on a separate page)
-  const handleResetPassword = async (e) => {
-    e.preventDefault();
-    
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      toast.error("Passwords don't match!");
-      return;
-    }
-    
-    setIsSubmitting(true);
-    
-    try {
-      const response = await axios.post(
-        `${serverURL.url}auth/reset-password/${resetToken}`,
-        { 
-          newPassword: passwordData.newPassword,
-          confirmPassword: passwordData.confirmPassword
-        }
-      );
-      
-      console.log("Reset password response:", response.data);
-      
-      if (response.data?.success) {
-        toast.success("Password reset successfully! Please log in.");
-        setResetPasswordView(false);
-        navigate('/login');
-      } else {
-        toast.error(response.data?.message || "Reset failed. Please try again.");
-      }
-    } catch (err) {
-      console.error("Error in reset password:", err);
-      toast.error(
-        err.response?.data?.message || 
-        "Failed to reset password. Please try again."
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Delete account
-  const handleDeleteAccount = async () => {
-    try {
-      const authHeaders = getAuthHeaders();
-      if (!authHeaders) return;
-
-      const response = await axios.delete(
-        `${serverURL.url}auth/profile`,
-        authHeaders
-      );
-      
-      console.log("Delete account response:", response.data);
-      
-      if (response.data?.success) {
-        toast.success("Account deleted successfully!");
-        localStorage.removeItem("auth-token");
-        if (logout) {
-          logout();
-        }
-        navigate('/login');
-      } else {
-        toast.error(response.data?.message || "Failed to delete account. Please try again.");
-      }
-    } catch (err) {
-      console.error("Error deleting account:", err);
-      toast.error(
-        err.response?.data?.message || 
-        "Failed to delete account. Please try again."
-      );
-    }
-  };
-
-  // Handle form field changes - IMPROVED
+  // Handle form field changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setEditFormData(prev => ({
+    console.log(`Input changed: ${name} = ${value}`);
+    setEditFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
   // Handle password form changes
   const handlePasswordChange = (e) => {
     const { name, value } = e.target;
-    setPasswordData(prev => ({
+    setPasswordData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
@@ -529,31 +468,28 @@ const AdminProfile = () => {
     });
   };
 
-  // Cancel editing - IMPROVED
+  // Cancel editing
   const handleCancelEdit = () => {
     // Reset form data to original profile data
     setEditFormData({
       name: profile?.name || "",
       email: profile?.email || "",
-      phone: profile?.phone || "",
+      contactNumber: profile?.contactNumber || "",
       address: profile?.address || "",
-      profilePicture: profile?.profilePicture || "",
     });
+
+    // Reset image states
+    setImageFile(null);
+    setImagePreview(profile?.profileImg || null);
     
-    // Reset image preview to original
-    if (profile?.profilePicture) {
-      setImagePreview(profile.profilePicture);
-    } else {
-      setImagePreview(null);
+    // Clear the file input
+    const fileInput = document.getElementById('image-upload');
+    if (fileInput) {
+      fileInput.value = '';
     }
-    setSelectedImage(null);
+    
     setIsEditing(false);
   };
-
-  // Load profile data on component mount
-  useEffect(() => {
-    fetchProfile();
-  }, []);
 
   // Reset modal states when closing
   const resetModals = () => {
@@ -564,9 +500,87 @@ const AdminProfile = () => {
       currentPassword: "",
       newPassword: "",
       confirmPassword: "",
-      email: profile?.email || ""
+      email: profile?.email || "",
     });
   };
+
+  // Other handlers remain the same...
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    if (!passwordData.email) {
+      toast.error("Email is required!");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const response = await axios.post(
+        `${serverURL.url}auth/forget-password`,
+        { email: passwordData.email }
+      );
+      if (response.data?.success) {
+        toast.success("Password reset link sent to your email!");
+        setShowForgotPassword(false);
+      } else {
+        toast.error(response.data?.message || "Request failed. Please try again.");
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to process request. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error("Passwords don't match!");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const response = await axios.post(
+        `${serverURL.url}auth/reset-password/${resetToken}`,
+        {
+          newPassword: passwordData.newPassword,
+          confirmPassword: passwordData.confirmPassword,
+        }
+      );
+      if (response.data?.success) {
+        toast.success("Password reset successfully! Please log in.");
+        setResetPasswordView(false);
+        navigate("/login");
+      } else {
+        toast.error(response.data?.message || "Reset failed. Please try again.");
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to reset password. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    try {
+      const authHeaders = getAuthHeaders();
+      if (!authHeaders) return;
+      const response = await axios.delete(`${serverURL.url}auth/profile`, authHeaders);
+      if (response.data?.success) {
+        toast.success("Account deleted successfully!");
+        localStorage.removeItem("auth-token");
+        if (logout) logout();
+        navigate("/login");
+      } else {
+        toast.error(response.data?.message || "Failed to delete account. Please try again.");
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to delete account. Please try again.");
+    }
+  };
+
+  // Load profile data on component mount
+  useEffect(() => {
+    fetchProfile();
+  }, []);
 
   return (
     <div className="bg-gray-50 min-h-screen p-6">
@@ -605,22 +619,25 @@ const AdminProfile = () => {
                 {!isEditing && (
                   <div className="animate-fade-in-up">
                     <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-8">
+                      {/* Profile Image */}
                       <div className="relative w-24 h-24 md:w-32 md:h-32 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden border-4 border-orange-200">
-                        {profile?.profilePicture ? (
+                        {profile?.profileImg ? (
                           <img
-                            src={profile.profilePicture}
-                            alt={profile.name}
+                            src={profile.profileImg}
+                            alt={profile?.name || "Profile"}
                             className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                              e.target.nextSibling.style.display = 'flex';
+                            onError={() => {
+                              console.error("Failed to load profile image");
+                            }}
+                            onLoad={() => {
+                              console.log("✅ Profile image loaded successfully");
                             }}
                           />
-                        ) : null}
-                        <div className={`w-full h-full items-center justify-center ${profile?.profilePicture ? 'hidden' : 'flex'}`}>
+                        ) : (
                           <User className="text-orange-500" size={48} />
-                        </div>
+                        )}
                       </div>
+                      
                       <div className="flex-1">
                         <h2 className="text-2xl font-bold text-gray-800 mb-1">
                           {profile?.name || "User"}
@@ -631,7 +648,7 @@ const AdminProfile = () => {
                         </p>
                         <p className="text-gray-500 mb-2 flex items-center">
                           <Phone className="mr-2" size={16} />
-                          {profile?.phone || "No phone provided"}
+                          {profile?.contactNumber || "No phone provided"}
                         </p>
                         <p className="text-gray-500 flex items-center">
                           <MapPin className="mr-2" size={16} />
@@ -665,7 +682,9 @@ const AdminProfile = () => {
 
                     {/* Additional Info */}
                     <div className="border-t border-gray-200 pt-6 mt-6">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Account Information</h3>
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                        Account Information
+                      </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="bg-gray-50 rounded-lg p-4">
                           <div className="flex items-center mb-1">
@@ -681,9 +700,7 @@ const AdminProfile = () => {
                             <Shield className="text-orange-500 mr-2" size={18} />
                             <p className="text-sm font-medium text-gray-500">Role</p>
                           </div>
-                          <p className="capitalize text-gray-800">
-                            {profile?.role || "User"}
-                          </p>
+                          <p className="capitalize text-gray-800">{profile?.role || "User"}</p>
                         </div>
                         <div className="bg-gray-50 rounded-lg p-4">
                           <div className="flex items-center mb-1">
@@ -712,60 +729,52 @@ const AdminProfile = () => {
                 {isEditing && (
                   <form onSubmit={handleUpdateProfile} className="animate-fade-in-up">
                     <div className="grid grid-cols-1 gap-6">
-                      <div className="flex justify-center mb-4">
-                        <div className="relative w-32 h-32 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden border-4 border-orange-200">
-                          {imagePreview ? (
-                            <img
-                              src={imagePreview}
-                              alt={editFormData.name || "Profile"}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                                e.target.nextSibling.style.display = 'flex';
-                              }}
-                            />
-                          ) : (
-                            <User className="text-orange-500" size={48} />
-                          )}
-                          <div className="hidden w-full h-full items-center justify-center">
-                            <User className="text-orange-500" size={48} />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Image Upload */}
-                      <div className="space-y-2">
-                        <label className="flex items-center gap-2 text-gray-700 font-medium">
-                          <ImageIcon size={18} className="text-orange-500" />
+                      
+                      {/* Image Upload Section - Following ManageEvents pattern */}
+                      <div className="mb-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
                           Profile Picture
                         </label>
                         
-                        {/* File Upload Input */}
-                        <div className="flex items-center justify-center w-full">
-                          <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors duration-200">
-                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                              <Upload className="w-8 h-8 mb-2 text-gray-500" />
-                              <p className="mb-2 text-sm text-gray-500">
-                                <span className="font-semibold">Click to upload</span> or drag and drop
-                              </p>
-                              <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+                        {/* Image Preview */}
+                        {imagePreview ? (
+                          <div className="relative mb-4">
+                            <div className="w-32 h-32 mx-auto">
+                              <img
+                                src={imagePreview}
+                                alt="Profile preview"
+                                className="w-full h-full object-cover rounded-full border border-gray-300"
+                              />
+                              <button
+                                type="button"
+                                onClick={handleRemoveImage}
+                                className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors duration-200"
+                                title="Remove image"
+                              >
+                                <XCircle size={20} />
+                              </button>
                             </div>
-                            <input 
-                              type="file" 
-                              className="hidden" 
-                              accept="image/*"
-                              onChange={handleImageChange}
-                            />
-                          </label>
-                        </div>
-                        
-                        {/* Upload Status */}
-                        {imageUploading && (
-                          <div className="flex items-center gap-2 text-blue-600">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                            <span className="text-sm">Uploading image...</span>
+                          </div>
+                        ) : (
+                          <div className="w-32 h-32 mx-auto border-2 border-dashed border-gray-300 rounded-full flex items-center justify-center mb-4 bg-gray-50">
+                            <div className="text-center">
+                              <User className="mx-auto text-gray-400 mb-2" size={48} />
+                              <p className="text-gray-500 text-sm">No image</p>
+                            </div>
                           </div>
                         )}
+
+                        {/* File Input */}
+                        <input
+                          type="file"
+                          id="image-upload"
+                          accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                          onChange={handleImageChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Supported formats: JPEG, PNG, GIF, WebP. Max size: 5MB
+                        </p>
                       </div>
 
                       <div>
@@ -799,15 +808,16 @@ const AdminProfile = () => {
                       </div>
 
                       <div>
-                        <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                          Phone Number
+                        <label htmlFor="contactNumber" className="block text-sm font-medium text-gray-700 mb-1">
+                          Contact Number
                         </label>
                         <input
-                          id="phone"
-                          name="phone"
+                          id="contactNumber"
+                          name="contactNumber"
                           type="text"
-                          value={editFormData.phone}
+                          value={editFormData.contactNumber}
                           onChange={handleInputChange}
+                          placeholder="Enter your contact number"
                           className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                         />
                       </div>
@@ -831,23 +841,19 @@ const AdminProfile = () => {
                           type="button"
                           className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 text-gray-800 transition-colors duration-200 font-medium cursor-pointer"
                           onClick={handleCancelEdit}
+                          disabled={isSubmitting}
                         >
                           Cancel
                         </button>
                         <button
                           type="submit"
-                          className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors duration-200 shadow-md font-medium cursor-pointer flex items-center"
-                          disabled={isSubmitting || imageUploading}
+                          className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors duration-200 shadow-md font-medium cursor-pointer flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={isSubmitting}
                         >
                           {isSubmitting ? (
                             <>
                               <RefreshCw className="animate-spin mr-2" size={16} />
                               Saving...
-                            </>
-                          ) : imageUploading ? (
-                            <>
-                              <RefreshCw className="animate-spin mr-2" size={16} />
-                              Uploading Image...
                             </>
                           ) : (
                             <>
@@ -874,7 +880,9 @@ const AdminProfile = () => {
             style={{ animation: "fadeInUp 0.3s ease-out" }}
           >
             <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-amber-50">
-              <h2 className="text-xl font-bold text-gray-800">Change Password</h2>
+              <h2 className="text-xl font-bold text-gray-800">
+                Change Password
+              </h2>
               <button
                 className="text-gray-500 hover:text-gray-700"
                 onClick={resetModals}
@@ -886,7 +894,10 @@ const AdminProfile = () => {
             <form onSubmit={handleChangePassword} className="p-6">
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label
+                    htmlFor="currentPassword"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
                     Current Password
                   </label>
                   <div className="relative">
@@ -899,11 +910,16 @@ const AdminProfile = () => {
                       className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                       required
                     />
-                    <Lock className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                    <Lock
+                      className="absolute left-3 top-2.5 text-gray-400"
+                      size={18}
+                    />
                     <button
                       type="button"
                       className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
-                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      onClick={() =>
+                        setShowCurrentPassword(!showCurrentPassword)
+                      }
                     >
                       {showCurrentPassword ? (
                         <EyeOff size={18} />
@@ -915,7 +931,10 @@ const AdminProfile = () => {
                 </div>
 
                 <div>
-                  <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label
+                    htmlFor="newPassword"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
                     New Password
                   </label>
                   <div className="relative">
@@ -929,7 +948,10 @@ const AdminProfile = () => {
                       required
                       minLength="6"
                     />
-                    <Key className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                    <Key
+                      className="absolute left-3 top-2.5 text-gray-400"
+                      size={18}
+                    />
                     <button
                       type="button"
                       className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
@@ -945,7 +967,10 @@ const AdminProfile = () => {
                 </div>
 
                 <div>
-                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label
+                    htmlFor="confirmPassword"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
                     Confirm New Password
                   </label>
                   <div className="relative">
@@ -958,7 +983,10 @@ const AdminProfile = () => {
                       className="w-full pl-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                       required
                     />
-                    <Key className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                    <Key
+                      className="absolute left-3 top-2.5 text-gray-400"
+                      size={18}
+                    />
                   </div>
                 </div>
 
@@ -1016,7 +1044,9 @@ const AdminProfile = () => {
             style={{ animation: "fadeInUp 0.3s ease-out" }}
           >
             <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-amber-50">
-              <h2 className="text-xl font-bold text-gray-800">Forgot Password</h2>
+              <h2 className="text-xl font-bold text-gray-800">
+                Forgot Password
+              </h2>
               <button
                 className="text-gray-500 hover:text-gray-700"
                 onClick={resetModals}
@@ -1029,15 +1059,22 @@ const AdminProfile = () => {
               <div className="mb-6">
                 <div className="bg-orange-50 border-l-4 border-orange-500 p-4 mb-6">
                   <div className="flex items-start">
-                    <AlertTriangle className="text-orange-500 mr-3 mt-0.5" size={20} />
+                    <AlertTriangle
+                      className="text-orange-500 mr-3 mt-0.5"
+                      size={20}
+                    />
                     <p className="text-sm text-orange-700">
-                      We'll send you a password reset link to your email address. Please check your inbox after submitting.
+                      We'll send you a password reset link to your email
+                      address. Please check your inbox after submitting.
                     </p>
                   </div>
                 </div>
 
                 <div>
-                  <label htmlFor="forgotEmail" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label
+                    htmlFor="forgotEmail"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
                     Email Address
                   </label>
                   <div className="relative">
@@ -1050,7 +1087,10 @@ const AdminProfile = () => {
                       className="w-full pl-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                       required
                     />
-                    <Mail className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                    <Mail
+                      className="absolute left-3 top-2.5 text-gray-400"
+                      size={18}
+                    />
                   </div>
                 </div>
               </div>
@@ -1086,7 +1126,7 @@ const AdminProfile = () => {
         </div>
       )}
 
-      {/* Reset Password Modal (Simulated) */}
+      {/* Reset Password Modal */}
       {resetPasswordView && (
         <div className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity duration-300 ease-in-out">
           <div
@@ -1094,7 +1134,9 @@ const AdminProfile = () => {
             style={{ animation: "fadeInUp 0.3s ease-out" }}
           >
             <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-amber-50">
-              <h2 className="text-xl font-bold text-gray-800">Reset Password</h2>
+              <h2 className="text-xl font-bold text-gray-800">
+                Reset Password
+              </h2>
               <button
                 className="text-gray-500 hover:text-gray-700"
                 onClick={resetModals}
@@ -1106,7 +1148,10 @@ const AdminProfile = () => {
             <form onSubmit={handleResetPassword} className="p-6">
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="resetToken" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label
+                    htmlFor="resetToken"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
                     Reset Token
                   </label>
                   <input
@@ -1121,7 +1166,10 @@ const AdminProfile = () => {
                 </div>
 
                 <div>
-                  <label htmlFor="resetNewPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label
+                    htmlFor="resetNewPassword"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
                     New Password
                   </label>
                   <div className="relative">
@@ -1135,7 +1183,10 @@ const AdminProfile = () => {
                       required
                       minLength="6"
                     />
-                    <Key className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                    <Key
+                      className="absolute left-3 top-2.5 text-gray-400"
+                      size={18}
+                    />
                     <button
                       type="button"
                       className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
@@ -1151,7 +1202,10 @@ const AdminProfile = () => {
                 </div>
 
                 <div>
-                  <label htmlFor="resetConfirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label
+                    htmlFor="resetConfirmPassword"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
                     Confirm New Password
                   </label>
                   <div className="relative">
@@ -1164,7 +1218,10 @@ const AdminProfile = () => {
                       className="w-full pl-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                       required
                     />
-                    <Key className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                    <Key
+                      className="absolute left-3 top-2.5 text-gray-400"
+                      size={18}
+                    />
                   </div>
                 </div>
               </div>
@@ -1214,7 +1271,8 @@ const AdminProfile = () => {
               </h3>
             </div>
             <p className="mb-6 text-gray-600">
-              Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed.
+              Are you sure you want to delete your account? This action cannot
+              be undone and all your data will be permanently removed.
             </p>
             <div className="flex justify-end space-x-3">
               <button

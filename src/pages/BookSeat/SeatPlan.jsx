@@ -402,7 +402,7 @@ useEffect(() => {
 
       // Auto-redirect after 3 seconds
       setTimeout(() => {
-        navigate("/dashboard/my-events", {
+        navigate("/dashboard/my-tickets", {
           state: {
             message: `Successfully reserved ${formattedSeats.length} seats for your event.`,
           },

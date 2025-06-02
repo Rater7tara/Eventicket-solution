@@ -1,389 +1,495 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { Ticket, CalendarCheck } from 'lucide-react';
+import { 
+  Ticket, 
+  CalendarCheck, 
+  Search, 
+  User, 
+  Calendar,
+  Clock,
+  MapPin,
+  TrendingUp,
+  ShoppingBag,
+  Eye,
+  AlertCircle,
+  RefreshCw
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { AuthContext } from '../../../providers/AuthProvider'; // Adjust path as needed
+import { AuthContext } from '../../../providers/AuthProvider';
 import serverURL from '../../../ServerConfig';
+import { toast } from 'react-toastify';
 
 const BuyerDashboard = () => {
-    const { user } = useContext(AuthContext);
-    const [stats, setStats] = useState({
-        upcomingEvents: 0,
-        ticketsPurchased: 0,
-    });
-    const [loading, setLoading] = useState(true);
-    const [debug, setDebug] = useState({
-        error: null,
-        responseStatus: null,
-        rawResponse: null,
-        parsedResponse: null,
-    });
+  const { user } = useContext(AuthContext);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [stats, setStats] = useState({
+    totalTickets: 0,
+    upcomingEvents: 0,
+    totalSpent: 0,
+    recentTickets: []
+  });
 
-    // Load user's ticket data from API
-    useEffect(() => {
-        const fetchTickets = async () => {
-            try {
-                setLoading(true);
-                
-                console.log('Fetching tickets...');
-                
-                // Try multiple token sources
-                let token = null;
-                
-                if (user?.token) {
-                    console.log('Using token from user context');
-                    token = user.token;
-                } else if (localStorage.getItem('token')) {
-                    console.log('Using token from localStorage');
-                    token = localStorage.getItem('token');
-                } else if (sessionStorage.getItem('token')) {
-                    console.log('Using token from sessionStorage');
-                    token = sessionStorage.getItem('token');
-                } else {
-                    console.log('No token found');
-                }
-                
-                // Try with different authorization header formats
-                let headers = {
-                    'Content-Type': 'application/json',
-                };
-                
-                if (token) {
-                    // Try standard Bearer token format
-                    headers['Authorization'] = `Bearer ${token}`;
-                }
-                
-                console.log('Using headers:', headers);
-                
-                // First, let's try checking if the endpoint requires a different path
-                // Try the exact path provided
-                let apiUrl = `${serverURL.url}user/purchased-tickets`;
-                console.log(`Trying API endpoint: ${apiUrl}`);
-                
-                let response = await fetch(apiUrl, {
-                    method: 'GET',
-                    headers: headers,
-                });
-                
-                console.log(`Response status: ${response.status}`);
-                setDebug(prev => ({...prev, responseStatus: response.status}));
-                
-                if (!response.ok) {
-                    // If the first attempt fails, try with /api prefix
-                    if (response.status === 404) {
-                        console.log('Endpoint not found, trying with /api prefix');
-                        apiUrl = `${serverURL.url}user/purchased-tickets`;
-                        console.log(`Trying alternate API endpoint: ${apiUrl}`);
-                        
-                        response = await fetch(apiUrl, {
-                            method: 'GET',
-                            headers: headers,
-                        });
-                        
-                        console.log(`Response status (second attempt): ${response.status}`);
-                        setDebug(prev => ({...prev, responseStatus: response.status}));
-                    }
-                }
-                
-                // Store the raw response text for debugging
-                const responseText = await response.text();
-                console.log('Raw response:', responseText);
-                setDebug(prev => ({...prev, rawResponse: responseText}));
-                
-                // Try to parse as JSON
-                let ticketData;
-                try {
-                    ticketData = JSON.parse(responseText);
-                    console.log('Parsed ticket data:', ticketData);
-                    setDebug(prev => ({...prev, parsedResponse: ticketData}));
-                } catch (parseError) {
-                    console.error('Error parsing response as JSON:', parseError);
-                    setDebug(prev => ({...prev, error: `Error parsing JSON: ${parseError.message}`}));
-                    throw new Error(`Could not parse response as JSON: ${parseError.message}`);
-                }
-                
-                // Try multiple ways to extract ticket data from the response
-                let tickets = [];
-                
-                console.log('Attempting to extract tickets from response...');
-                
-                // Check various possible response structures
-                if (Array.isArray(ticketData)) {
-                    console.log('Response is a direct array of tickets');
-                    tickets = ticketData;
-                } else if (ticketData.tickets && Array.isArray(ticketData.tickets)) {
-                    console.log('Found tickets in ticketData.tickets');
-                    tickets = ticketData.tickets;
-                } else if (ticketData.data && Array.isArray(ticketData.data)) {
-                    console.log('Found tickets in ticketData.data');
-                    tickets = ticketData.data;
-                } else if (ticketData.results && Array.isArray(ticketData.results)) {
-                    console.log('Found tickets in ticketData.results');
-                    tickets = ticketData.results;
-                } else {
-                    // Try to find any array in the response that might contain tickets
-                    const findArrays = (obj, path = '') => {
-                        if (!obj || typeof obj !== 'object') return [];
-                        
-                        let results = [];
-                        for (const key in obj) {
-                            const newPath = path ? `${path}.${key}` : key;
-                            if (Array.isArray(obj[key])) {
-                                results.push({ path: newPath, array: obj[key] });
-                            } else if (typeof obj[key] === 'object' && obj[key] !== null) {
-                                results = [...results, ...findArrays(obj[key], newPath)];
-                            }
-                        }
-                        return results;
-                    };
-                    
-                    const possibleArrays = findArrays(ticketData);
-                    console.log('Potential ticket arrays found:', possibleArrays);
-                    
-                    if (possibleArrays.length > 0) {
-                        // Use the largest array found as it's most likely to be the tickets list
-                        const largestArray = possibleArrays.reduce((max, curr) => 
-                            curr.array.length > max.array.length ? curr : max, possibleArrays[0]);
-                        
-                        console.log(`Using array at path ${largestArray.path} with ${largestArray.array.length} items`);
-                        tickets = largestArray.array;
-                    } else {
-                        console.log('No arrays found in response');
-                    }
-                }
-                
-                console.log(`Found ${tickets.length} tickets`);
-                
-                // Count unique upcoming events (events with future dates)
-                const currentDate = new Date();
-                const uniqueEventIds = new Set();
-                
-                tickets.forEach(ticket => {
-                    console.log('Processing ticket:', ticket);
-                    
-                    let eventDate = null;
-                    let eventId = null;
-                    
-                    // Try various ways the event date might be stored
-                    if (ticket.event && ticket.event.date) {
-                        eventDate = new Date(ticket.event.date);
-                        eventId = ticket.event.id || ticket.eventId;
-                    } else if (ticket.eventDate) {
-                        eventDate = new Date(ticket.eventDate);
-                        eventId = ticket.eventId || ticket.id;
-                    } else if (ticket.date) {
-                        eventDate = new Date(ticket.date);
-                        eventId = ticket.id;
-                    } else if (ticket.event && ticket.event.startDate) {
-                        eventDate = new Date(ticket.event.startDate);
-                        eventId = ticket.event.id || ticket.eventId;
-                    } else if (ticket.startDate) {
-                        eventDate = new Date(ticket.startDate);
-                        eventId = ticket.id;
-                    }
-                    
-                    // If we found a date, check if it's in the future
-                    if (eventDate && eventId) {
-                        console.log(`Event date: ${eventDate}, Current date: ${currentDate}`);
-                        if (eventDate > currentDate) {
-                            uniqueEventIds.add(eventId);
-                            console.log(`Added upcoming event: ${eventId}`);
-                        }
-                    }
-                });
-                
-                const upcomingEventsCount = uniqueEventIds.size;
-                console.log(`Upcoming events count: ${upcomingEventsCount}`);
-                
-                // Update the stats with our findings
-                setStats({
-                    upcomingEvents: upcomingEventsCount,
-                    ticketsPurchased: tickets.length
-                });
-                
-                setLoading(false);
-            } catch (error) {
-                console.error('Error loading dashboard data:', error);
-                setDebug(prev => ({...prev, error: error.message}));
-                setLoading(false);
-                setStats({
-                    upcomingEvents: 0,
-                    ticketsPurchased: 0
-                });
-            }
-        };
+  // Get auth token
+  const getAuthToken = () => {
+    return localStorage.getItem('auth-token');
+  };
+
+  // Fetch purchased tickets data
+  const fetchTicketsData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const token = getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token found. Please log in again.');
+      }
+
+      console.log('🎫 Fetching my orders...');
+
+      // FIXED: Using correct endpoint
+      const response = await fetch(`${serverURL.url}orders/my-orders`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('auth-token');
+          throw new Error('Session expired. Please log in again.');
+        }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('🎫 Orders response:', result);
+
+      // Extract orders data from response
+      let orders = [];
+      if (result.success && result.data) {
+        orders = Array.isArray(result.data) ? result.data : [];
+      } else if (Array.isArray(result)) {
+        orders = result;
+      } else if (result.orders && Array.isArray(result.orders)) {
+        orders = result.orders;
+      } else if (result.data && Array.isArray(result.data.orders)) {
+        orders = result.data.orders;
+      }
+
+      console.log(`🎫 Found ${orders.length} orders`);
+
+      // Calculate stats from orders
+      const currentDate = new Date();
+      let upcomingEvents = 0;
+      let totalSpent = 0;
+      let totalTickets = 0;
+      const uniqueEventIds = new Set();
+
+      orders.forEach(order => {
+        console.log('Processing order:', order);
         
-        fetchTickets();
-    }, [user]);
+        // Count total spent
+        if (order.totalAmount || order.amount || order.price) {
+          totalSpent += parseFloat(order.totalAmount || order.amount || order.price || 0);
+        }
 
-    // Toggle debug information visibility
-    const [showDebug, setShowDebug] = useState(false);
-    
-    // Show loading state
-    if (loading) {
-        return (
-            <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500 mx-auto mb-4"></div>
-                <h2 className="text-xl font-semibold text-gray-700">Loading your dashboard...</h2>
-            </div>
-        );
+        // Count total tickets (quantity in each order)
+        if (order.quantity || order.tickets || order.numberOfTickets) {
+          totalTickets += parseInt(order.quantity || order.tickets || order.numberOfTickets || 1);
+        } else {
+          totalTickets += 1; // Default to 1 ticket per order if no quantity specified
+        }
+
+        // Count upcoming events
+        let eventDate = null;
+        let eventId = null;
+
+        // Try various ways the event data might be stored
+        if (order.eventId) {
+          if (typeof order.eventId === 'object') {
+            eventDate = order.eventId.date ? new Date(order.eventId.date) : null;
+            eventId = order.eventId._id || order.eventId.id;
+          } else {
+            eventId = order.eventId;
+          }
+        } else if (order.event) {
+          eventDate = order.event.date ? new Date(order.event.date) : null;
+          eventId = order.event._id || order.event.id;
+        } else if (order.eventDate) {
+          eventDate = new Date(order.eventDate);
+          eventId = order._id; // Use order ID as fallback
+        }
+
+        // If we found a future event, add it to upcoming count
+        if (eventDate && eventDate > currentDate && eventId) {
+          uniqueEventIds.add(eventId);
+        }
+      });
+
+      upcomingEvents = uniqueEventIds.size;
+
+      console.log(`📊 Stats calculated:`, {
+        totalTickets,
+        upcomingEvents, 
+        totalSpent,
+        ordersCount: orders.length
+      });
+
+      setStats({
+        totalTickets,
+        upcomingEvents,
+        totalSpent,
+        recentTickets: orders.slice(0, 5) // Show 5 most recent orders
+      });
+
+    } catch (err) {
+      console.error('❌ Error fetching orders:', err);
+      setError(err.message);
+      setStats({
+        totalTickets: 0,
+        upcomingEvents: 0,
+        totalSpent: 0,
+        recentTickets: []
+      });
+    } finally {
+      setLoading(false);
     }
+  };
 
+  // Handle refresh
+  const handleRefresh = () => {
+    fetchTicketsData();
+    toast.success('Dashboard refreshed!');
+  };
+
+  // Format currency
+  const formatCurrency = (amount) => {
+    return `$${amount?.toLocaleString() || 0}`;
+  };
+
+  // Format date
+  const formatDate = (dateString) => {
+    if (!dateString) return "Date TBD";
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  // Get greeting based on time
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+  };
+
+  useEffect(() => {
+    fetchTicketsData();
+  }, []);
+
+  if (loading) {
     return (
-        <div className="max-w-4xl mx-auto">
-            <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 mb-8">
-                <h2 className="text-2xl font-bold text-white mb-2">
-                    My Tickets Dashboard
-                </h2>
-                <p className="text-orange-100">Welcome back! Here's an overview of your tickets.</p>
-                {/* Debug toggle button - REMOVE IN PRODUCTION */}
-                <button 
-                    onClick={() => setShowDebug(!showDebug)}
-                    className="text-xs bg-orange-700 text-white px-2 py-1 rounded mt-2"
-                >
-                    {showDebug ? 'Hide' : 'Show'} Debug Info
-                </button>
-            </div>
-            
-            {/* Debug info panel - REMOVE IN PRODUCTION */}
-            {showDebug && (
-                <div className="bg-gray-100 p-4 rounded-xl mb-8 text-xs font-mono overflow-auto">
-                    <h3 className="font-bold mb-2">Debug Information</h3>
-                    <p><strong>Error:</strong> {debug.error || 'None'}</p>
-                    <p><strong>Response Status:</strong> {debug.responseStatus || 'Unknown'}</p>
-                    <div className="mt-2">
-                        <p><strong>Raw Response:</strong></p>
-                        <pre className="bg-gray-200 p-2 rounded mt-1 max-h-32 overflow-auto">
-                            {debug.rawResponse || 'None'}
-                        </pre>
-                    </div>
-                    <div className="mt-2">
-                        <p><strong>Parsed Response:</strong></p>
-                        <pre className="bg-gray-200 p-2 rounded mt-1 max-h-32 overflow-auto">
-                            {debug.parsedResponse ? JSON.stringify(debug.parsedResponse, null, 2) : 'None'}
-                        </pre>
-                    </div>
-                </div>
-            )}
-            
-            {/* Stats Cards Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <div className="bg-white rounded-xl p-6 shadow-md border border-gray-100 hover:shadow-lg transition-shadow duration-300">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <p className="text-orange-600 font-medium">Upcoming Events</p>
-                            <h3 className="text-3xl font-bold text-gray-800 mt-1">{stats.upcomingEvents || 0}</h3>
-                            <p className="text-gray-500 text-sm mt-1">Events you're attending</p>
-                        </div>
-                        <div className="bg-orange-100 p-4 rounded-full">
-                            <CalendarCheck size={28} className="text-orange-500" />
-                        </div>
-                    </div>
-                    <div className="mt-6">
-                        <Link 
-                            to="/dashboard/my-tickets"
-                            className="text-orange-600 hover:text-orange-700 text-sm font-medium flex items-center"
-                        >
-                            View Calendar
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                            </svg>
-                        </Link>
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-xl p-6 shadow-md border border-gray-100 hover:shadow-lg transition-shadow duration-300">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <p className="text-purple-600 font-medium">Tickets Purchased</p>
-                            <h3 className="text-3xl font-bold text-gray-800 mt-1">{stats.ticketsPurchased || 0}</h3>
-                            <p className="text-gray-500 text-sm mt-1">Total tickets bought</p>
-                        </div>
-                        <div className="bg-purple-100 p-4 rounded-full">
-                            <Ticket size={28} className="text-purple-500" />
-                        </div>
-                    </div>
-                    <div className="mt-6">
-                        <Link 
-                            to="/dashboard/my-tickets"
-                            className="text-purple-600 hover:text-purple-700 text-sm font-medium flex items-center"
-                        >
-                            View All Tickets
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                            </svg>
-                        </Link>
-                    </div>
-                </div>
-            </div>
-
-            {/* Rest of dashboard code remains the same */}
-            {/* Quick Actions Section */}
-            <div className="bg-white rounded-xl p-6 shadow-md border border-gray-100 mb-8">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    <Link 
-                        to="/events"
-                        className="flex flex-col items-center justify-center p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                        <span className="text-sm font-medium text-gray-700">Browse Events</span>
-                    </Link>
-                    
-                    <Link 
-                        to="/dashboard/my-tickets"
-                        className="flex flex-col items-center justify-center p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-purple-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
-                        </svg>
-                        <span className="text-sm font-medium text-gray-700">View My Tickets</span>
-                    </Link>
-                    
-                    <Link 
-                        to="/profile"
-                        className="flex flex-col items-center justify-center p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-green-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                        <span className="text-sm font-medium text-gray-700">My Profile</span>
-                    </Link>
-                </div>
-            </div>
-
-            {/* Recommended Events Content Placeholder */}
-            <div className="bg-gradient-to-r from-gray-100 to-gray-200 rounded-xl p-6 shadow-md">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-lg font-semibold text-gray-800">Popular Events</h3>
-                    <Link 
-                        to="/events"
-                        className="text-orange-600 hover:text-orange-700 text-sm font-medium flex items-center"
-                    >
-                        View All
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                        </svg>
-                    </Link>
-                </div>
-                
-                <div className="text-center py-8">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                    <h3 className="text-lg font-medium text-gray-700 mb-2">Discover Great Events</h3>
-                    <p className="text-gray-500 mb-4">Check out the latest events that match your interests</p>
-                    <Link 
-                        to="/events"
-                        className="inline-flex items-center px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors"
-                    >
-                        Explore Events
-                    </Link>
-                </div>
-            </div>
-        </div>
+      <div className="flex justify-center items-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
+      </div>
     );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Welcome Header */}
+      <div className="bg-gradient-to-r from-orange-500 to-pink-500 rounded-xl overflow-hidden">
+        <div className="px-8 py-12 text-white">
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">
+                {getGreeting()}, {user?.name || 'there'}!
+              </h1>
+              <p className="text-xl opacity-90 mb-6">
+                Welcome to your ticket dashboard. Manage your events and discover new experiences.
+              </p>
+              
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Link
+                  to="/event-list"
+                  className="inline-flex items-center justify-center bg-white text-orange-600 font-semibold px-6 py-3 rounded-lg shadow-lg hover:bg-gray-50 transition-colors duration-200"
+                >
+                  <Search className="mr-2" size={18} />
+                  Browse Events
+                </Link>
+                
+                <Link
+                  to="/dashboard/my-tickets"
+                  className="inline-flex items-center justify-center bg-orange-600 bg-opacity-30 text-white border border-white border-opacity-30 px-6 py-3 rounded-lg hover:bg-opacity-40 transition-colors duration-200"
+                >
+                  <Ticket className="mr-2" size={18} />
+                  My Tickets
+                </Link>
+              </div>
+            </div>
+            
+            <button
+              onClick={handleRefresh}
+              className="p-2 bg-opacity-20 rounded-lg hover:bg-opacity-30 transition-colors cursor-pointer"
+              title="Refresh dashboard"
+            >
+              <RefreshCw size={20} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center text-red-700">
+            <AlertCircle className="mr-2" size={20} />
+            <p>{error}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+          <div className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
+                  Total Tickets
+                </p>
+                <p className="text-2xl font-bold text-gray-900 mt-2">
+                  {stats.totalTickets}
+                </p>
+              </div>
+              <div className="p-3 rounded-full bg-blue-50">
+                <Ticket className="text-blue-600" size={24} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+          <div className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
+                  Upcoming Events
+                </p>
+                <p className="text-2xl font-bold text-gray-900 mt-2">
+                  {stats.upcomingEvents}
+                </p>
+              </div>
+              <div className="p-3 rounded-full bg-green-50">
+                <CalendarCheck className="text-green-600" size={24} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+          <div className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
+                  Total Spent
+                </p>
+                <p className="text-2xl font-bold text-gray-900 mt-2">
+                  {formatCurrency(stats.totalSpent)}
+                </p>
+              </div>
+              <div className="p-3 rounded-full bg-purple-50">
+                <ShoppingBag className="text-purple-600" size={24} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+          <div className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600 uppercase tracking-wide">
+                  Average Spend
+                </p>
+                <p className="text-2xl font-bold text-gray-900 mt-2">
+                  {stats.totalTickets > 0 
+                    ? formatCurrency(stats.totalSpent / stats.totalTickets)
+                    : '$0'
+                  }
+                </p>
+              </div>
+              <div className="p-3 rounded-full bg-orange-50">
+                <TrendingUp className="text-orange-600" size={24} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Tickets & Quick Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Tickets */}
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-bold text-gray-800 flex items-center">
+                <Ticket className="mr-2" size={20} />
+                Recent Tickets
+              </h3>
+              <Link
+                to="/dashboard/my-tickets"
+                className="text-orange-600 hover:text-orange-700 text-sm font-medium"
+              >
+                View All
+              </Link>
+            </div>
+          </div>
+          <div className="p-6">
+            {stats.recentTickets.length > 0 ? (
+              <div className="space-y-4">
+                {stats.recentTickets.map((order, index) => (
+                  <div key={order._id || index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center flex-1">
+                      <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center mr-3">
+                        <Calendar size={16} className="text-orange-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900 truncate">
+                          {order.eventId?.title || order.event?.title || 'Event Name'}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {formatDate(order.eventId?.date || order.event?.date || order.orderTime)} • {order.quantity || 1} ticket(s)
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold text-gray-900">
+                        {formatCurrency(order.totalAmount || order.amount || order.price)}
+                      </p>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        order.paymentStatus === 'success' || order.status === 'completed'
+                          ? 'bg-green-100 text-green-800'
+                          : order.paymentStatus === 'pending' || order.status === 'pending'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {order.paymentStatus || order.status || 'Confirmed'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Ticket className="mx-auto text-gray-400 mb-4" size={48} />
+                <h3 className="text-lg font-medium text-gray-700 mb-2">No Tickets Yet</h3>
+                <p className="text-gray-500 mb-4">Start exploring events and get your first ticket!</p>
+                <Link
+                  to="/event-list"
+                  className="inline-flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+                >
+                  <Search className="mr-2" size={16} />
+                  Browse Events
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="p-6 border-b border-gray-200">
+            <h3 className="text-lg font-bold text-gray-800">Quick Actions</h3>
+          </div>
+          <div className="p-6">
+            <div className="grid grid-cols-1 gap-4">
+              <Link
+                to="/event-list"
+                className="flex items-center p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors group"
+              >
+                <Search className="text-blue-500 mr-3 group-hover:scale-110 transition-transform" size={20} />
+                <div>
+                  <span className="font-medium text-gray-700">Browse All Events</span>
+                  <p className="text-sm text-gray-500">Discover upcoming events</p>
+                </div>
+              </Link>
+
+              <Link
+                to="/dashboard/my-tickets"
+                className="flex items-center p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors group"
+              >
+                <Eye className="text-purple-500 mr-3 group-hover:scale-110 transition-transform" size={20} />
+                <div>
+                  <span className="font-medium text-gray-700">View My Tickets</span>
+                  <p className="text-sm text-gray-500">Manage your purchased tickets</p>
+                </div>
+              </Link>
+
+              <Link
+                to="/dashboard/buyer-profile"
+                className="flex items-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors group"
+              >
+                <User className="text-green-500 mr-3 group-hover:scale-110 transition-transform" size={20} />
+                <div>
+                  <span className="font-medium text-gray-700">My Profile</span>
+                  <p className="text-sm text-gray-500">Update your information</p>
+                </div>
+              </Link>
+
+              {/* Upcoming Events Link */}
+              {stats.upcomingEvents > 0 && (
+                <Link
+                  to="/dashboard/my-tickets"
+                  className="flex items-center p-4 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors group border-2 border-orange-200"
+                >
+                  <Clock className="text-orange-500 mr-3 group-hover:scale-110 transition-transform" size={20} />
+                  <div>
+                    <span className="font-medium text-gray-700">Upcoming Events</span>
+                    <p className="text-sm text-gray-500">{stats.upcomingEvents} events coming up</p>
+                  </div>
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Explore Section */}
+      {/* <div className="bg-gradient-to-r from-gray-100 to-gray-200 rounded-xl p-8 shadow-md">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Search className="text-orange-600" size={32} />
+          </div>
+          <h3 className="text-xl font-bold text-gray-800 mb-2">Discover Amazing Events</h3>
+          <p className="text-gray-600 mb-6 max-w-md mx-auto">
+            Explore concerts, workshops, conferences, and more. Find your next unforgettable experience.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link
+              to="/event-list"
+              className="inline-flex items-center px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium"
+            >
+              <Calendar className="mr-2" size={18} />
+              View All Events
+            </Link>
+            <Link
+              to="/event-list?category=popular"
+              className="inline-flex items-center px-6 py-3 bg-white text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium border border-gray-300"
+            >
+              <TrendingUp className="mr-2" size={18} />
+              Popular Events
+            </Link>
+          </div>
+        </div>
+      </div> */}
+    </div>
+  );
 };
 
 export default BuyerDashboard;

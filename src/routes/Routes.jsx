@@ -6,6 +6,7 @@ import DashboardLayout from "../layouts/DashboardLayout";
 import AdminDashboard from "../pages/Dashboard/AdminDashborad/AdminDashboard";
 import SellerDashboard from "../pages/Dashboard/SellerDashboard/SellerDashboard";
 import UserDashboard from "../pages/Dashboard/UserDashboard/BuyerDashboard";
+
 import Login from "../pages/Login/Login/Login";
 import TermsAndConditions from "../pages/Terms&Conditions/Terms&Conditions";
 import PrivacyPolicy from "../pages/PrivacyPolicy/PrivacyPolicy";
@@ -37,6 +38,7 @@ import EventList from "../pages/Home/Home/EventCard/EventList";
 import Blog from "../pages/Blog/Blog";
 import AddBlogs from "../pages/Dashboard/AdminDashborad/AddBlog/AddBlog";
 import BlogPost from "../pages/Blog/BlogPost";
+import RoleBasedDashboard from "../pages/Dashboard/RoleBasedDashboard";
 
 export const router = createBrowserRouter([
   {
@@ -107,9 +109,10 @@ export const router = createBrowserRouter([
     element: <DashboardLayout />,
     children: [
       {
-        index: true, // Default dashboard route
-        element: <BuyerDashboard />, // Default to user dashboard directly
+        index: true, // Default dashboard route - NOW SHOWS ROLE-BASED DASHBOARD
+        element: <RoleBasedDashboard />, // Changed from BuyerDashboard to RoleBasedDashboard
       },
+
       // User specific routes
       {
         path: "my-tickets",
@@ -126,7 +129,7 @@ export const router = createBrowserRouter([
 
       // Admin specific routes
       {
-        path: "admin",
+        path: "admin", // Keep this route for direct access if needed
         element: <AdminDashboard />,
       },
       {
@@ -164,7 +167,7 @@ export const router = createBrowserRouter([
 
       // Seller specific routes
       {
-        path: "seller",
+        path: "seller", // Keep this route for direct access if needed
         element: <SellerDashboard />,
       },
       {

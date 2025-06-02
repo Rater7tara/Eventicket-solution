@@ -1,14 +1,11 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { Calendar, DollarSign, BarChart2, Filter, Download, Search, RefreshCw, Ticket, TrendingUp, Users, Clock } from 'lucide-react';
+import { Calendar, DollarSign, BarChart2, Filter, Download, Search, RefreshCw, Ticket, TrendingUp, Users, Clock, AlertCircle, User } from 'lucide-react';
 import axios from 'axios';
 import serverURL from '../../../ServerConfig';
 
 // import { AuthContext } from "../../../../providers/AuthProvider"; // Uncomment this line in your actual app
 // import { toast } from "react-toastify"; // Uncomment this line in your actual app
 // import { useNavigate } from "react-router-dom"; // Uncomment this line in your actual app
-
-// Temporary serverURL for demo - replace with actual import
-
 
 const SellerDashboard = () => {
   // const { user } = useContext(AuthContext); // Uncomment this line in your actual app
@@ -22,27 +19,69 @@ const SellerDashboard = () => {
   const [sortConfig, setSortConfig] = useState({ key: 'orderTime', direction: 'desc' });
   const [showStats, setShowStats] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  const [debugInfo, setDebugInfo] = useState(null);
 
   // Get auth token from localStorage (following SellerProfile pattern)
   const getAuthToken = () => {
-    return localStorage.getItem("auth-token");
+    const token = localStorage.getItem("auth-token");
+    console.log("Retrieved auth token:", token ? `${token.substring(0, 20)}...` : 'null');
+    return token;
   };
 
   // Set up axios headers with authentication (following SellerProfile pattern)
   const getAuthHeaders = () => {
     const token = getAuthToken();
     if (!token) {
-      // toast.error("No authentication token found. Please login again."); // Uncomment in actual app
+      const errorMsg = "No authentication token found. Please login again.";
+      console.error(errorMsg);
+      // toast.error(errorMsg); // Uncomment in actual app
       // navigate('/login'); // Uncomment in actual app
-      setError("No authentication token found. Please login again.");
+      setError(errorMsg);
       return null;
     }
-    return {
+    
+    const headers = {
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
     };
+    
+    console.log("Auth headers prepared:", {
+      ...headers,
+      headers: {
+        ...headers.headers,
+        Authorization: `Bearer ${token.substring(0, 20)}...`
+      }
+    });
+    
+    return headers;
+  };
+
+  // Check if user is authenticated and has seller role
+  const checkAuthStatus = () => {
+    const token = getAuthToken();
+    if (!token) {
+      return { isValid: false, error: "No authentication token found" };
+    }
+
+    try {
+      // Basic token validation (you might want to decode JWT here)
+      const tokenParts = token.split('.');
+      if (tokenParts.length !== 3) {
+        return { isValid: false, error: "Invalid token format" };
+      }
+
+      // You can add JWT decoding here to check expiration and role
+      // const payload = JSON.parse(atob(tokenParts[1]));
+      // if (payload.exp < Date.now() / 1000) {
+      //   return { isValid: false, error: "Token expired" };
+      // }
+
+      return { isValid: true };
+    } catch (err) {
+      return { isValid: false, error: "Token validation failed" };
+    }
   };
 
   // Fetch seller earnings data
@@ -50,17 +89,22 @@ const SellerDashboard = () => {
     try {
       setLoading(true);
       setError(null);
+      setDebugInfo(null);
       
+      // Check authentication first
+      const authStatus = checkAuthStatus();
+      if (!authStatus.isValid) {
+        throw new Error(authStatus.error);
+      }
+
       const authHeaders = getAuthHeaders();
       if (!authHeaders) return;
 
-      console.log("Making request to:", `${serverURL.url}seller/earnings`);
-      console.log("Auth headers:", authHeaders);
+      const apiUrl = `${serverURL.url}seller/earnings`;
+      console.log("Making request to:", apiUrl);
+      console.log("Server URL config:", serverURL);
 
-      const response = await axios.get(
-        `${serverURL.url}seller/earnings`,
-        authHeaders
-      );
+      const response = await axios.get(apiUrl, authHeaders);
 
       console.log("Full API Response:", response);
       console.log("Response status:", response.status);
@@ -75,6 +119,14 @@ const SellerDashboard = () => {
         console.log("Orders length:", earningsData?.orders?.length);
         
         setSalesData(earningsData);
+        setDebugInfo({
+          success: true,
+          apiUrl,
+          dataReceived: true,
+          ordersCount: earningsData?.orders?.length || 0,
+          totalEarnings: earningsData?.totalEarnings || 0,
+          totalTickets: earningsData?.totalTicketsSold || 0
+        });
       } else {
         console.error("API returned success: false", response.data);
         throw new Error(response.data?.message || "Invalid response format");
@@ -84,17 +136,46 @@ const SellerDashboard = () => {
       console.error("Error response:", err.response);
       console.error("Error response data:", err.response?.data);
       console.error("Error message:", err.message);
+      console.error("Error status:", err.response?.status);
+      console.error("Error config:", err.config);
       
-      const errorMessage = err.response?.data?.message || 
-                          err.message || 
-                          "Failed to fetch earnings data. Please try again.";
-      setError(errorMessage);
-      // toast.error(errorMessage); // Uncomment in actual app
-      
-      if (err.response?.status === 401) {
+      let errorMessage = "Failed to fetch earnings data. Please try again.";
+      let debugData = {
+        success: false,
+        errorType: err.name || 'Unknown',
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        apiUrl: err.config?.url,
+        method: err.config?.method?.toUpperCase(),
+        hasAuthHeader: !!err.config?.headers?.Authorization
+      };
+
+      if (err.response?.status === 404) {
+        if (err.response?.data?.message === 'Seller not found') {
+          errorMessage = "Seller account not found. You may need to complete your seller registration.";
+          debugData.suggestion = "Check if you have completed seller onboarding or contact support";
+        } else {
+          errorMessage = "API endpoint not found. Please check if the server is running correctly.";
+          debugData.suggestion = "Verify the API endpoint URL and server status";
+        }
+      } else if (err.response?.status === 401) {
+        errorMessage = "Authentication failed. Please login again.";
         localStorage.removeItem("auth-token");
+        debugData.suggestion = "Token may be expired or invalid";
         // navigate('/login'); // Uncomment in actual app
+      } else if (err.response?.status === 403) {
+        errorMessage = "Access denied. You don't have permission to view seller data.";
+        debugData.suggestion = "Check if your account has seller privileges";
+      } else if (err.code === 'NETWORK_ERROR' || !err.response) {
+        errorMessage = "Network error. Please check your connection and try again.";
+        debugData.suggestion = "Check internet connection and server availability";
+      } else {
+        errorMessage = err.response?.data?.message || err.message || errorMessage;
       }
+
+      setError(errorMessage);
+      setDebugInfo(debugData);
+      // toast.error(errorMessage); // Uncomment in actual app
     } finally {
       setLoading(false);
     }
@@ -108,6 +189,25 @@ const SellerDashboard = () => {
   // Refresh data handler
   const handleRefresh = async () => {
     await fetchSalesData();
+  };
+
+  // Clear debug info
+  const clearDebugInfo = () => {
+    setDebugInfo(null);
+  };
+
+  // Handle login redirect (for demo purposes)
+  const handleLoginRedirect = () => {
+    console.log("Redirecting to login...");
+    // navigate('/login'); // Uncomment in actual app
+    alert("In a real app, this would redirect to the login page");
+  };
+
+  // Handle seller registration redirect (for demo purposes)
+  const handleSellerRegistration = () => {
+    console.log("Redirecting to seller registration...");
+    // navigate('/seller/register'); // Uncomment in actual app
+    alert("In a real app, this would redirect to the seller registration page");
   };
   
   // Calculate summary statistics
@@ -291,6 +391,7 @@ const SellerDashboard = () => {
             
             <button 
               className="inline-flex items-center gap-2 p-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+              disabled={!salesData}
             >
               <Download size={16} />
               <span className="hidden sm:inline">Export Report</span>
@@ -323,6 +424,16 @@ const SellerDashboard = () => {
             >
               Sales Details
             </button>
+            <button
+              onClick={() => setActiveTab('debug')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'debug'
+                  ? 'border-orange-500 text-orange-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Debug Info
+            </button>
           </nav>
         </div>
       </div>
@@ -330,14 +441,36 @@ const SellerDashboard = () => {
       {/* Error Message */}
       {error && (
         <div className="bg-red-100 border border-red-500 text-red-700 px-4 py-3 rounded-lg">
-          <div className="flex items-center justify-between">
-            <span>{error}</span>
-            <button
-              onClick={handleRefresh}
-              className="ml-4 px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-            >
-              Retry
-            </button>
+          <div className="flex items-start space-x-3">
+            <AlertCircle size={20} className="text-red-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-grow">
+              <h4 className="font-semibold mb-1">Error Loading Dashboard</h4>
+              <p className="mb-3">{error}</p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={handleRefresh}
+                  className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+                >
+                  Retry
+                </button>
+                {error.includes('not found') && (
+                  <button
+                    onClick={handleSellerRegistration}
+                    className="px-3 py-1 bg-orange-600 text-white rounded text-sm hover:bg-orange-700"
+                  >
+                    Complete Seller Setup
+                  </button>
+                )}
+                {error.includes('login') && (
+                  <button
+                    onClick={handleLoginRedirect}
+                    className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                  >
+                    Login Again
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -352,30 +485,101 @@ const SellerDashboard = () => {
         </div>
       )}
 
-      {/* Debug Information - Remove this in production */}
-      {salesData && (
-        <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
-          <h3 className="font-semibold text-blue-800 mb-2">🔍 Debug Information:</h3>
-          <div className="text-sm text-blue-700 space-y-1">
-            <p><strong>API Success:</strong> {salesData ? 'Yes' : 'No'}</p>
-            <p><strong>Raw Total Earnings:</strong> {salesData.totalEarnings}</p>
-            <p><strong>Raw Total Tickets Sold:</strong> {salesData.totalTicketsSold}</p>
-            <p><strong>Orders Array Length:</strong> {salesData.orders?.length || 0}</p>
-            {salesData.orders?.[0] && (
-              <details className="mt-2">
-                <summary className="cursor-pointer font-medium">First Order Sample (click to expand)</summary>
-                <pre className="mt-2 p-2 bg-white rounded text-xs overflow-auto">
-                  {JSON.stringify(salesData.orders[0], null, 2)}
-                </pre>
-              </details>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Dashboard Content */}
       {!loading && (
         <>
+          {activeTab === 'debug' && (
+            <div className="space-y-4">
+              {/* Debug Information */}
+              <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+                <div className="flex justify-between items-start mb-3">
+                  <h3 className="font-semibold text-blue-800">🔍 Debug Information</h3>
+                  {debugInfo && (
+                    <button
+                      onClick={clearDebugInfo}
+                      className="text-blue-600 hover:text-blue-800 text-sm"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                
+                {debugInfo ? (
+                  <div className="text-sm text-blue-700 space-y-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <h4 className="font-medium mb-2">Request Details:</h4>
+                        <ul className="space-y-1">
+                          <li><strong>Success:</strong> {debugInfo.success ? 'Yes' : 'No'}</li>
+                          <li><strong>API URL:</strong> {debugInfo.apiUrl}</li>
+                          <li><strong>Method:</strong> {debugInfo.method || 'GET'}</li>
+                          <li><strong>Auth Header:</strong> {debugInfo.hasAuthHeader ? 'Present' : 'Missing'}</li>
+                        </ul>
+                      </div>
+                      
+                      <div>
+                        <h4 className="font-medium mb-2">Response Details:</h4>
+                        <ul className="space-y-1">
+                          <li><strong>Status:</strong> {debugInfo.status} {debugInfo.statusText}</li>
+                          <li><strong>Error Type:</strong> {debugInfo.errorType || 'N/A'}</li>
+                          {debugInfo.success && (
+                            <>
+                              <li><strong>Orders Count:</strong> {debugInfo.ordersCount}</li>
+                              <li><strong>Total Earnings:</strong> ${debugInfo.totalEarnings}</li>
+                              <li><strong>Total Tickets:</strong> {debugInfo.totalTickets}</li>
+                            </>
+                          )}
+                        </ul>
+                      </div>
+                    </div>
+                    
+                    {debugInfo.suggestion && (
+                      <div className="mt-3 p-3 bg-blue-100 rounded">
+                        <strong>Suggestion:</strong> {debugInfo.suggestion}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-blue-700">No debug information available. Try refreshing the data.</p>
+                )}
+              </div>
+
+              {/* Auth Token Info */}
+              <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
+                <h3 className="font-semibold text-yellow-800 mb-2">🔐 Authentication Status</h3>
+                <div className="text-sm text-yellow-700">
+                  {(() => {
+                    const token = getAuthToken();
+                    const authStatus = checkAuthStatus();
+                    return (
+                      <div className="space-y-1">
+                        <p><strong>Token Present:</strong> {token ? 'Yes' : 'No'}</p>
+                        {token && (
+                          <>
+                            <p><strong>Token Preview:</strong> {token.substring(0, 20)}...</p>
+                            <p><strong>Token Valid:</strong> {authStatus.isValid ? 'Yes' : 'No'}</p>
+                            {!authStatus.isValid && (
+                              <p><strong>Validation Error:</strong> {authStatus.error}</p>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Server Config Info */}
+              <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
+                <h3 className="font-semibold text-gray-800 mb-2">⚙️ Server Configuration</h3>
+                <div className="text-sm text-gray-700">
+                  <p><strong>Base URL:</strong> {serverURL.url}</p>
+                  <p><strong>Full Endpoint:</strong> {serverURL.url}seller/earnings</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'overview' && (
             <div className="space-y-6">
               {/* Key Metrics */}
@@ -671,18 +875,37 @@ const SellerDashboard = () => {
       )}
 
       {/* Empty State */}
-      {!loading && !error && (!salesData || !salesData.orders || salesData.orders.length === 0) && (
+      {!loading && !error && (!salesData || !salesData.orders || salesData.orders.length === 0) && activeTab !== 'debug' && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12">
           <div className="text-center">
-            <BarChart2 size={64} className="text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">No Sales Data Yet</h3>
-            <p className="text-gray-600 mb-6">
-              Start selling tickets to see your earnings and analytics here.
-            </p>
-            <button className="inline-flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">
-              <Calendar className="mr-2" size={16} />
-              Create Your First Event
-            </button>
+            {error && error.includes('not found') ? (
+              <>
+                <User size={64} className="text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">Seller Profile Not Found</h3>
+                <p className="text-gray-600 mb-6">
+                  You need to complete your seller registration to access this dashboard.
+                </p>
+                <button 
+                  onClick={handleSellerRegistration}
+                  className="inline-flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+                >
+                  <User className="mr-2" size={16} />
+                  Complete Seller Setup
+                </button>
+              </>
+            ) : (
+              <>
+                <BarChart2 size={64} className="text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-800 mb-2">No Sales Data Yet</h3>
+                <p className="text-gray-600 mb-6">
+                  Start selling tickets to see your earnings and analytics here.
+                </p>
+                <button className="inline-flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">
+                  <Calendar className="mr-2" size={16} />
+                  Create Your First Event
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

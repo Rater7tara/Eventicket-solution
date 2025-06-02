@@ -23,6 +23,7 @@ import {
   Send,
   Upload,
   ImageIcon,
+  XCircle,
 } from "lucide-react";
 import serverURL from "../../../../ServerConfig";
 import { AuthContext } from "../../../../providers/AuthProvider";
@@ -58,16 +59,14 @@ const BuyerProfile = () => {
   const [editFormData, setEditFormData] = useState({
     name: "",
     email: "",
-    contactNumber: "", // Changed from phone to contactNumber
+    contactNumber: "",
     address: "",
-    profileImg: "", // Also changed from profilePicture to profileImg
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Image upload states
-  const [selectedImage, setSelectedImage] = useState(null);
+  // Image upload states - Following ManageEvents pattern
   const [imagePreview, setImagePreview] = useState(null);
-  const [imageProcessing, setImageProcessing] = useState(false);
+  const [imageFile, setImageFile] = useState(null);
 
   // Delete confirmation
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -107,57 +106,46 @@ const BuyerProfile = () => {
     };
   };
 
-  // Convert file to Base64
-  const convertToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = (error) => reject(error);
-    });
-  };
-
-  // Handle image file selection
-  const handleImageChange = async (e) => {
+  // Handle image file selection - Following ManageEvents pattern
+  const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       // Validate file type
-      const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif"];
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
       if (!validTypes.includes(file.type)) {
-        toast.error("Please select a valid image file (JPEG, PNG, or GIF)");
+        toast.error('Please select a valid image file (JPEG, PNG, GIF, or WebP)');
         return;
       }
 
       // Validate file size (max 5MB)
       const maxSize = 5 * 1024 * 1024; // 5MB in bytes
       if (file.size > maxSize) {
-        toast.error("Image file size must be less than 5MB");
+        toast.error('Image size should be less than 5MB');
         return;
       }
 
-      try {
-        setImageProcessing(true);
+      console.log("🖼️ Image selected:", file.name);
+      setImageFile(file);
+      
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+      
+      toast.success("Image selected successfully!");
+    }
+  };
 
-        // Convert to Base64
-        const base64String = await convertToBase64(file);
-
-        setSelectedImage(file);
-        setImagePreview(base64String);
-
-        // Update form data with Base64 string
-        setEditFormData((prev) => ({
-          ...prev,
-          profilePicture: base64String,
-        }));
-
-        setError(""); // Clear any previous errors
-        toast.success("Image selected successfully!");
-      } catch (error) {
-        console.error("Error processing image:", error);
-        toast.error("Failed to process image. Please try again.");
-      } finally {
-        setImageProcessing(false);
-      }
+  // Remove image - Following ManageEvents pattern
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    // Clear the file input
+    const fileInput = document.getElementById('image-upload');
+    if (fileInput) {
+      fileInput.value = '';
     }
   };
 
@@ -167,71 +155,74 @@ const BuyerProfile = () => {
       setLoading(true);
       setError(null);
 
-      const authHeaders = getAuthHeaders();
-      if (!authHeaders) return;
+      const token = getAuthToken();
+      if (!token) {
+        navigate("/login");
+        return;
+      }
 
-      console.log("Fetching profile with headers:", authHeaders);
+      console.log("📡 Fetching profile...");
 
-      const response = await axios.get(
-        `${serverURL.url}auth/profile`,
-        authHeaders
-      );
+      const response = await fetch(`${serverURL.url}auth/profile`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-      console.log("Profile response:", response.data);
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem("auth-token");
+          navigate("/login");
+          return;
+        }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
 
-      if (response.data?.success && response.data?.data) {
-        const profileData = response.data.data;
+      const result = await response.json();
+      console.log("📥 Profile response:", result);
+
+      if (result?.success && result?.data) {
+        const profileData = result.data;
         setProfile(profileData);
 
-        // Initialize edit form with current data
+        // Initialize form data
         setEditFormData({
           name: profileData.name || "",
           email: profileData.email || "",
-          contactNumber: profileData.contactNumber || "", // Changed from phone to contactNumber
+          contactNumber: profileData.contactNumber || "",
           address: profileData.address || "",
-          profileImg: profileData.profileImg || "", // Changed from profilePicture to profileImg
         });
 
-        // Set current image preview if exists
+        // Set image preview if exists
         if (profileData.profileImg) {
-          // Changed from profilePicture to profileImg
           setImagePreview(profileData.profileImg);
         }
 
-        // Set email in password form
-        setPasswordData((prev) => ({
+        // Set email for password form
+        setPasswordData(prev => ({
           ...prev,
           email: profileData.email || "",
         }));
       } else {
-        throw new Error(response.data?.message || "Invalid response format");
+        throw new Error(result?.message || "Invalid response format");
       }
     } catch (err) {
-      console.error("Error fetching profile:", err);
-      const errorMessage =
-        err.response?.data?.message ||
-        err.message ||
-        "Failed to fetch profile data. Please try again.";
+      console.error("❌ Error fetching profile:", err);
+      const errorMessage = err.message || "Failed to fetch profile data.";
       setError(errorMessage);
       toast.error(errorMessage);
-
-      // If unauthorized, redirect to login
-      if (err.response?.status === 401) {
-        localStorage.removeItem("auth-token");
-        navigate("/login");
-      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Update user profile - WITH BASE64 IMAGE
+  // Update user profile - Following ManageEvents pattern
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
 
-    // Prevent double submission
-    if (isSubmitting || imageProcessing) return;
-
+    if (isSubmitting) return;
     setIsSubmitting(true);
 
     try {
@@ -253,97 +244,135 @@ const BuyerProfile = () => {
         return;
       }
 
-      console.log("Starting profile update...");
-      console.log("Selected image:", selectedImage);
-      console.log("Current form data:", editFormData);
-
-      // Get fresh auth headers
-      const authHeaders = getAuthHeaders();
-      if (!authHeaders) return;
-
-      // Prepare update data (always send as JSON)
-      const updateData = {
-        name: editFormData.name.trim(),
-        email: editFormData.email.trim(),
-        contactNumber: editFormData.contactNumber?.trim() || "", // Changed from phone to contactNumber
-        address: editFormData.address?.trim() || "",
-      };
-
-      // Include profile picture (Base64 string or existing URL)
-      if (editFormData.profilePicture) {
-        updateData.profilePicture = editFormData.profilePicture;
+      const token = getAuthToken();
+      if (!token) {
+        throw new Error('Authentication required. Please log in.');
       }
 
-      console.log("Sending update data:", {
-        ...updateData,
-        profilePicture: updateData.profilePicture
-          ? updateData.profilePicture.startsWith("data:")
-            ? "[Base64 Image Data]"
-            : updateData.profilePicture
-          : "No image",
-      });
+      let dataToSubmit;
+      let headers;
 
+      // Following ManageEvents pattern for handling FormData vs JSON
+      if (imageFile) {
+        // Use FormData if there's an image file
+        dataToSubmit = new FormData();
+        
+        // Append all text fields
+        Object.keys(editFormData).forEach(key => {
+          if (editFormData[key] !== null && editFormData[key] !== undefined) {
+            dataToSubmit.append(key, editFormData[key].toString().trim());
+          }
+        });
+
+        // Append the image file
+        dataToSubmit.append('profileImg', imageFile);
+
+        headers = {
+          'Authorization': `Bearer ${token}`,
+          // Don't set Content-Type for FormData, let browser set it with boundary
+        };
+      } else if (imagePreview === null) {
+        // If image was removed, use FormData with removeImage flag
+        dataToSubmit = new FormData();
+        
+        Object.keys(editFormData).forEach(key => {
+          if (editFormData[key] !== null && editFormData[key] !== undefined) {
+            dataToSubmit.append(key, editFormData[key].toString().trim());
+          }
+        });
+
+        dataToSubmit.append('removeImage', 'true');
+
+        headers = {
+          'Authorization': `Bearer ${token}`,
+        };
+      } else {
+        // Use regular JSON for text-only updates
+        dataToSubmit = {
+          name: editFormData.name.trim(),
+          email: editFormData.email.trim(),
+          contactNumber: editFormData.contactNumber?.trim() || '',
+          address: editFormData.address?.trim() || '',
+        };
+
+        headers = {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        };
+      }
+
+      console.log("📨 Sending update request...");
+
+      // Use axios following ManageEvents pattern
       const response = await axios.put(
         `${serverURL.url}auth/profile`,
-        updateData,
-        authHeaders
+        dataToSubmit,
+        { headers }
       );
 
-      console.log("Update response:", response.data);
+      console.log("📥 Update response:", response.data);
 
       if (response.data?.success) {
         toast.success("Profile updated successfully!");
         setIsEditing(false);
-        setSelectedImage(null); // Clear selected image
+        
+        // Clean up image states
+        setImageFile(null);
 
-        // Update the profile state with new data
-        const updatedProfile = { ...profile, ...updateData };
-        setProfile(updatedProfile);
+        // Update profile state with new data
+        if (response.data.data) {
+          setProfile(response.data.data);
+          
+          // Update form data
+          setEditFormData({
+            name: response.data.data.name || "",
+            email: response.data.data.email || "",
+            contactNumber: response.data.data.contactNumber || "",
+            address: response.data.data.address || "",
+          });
 
-        // Update user context if available
-        if (setUser) {
-          setUser((prev) => ({ ...prev, ...updateData }));
+          // Handle image update
+          if (response.data.data.profileImg) {
+            setImagePreview(response.data.data.profileImg);
+            console.log("🖼️ Profile image updated successfully");
+          } else {
+            setImagePreview(null);
+          }
+
+          // Update user context
+          if (setUser) {
+            setUser(prev => ({ ...prev, ...response.data.data }));
+          }
+        } else {
+          // Refresh profile if no data returned
+          await fetchProfile();
         }
-
-        // Optionally refresh profile data from server
-        // await fetchProfile();
       } else {
-        const errorMsg =
-          response.data?.message || "Update failed. Please try again.";
-        toast.error(errorMsg);
-        console.error("Update failed:", response.data);
+        toast.error(response.data?.message || "Update failed. Please try again.");
       }
-    } catch (err) {
-      console.error("Error updating profile:", err);
-      console.error("Error response:", err.response);
-
-      let errorMessage = "Failed to update profile. Please try again.";
-
-      if (err.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      } else if (err.response?.data?.error) {
-        errorMessage = err.response.data.error;
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-
-      toast.error(errorMessage);
-
-      // If unauthorized, redirect to login
-      if (err.response?.status === 401) {
-        localStorage.removeItem("auth-token");
-        navigate("/login");
-      }
+    } catch (error) {
+      console.error('❌ Error updating profile:', error);
+      toast.error(error.response?.data?.message || error.message || 'Failed to update profile. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Change password
+  // Change password - FIXED: Use oldPassword instead of currentPassword
   const handleChangePassword = async (e) => {
     e.preventDefault();
 
-    // Validate passwords
+    // Enhanced validation
+    if (!passwordData.currentPassword.trim()) {
+      toast.error("Current password is required!");
+      return;
+    }
+
+    if (!passwordData.newPassword.trim()) {
+      toast.error("New password is required!");
+      return;
+    }
+
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       toast.error("New passwords don't match!");
       return;
@@ -354,161 +383,60 @@ const BuyerProfile = () => {
       return;
     }
 
+    // Check if new password is different from current
+    if (passwordData.currentPassword === passwordData.newPassword) {
+      toast.error("New password must be different from current password!");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      const authHeaders = getAuthHeaders();
-      if (!authHeaders) return;
+      const token = getAuthToken();
+      if (!token) {
+        toast.error("Authentication required. Please log in again.");
+        navigate("/login");
+        return;
+      }
 
-      const response = await axios.put(
-        `${serverURL.url}auth/change-password`,
-        {
-          currentPassword: passwordData.currentPassword,
-          newPassword: passwordData.newPassword,
+      console.log("🔑 Attempting password change...");
+
+      // FIXED: Send oldPassword instead of currentPassword to match API
+      const response = await fetch(`${serverURL.url}auth/change-password`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         },
-        authHeaders
-      );
+        body: JSON.stringify({
+          oldPassword: passwordData.currentPassword.trim(),
+          newPassword: passwordData.newPassword.trim()
+        })
+      });
 
-      console.log("Password change response:", response.data);
+      const result = await response.json();
+      console.log("🔑 Password change response:", result);
 
-      if (response.data?.success) {
+      if (response.ok && result?.success) {
         toast.success("Password changed successfully!");
         setShowChangePassword(false);
         // Reset form
-        setPasswordData({
+        setPasswordData(prev => ({
+          ...prev,
           currentPassword: "",
           newPassword: "",
-          confirmPassword: "",
-          email: profile?.email || "",
-        });
+          confirmPassword: ""
+        }));
       } else {
-        toast.error(
-          response.data?.message || "Password change failed. Please try again."
-        );
+        const errorMessage = result?.message || `Error: ${response.status} ${response.statusText}`;
+        toast.error(errorMessage);
+        console.error("Password change failed:", result);
       }
     } catch (err) {
-      console.error("Error changing password:", err);
-      toast.error(
-        err.response?.data?.message ||
-          "Failed to change password. Please try again."
-      );
+      console.error("❌ Error changing password:", err);
+      toast.error("Network error. Please check your connection and try again.");
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  // Forgot password
-  const handleForgotPassword = async (e) => {
-    e.preventDefault();
-
-    if (!passwordData.email) {
-      toast.error("Email is required!");
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      const response = await axios.post(
-        `${serverURL.url}auth/forget-password`,
-        { email: passwordData.email }
-      );
-
-      console.log("Forgot password response:", response.data);
-
-      if (response.data?.success) {
-        toast.success("Password reset link sent to your email!");
-        setShowForgotPassword(false);
-      } else {
-        toast.error(
-          response.data?.message || "Request failed. Please try again."
-        );
-      }
-    } catch (err) {
-      console.error("Error in forgot password:", err);
-      toast.error(
-        err.response?.data?.message ||
-          "Failed to process request. Please try again."
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Reset password (simulated - in a real app, this would be on a separate page)
-  const handleResetPassword = async (e) => {
-    e.preventDefault();
-
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      toast.error("Passwords don't match!");
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      const response = await axios.post(
-        `${serverURL.url}auth/reset-password/${resetToken}`,
-        {
-          newPassword: passwordData.newPassword,
-          confirmPassword: passwordData.confirmPassword,
-        }
-      );
-
-      console.log("Reset password response:", response.data);
-
-      if (response.data?.success) {
-        toast.success("Password reset successfully! Please log in.");
-        setResetPasswordView(false);
-        navigate("/login");
-      } else {
-        toast.error(
-          response.data?.message || "Reset failed. Please try again."
-        );
-      }
-    } catch (err) {
-      console.error("Error in reset password:", err);
-      toast.error(
-        err.response?.data?.message ||
-          "Failed to reset password. Please try again."
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Delete account
-  const handleDeleteAccount = async () => {
-    try {
-      const authHeaders = getAuthHeaders();
-      if (!authHeaders) return;
-
-      const response = await axios.delete(
-        `${serverURL.url}auth/profile`,
-        authHeaders
-      );
-
-      console.log("Delete account response:", response.data);
-
-      if (response.data?.success) {
-        toast.success("Account deleted successfully!");
-        localStorage.removeItem("auth-token");
-        if (logout) {
-          logout();
-        }
-        navigate("/login");
-      } else {
-        toast.error(
-          response.data?.message ||
-            "Failed to delete account. Please try again."
-        );
-      }
-    } catch (err) {
-      console.error("Error deleting account:", err);
-      toast.error(
-        err.response?.data?.message ||
-          "Failed to delete account. Please try again."
-      );
     }
   };
 
@@ -546,25 +474,22 @@ const BuyerProfile = () => {
     setEditFormData({
       name: profile?.name || "",
       email: profile?.email || "",
-      contactNumber: profile?.contactNumber || "", // Changed from phone to contactNumber
+      contactNumber: profile?.contactNumber || "",
       address: profile?.address || "",
-      profileImg: profile?.profileImg || "", // Changed from profilePicture to profileImg
     });
 
-    // Reset image preview to original
-    if (profile?.profileImg) {
-      setImagePreview(profile.profileImg);
-    } else {
-      setImagePreview(null);
+    // Reset image states
+    setImageFile(null);
+    setImagePreview(profile?.profileImg || null);
+    
+    // Clear the file input
+    const fileInput = document.getElementById('image-upload');
+    if (fileInput) {
+      fileInput.value = '';
     }
-    setSelectedImage(null);
+    
     setIsEditing(false);
   };
-
-  // Load profile data on component mount
-  useEffect(() => {
-    fetchProfile();
-  }, []);
 
   // Reset modal states when closing
   const resetModals = () => {
@@ -578,6 +503,84 @@ const BuyerProfile = () => {
       email: profile?.email || "",
     });
   };
+
+  // Other handlers remain the same...
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    if (!passwordData.email) {
+      toast.error("Email is required!");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const response = await axios.post(
+        `${serverURL.url}auth/forget-password`,
+        { email: passwordData.email }
+      );
+      if (response.data?.success) {
+        toast.success("Password reset link sent to your email!");
+        setShowForgotPassword(false);
+      } else {
+        toast.error(response.data?.message || "Request failed. Please try again.");
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to process request. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error("Passwords don't match!");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const response = await axios.post(
+        `${serverURL.url}auth/reset-password/${resetToken}`,
+        {
+          newPassword: passwordData.newPassword,
+          confirmPassword: passwordData.confirmPassword,
+        }
+      );
+      if (response.data?.success) {
+        toast.success("Password reset successfully! Please log in.");
+        setResetPasswordView(false);
+        navigate("/login");
+      } else {
+        toast.error(response.data?.message || "Reset failed. Please try again.");
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to reset password. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    try {
+      const authHeaders = getAuthHeaders();
+      if (!authHeaders) return;
+      const response = await axios.delete(`${serverURL.url}auth/profile`, authHeaders);
+      if (response.data?.success) {
+        toast.success("Account deleted successfully!");
+        localStorage.removeItem("auth-token");
+        if (logout) logout();
+        navigate("/login");
+      } else {
+        toast.error(response.data?.message || "Failed to delete account. Please try again.");
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to delete account. Please try again.");
+    }
+  };
+
+  // Load profile data on component mount
+  useEffect(() => {
+    fetchProfile();
+  }, []);
 
   return (
     <div className="bg-gray-50 min-h-screen p-6">
@@ -616,27 +619,25 @@ const BuyerProfile = () => {
                 {!isEditing && (
                   <div className="animate-fade-in-up">
                     <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-8">
+                      {/* Profile Image */}
                       <div className="relative w-24 h-24 md:w-32 md:h-32 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden border-4 border-orange-200">
-                        {profile?.profileImg ? ( // Changed from profilePicture to profileImg
+                        {profile?.profileImg ? (
                           <img
-                            src={profile.profileImg} // Changed from profilePicture to profileImg
-                            alt={profile.name}
+                            src={profile.profileImg}
+                            alt={profile?.name || "Profile"}
                             className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.style.display = "none";
-                              e.target.nextSibling.style.display = "flex";
+                            onError={() => {
+                              console.error("Failed to load profile image");
+                            }}
+                            onLoad={() => {
+                              console.log("✅ Profile image loaded successfully");
                             }}
                           />
-                        ) : null}
-
-                        <div
-                          className={`w-full h-full items-center justify-center ${
-                            profile?.profileImg ? "hidden" : "flex" // Changed from profilePicture to profileImg
-                          }`}
-                        >
+                        ) : (
                           <User className="text-orange-500" size={48} />
-                        </div>
+                        )}
                       </div>
+                      
                       <div className="flex-1">
                         <h2 className="text-2xl font-bold text-gray-800 mb-1">
                           {profile?.name || "User"}
@@ -647,8 +648,7 @@ const BuyerProfile = () => {
                         </p>
                         <p className="text-gray-500 mb-2 flex items-center">
                           <Phone className="mr-2" size={16} />
-                          {profile?.contactNumber || "No phone provided"}{" "}
-                          {/* Changed from phone to contactNumber */}
+                          {profile?.contactNumber || "No phone provided"}
                         </p>
                         <p className="text-gray-500 flex items-center">
                           <MapPin className="mr-2" size={16} />
@@ -688,56 +688,33 @@ const BuyerProfile = () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="bg-gray-50 rounded-lg p-4">
                           <div className="flex items-center mb-1">
-                            <Calendar
-                              className="text-orange-500 mr-2"
-                              size={18}
-                            />
-                            <p className="text-sm font-medium text-gray-500">
-                              Joined On
-                            </p>
+                            <Calendar className="text-orange-500 mr-2" size={18} />
+                            <p className="text-sm font-medium text-gray-500">Joined On</p>
                           </div>
                           <p className="text-gray-800">
-                            {profile?.createdAt
-                              ? formatDate(profile.createdAt)
-                              : "N/A"}
+                            {profile?.createdAt ? formatDate(profile.createdAt) : "N/A"}
                           </p>
                         </div>
                         <div className="bg-gray-50 rounded-lg p-4">
                           <div className="flex items-center mb-1">
-                            <Shield
-                              className="text-orange-500 mr-2"
-                              size={18}
-                            />
-                            <p className="text-sm font-medium text-gray-500">
-                              Role
-                            </p>
+                            <Shield className="text-orange-500 mr-2" size={18} />
+                            <p className="text-sm font-medium text-gray-500">Role</p>
                           </div>
-                          <p className="capitalize text-gray-800">
-                            {profile?.role || "User"}
-                          </p>
+                          <p className="capitalize text-gray-800">{profile?.role || "User"}</p>
                         </div>
                         <div className="bg-gray-50 rounded-lg p-4">
                           <div className="flex items-center mb-1">
-                            <Calendar
-                              className="text-orange-500 mr-2"
-                              size={18}
-                            />
-                            <p className="text-sm font-medium text-gray-500">
-                              Last Updated
-                            </p>
+                            <Calendar className="text-orange-500 mr-2" size={18} />
+                            <p className="text-sm font-medium text-gray-500">Last Updated</p>
                           </div>
                           <p className="text-gray-800">
-                            {profile?.updatedAt
-                              ? formatDate(profile.updatedAt)
-                              : "N/A"}
+                            {profile?.updatedAt ? formatDate(profile.updatedAt) : "N/A"}
                           </p>
                         </div>
                         <div className="bg-gray-50 rounded-lg p-4">
                           <div className="flex items-center mb-1">
                             <User className="text-orange-500 mr-2" size={18} />
-                            <p className="text-sm font-medium text-gray-500">
-                              User ID
-                            </p>
+                            <p className="text-sm font-medium text-gray-500">User ID</p>
                           </div>
                           <p className="text-gray-800 text-sm font-mono">
                             {profile?.id || profile?._id || "N/A"}
@@ -750,88 +727,58 @@ const BuyerProfile = () => {
 
                 {/* Edit Mode */}
                 {isEditing && (
-                  <form
-                    onSubmit={handleUpdateProfile}
-                    className="animate-fade-in-up"
-                  >
+                  <form onSubmit={handleUpdateProfile} className="animate-fade-in-up">
                     <div className="grid grid-cols-1 gap-6">
-                      <div className="flex justify-center mb-4">
-                        <div className="relative w-32 h-32 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden border-4 border-orange-200">
-                          {imagePreview ? (
-                            <img
-                              src={imagePreview}
-                              alt={editFormData.name || "Profile"}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.target.style.display = "none";
-                                e.target.nextSibling.style.display = "flex";
-                              }}
-                            />
-                          ) : (
-                            <User className="text-orange-500" size={48} />
-                          )}
-                          <div className="hidden w-full h-full items-center justify-center">
-                            <User className="text-orange-500" size={48} />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Image Upload */}
-                      <div className="space-y-2">
-                        <label className="flex items-center gap-2 text-gray-700 font-medium">
-                          <ImageIcon size={18} className="text-orange-500" />
+                      
+                      {/* Image Upload Section - Following ManageEvents pattern */}
+                      <div className="mb-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
                           Profile Picture
                         </label>
-
-                        {/* File Upload Input */}
-                        <div className="flex items-center justify-center w-full">
-                          <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors duration-200">
-                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                              <Upload className="w-8 h-8 mb-2 text-gray-500" />
-                              <p className="mb-2 text-sm text-gray-500">
-                                <span className="font-semibold">
-                                  Click to upload
-                                </span>{" "}
-                                or drag and drop
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                PNG, JPG, GIF up to 5MB
-                              </p>
+                        
+                        {/* Image Preview */}
+                        {imagePreview ? (
+                          <div className="relative mb-4">
+                            <div className="w-32 h-32 mx-auto">
+                              <img
+                                src={imagePreview}
+                                alt="Profile preview"
+                                className="w-full h-full object-cover rounded-full border border-gray-300"
+                              />
+                              <button
+                                type="button"
+                                onClick={handleRemoveImage}
+                                className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors duration-200"
+                                title="Remove image"
+                              >
+                                <XCircle size={20} />
+                              </button>
                             </div>
-                            <input
-                              type="file"
-                              className="hidden"
-                              accept="image/*"
-                              onChange={handleImageChange}
-                              disabled={imageProcessing}
-                            />
-                          </label>
-                        </div>
-
-                        {/* Processing Status */}
-                        {imageProcessing && (
-                          <div className="flex items-center gap-2 text-blue-600">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                            <span className="text-sm">Processing image...</span>
+                          </div>
+                        ) : (
+                          <div className="w-32 h-32 mx-auto border-2 border-dashed border-gray-300 rounded-full flex items-center justify-center mb-4 bg-gray-50">
+                            <div className="text-center">
+                              <User className="mx-auto text-gray-400 mb-2" size={48} />
+                              <p className="text-gray-500 text-sm">No image</p>
+                            </div>
                           </div>
                         )}
 
-                        {/* Selected File Info */}
-                        {selectedImage && !imageProcessing && (
-                          <div className="flex items-center gap-2 text-green-600 mt-2">
-                            <ImageIcon size={16} />
-                            <span className="text-sm">
-                              Selected: {selectedImage.name}
-                            </span>
-                          </div>
-                        )}
+                        {/* File Input */}
+                        <input
+                          type="file"
+                          id="image-upload"
+                          accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                          onChange={handleImageChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Supported formats: JPEG, PNG, GIF, WebP. Max size: 5MB
+                        </p>
                       </div>
 
                       <div>
-                        <label
-                          htmlFor="name"
-                          className="block text-sm font-medium text-gray-700 mb-1"
-                        >
+                        <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
                           Full Name *
                         </label>
                         <input
@@ -846,10 +793,7 @@ const BuyerProfile = () => {
                       </div>
 
                       <div>
-                        <label
-                          htmlFor="email"
-                          className="block text-sm font-medium text-gray-700 mb-1"
-                        >
+                        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                           Email Address *
                         </label>
                         <input
@@ -864,17 +808,14 @@ const BuyerProfile = () => {
                       </div>
 
                       <div>
-                        <label
-                          htmlFor="contactNumber"
-                          className="block text-sm font-medium text-gray-700 mb-1"
-                        >
-                          Contact Number {/* Updated label */}
+                        <label htmlFor="contactNumber" className="block text-sm font-medium text-gray-700 mb-1">
+                          Contact Number
                         </label>
                         <input
-                          id="contactNumber" // Changed from phone to contactNumber
-                          name="contactNumber" // Changed from phone to contactNumber
+                          id="contactNumber"
+                          name="contactNumber"
                           type="text"
-                          value={editFormData.contactNumber} // Changed from phone to contactNumber
+                          value={editFormData.contactNumber}
                           onChange={handleInputChange}
                           placeholder="Enter your contact number"
                           className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
@@ -882,10 +823,7 @@ const BuyerProfile = () => {
                       </div>
 
                       <div>
-                        <label
-                          htmlFor="address"
-                          className="block text-sm font-medium text-gray-700 mb-1"
-                        >
+                        <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
                           Address
                         </label>
                         <textarea
@@ -903,29 +841,19 @@ const BuyerProfile = () => {
                           type="button"
                           className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 text-gray-800 transition-colors duration-200 font-medium cursor-pointer"
                           onClick={handleCancelEdit}
+                          disabled={isSubmitting}
                         >
                           Cancel
                         </button>
                         <button
                           type="submit"
-                          className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors duration-200 shadow-md font-medium cursor-pointer flex items-center"
-                          disabled={isSubmitting || imageProcessing}
+                          className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors duration-200 shadow-md font-medium cursor-pointer flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={isSubmitting}
                         >
                           {isSubmitting ? (
                             <>
-                              <RefreshCw
-                                className="animate-spin mr-2"
-                                size={16}
-                              />
+                              <RefreshCw className="animate-spin mr-2" size={16} />
                               Saving...
-                            </>
-                          ) : imageProcessing ? (
-                            <>
-                              <RefreshCw
-                                className="animate-spin mr-2"
-                                size={16}
-                              />
-                              Processing...
                             </>
                           ) : (
                             <>
@@ -1198,7 +1126,7 @@ const BuyerProfile = () => {
         </div>
       )}
 
-      {/* Reset Password Modal (Simulated) */}
+      {/* Reset Password Modal */}
       {resetPasswordView && (
         <div className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity duration-300 ease-in-out">
           <div

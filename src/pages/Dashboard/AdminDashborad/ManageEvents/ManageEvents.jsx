@@ -17,11 +17,288 @@ import {
   Tag,
   Users,
   Ticket,
+  Edit,
+  Globe, Lock, Power, PowerOff, Upload, Download
 } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 import serverURL from "../../../../ServerConfig";
 import { AuthContext } from "../../../../providers/AuthProvider";
 import { toast } from "react-toastify";
+
+// Move EditEventModal outside of the main component
+const EditEventModal = ({ 
+  selectedEvent, 
+  editFormData, 
+  handleInputChange, 
+  handleEditSubmit, 
+  setIsEditModalOpen, 
+  setSelectedEvent 
+}) => {
+  const [imagePreview, setImagePreview] = useState(selectedEvent?.image || null);
+  const [imageFile, setImageFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  if (!selectedEvent) return null;
+
+  // Handle image file selection
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!validTypes.includes(file.type)) {
+        toast.error('Please select a valid image file (JPEG, PNG, GIF, or WebP)');
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+      if (file.size > maxSize) {
+        toast.error('Image size should be less than 5MB');
+        return;
+      }
+
+      setImageFile(file);
+      
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Remove image
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    // Clear the file input
+    const fileInput = document.getElementById('image-upload');
+    if (fileInput) {
+      fileInput.value = '';
+    }
+  };
+
+  // Enhanced form submission with image
+  const handleFormSubmit = async (e) => {
+    e.preventDefault();
+    setIsUploading(true);
+
+    try {
+      // Create FormData to handle both text data and image file
+      const formData = new FormData();
+      
+      // Append all text fields
+      Object.keys(editFormData).forEach(key => {
+        if (editFormData[key] !== null && editFormData[key] !== undefined) {
+          formData.append(key, editFormData[key]);
+        }
+      });
+
+      // If there's a new image file, append it
+      if (imageFile) {
+        formData.append('image', imageFile);
+      } else if (imagePreview === null) {
+        // If image was removed, explicitly set empty image
+        formData.append('removeImage', 'true');
+      }
+
+      // Submit the form with FormData
+      await handleEditSubmit(e, formData);
+    } catch (error) {
+      console.error('Error updating event:', error);
+      toast.error('Failed to update event. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity duration-300 ease-in-out">
+      <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto transform transition-all duration-300 ease-out">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-2xl font-bold text-gray-800">Edit Event</h2>
+          <p className="text-gray-600 mt-1">Update event information</p>
+        </div>
+
+        <form onSubmit={handleFormSubmit} className="p-6">
+          {/* Image Upload Section */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Event Image
+            </label>
+            
+            {/* Image Preview */}
+            {imagePreview ? (
+              <div className="relative mb-4">
+                <img
+                  src={imagePreview}
+                  alt="Event preview"
+                  className="w-full h-48 object-cover rounded-lg border border-gray-300"
+                />
+                <button
+                  type="button"
+                  onClick={handleRemoveImage}
+                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors duration-200"
+                  title="Remove image"
+                >
+                  <XCircle size={20} />
+                </button>
+              </div>
+            ) : (
+              <div className="w-full h-48 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center mb-4 bg-gray-50">
+                <div className="text-center">
+                  <Upload className="mx-auto text-gray-400 mb-2" size={48} />
+                  <p className="text-gray-500">No image selected</p>
+                </div>
+              </div>
+            )}
+
+            {/* File Input */}
+            <input
+              type="file"
+              id="image-upload"
+              accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+              onChange={handleImageChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Supported formats: JPEG, PNG, GIF, WebP. Max size: 5MB
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Event Title *
+              </label>
+              <input
+                type="text"
+                name="title"
+                value={editFormData.title}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Description
+              </label>
+              <textarea
+                name="description"
+                value={editFormData.description}
+                onChange={handleInputChange}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Date *
+              </label>
+              <input
+                type="date"
+                name="date"
+                value={editFormData.date}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Time *
+              </label>
+              <input
+                type="time"
+                name="time"
+                value={editFormData.time}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Location
+              </label>
+              <input
+                type="text"
+                name="location"
+                value={editFormData.location}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Price
+              </label>
+              <input
+                type="number"
+                name="price"
+                value={editFormData.price}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                min="0"
+                step="0.01"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Available Tickets
+              </label>
+              <input
+                type="number"
+                name="ticketsAvailable"
+                value={editFormData.ticketsAvailable}
+                onChange={handleInputChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                min="0"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+            <button
+              type="button"
+              className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 text-gray-800 transition-colors duration-200 font-medium cursor-pointer"
+              onClick={() => {
+                setIsEditModalOpen(false);
+                setSelectedEvent(null);
+              }}
+              disabled={isUploading}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200 shadow-md font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              disabled={isUploading}
+            >
+              {isUploading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                  Updating...
+                </>
+              ) : (
+                'Update Event'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
 
 const ManageEvents = () => {
   const { user } = useContext(AuthContext);
@@ -36,6 +313,16 @@ const ManageEvents = () => {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    title: "",
+    description: "",
+    date: "",
+    time: "",
+    location: "",
+    price: "",
+    ticketsAvailable: ""
+  });
 
   // Get auth token from localStorage
   const getAuthToken = () => {
@@ -80,6 +367,69 @@ const ManageEvents = () => {
         sellerId: user?.id || user?._id
       }
     });
+  };
+
+  // Handle edit event
+  const handleEditEvent = (event) => {
+    setSelectedEvent(event);
+    setEditFormData({
+      title: event.title || "",
+      description: event.description || "",
+      date: event.date ? new Date(event.date).toISOString().split('T')[0] : "",
+      time: event.time || "",
+      location: event.location || "",
+      price: event.price || "",
+      ticketsAvailable: event.ticketsAvailable || ""
+    });
+    setIsEditModalOpen(true);
+  };
+
+// Updated handleEditSubmit function in the main ManageEvents component
+const handleEditSubmit = async (e, formData = null) => {
+  e.preventDefault();
+  
+  try {
+    // Use formData if provided (multipart data with image), otherwise use regular editFormData
+    const dataToSubmit = formData || editFormData;
+    
+    // Determine headers based on data type
+    const headers = formData 
+      ? {
+          'Authorization': `Bearer ${localStorage.getItem("auth-token")}`,
+          // Don't set Content-Type for FormData, let browser set it with boundary
+        }
+      : {
+          'Authorization': `Bearer ${localStorage.getItem("auth-token")}`,
+          'Content-Type': 'application/json',
+        };
+
+    const response = await axios.put(
+      `${serverURL.url}event/update/${selectedEvent._id}`,
+      dataToSubmit,
+      { headers }
+    );
+
+    if (response.data.success) {
+      toast.success("Event updated successfully!");
+      setIsEditModalOpen(false);
+      setSelectedEvent(null);
+      fetchEvents(); // Refresh the events list
+    } else {
+      toast.error(response.data.message || "Failed to update event");
+    }
+  } catch (err) {
+    console.error("Error updating event:", err);
+    toast.error(err.response?.data?.message || "Failed to update event");
+  }
+};
+
+  // Handle form input changes
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   // Fetch all events
@@ -585,6 +935,14 @@ const ManageEvents = () => {
                           >
                             <Eye size={18} />
                           </button>
+
+                          <button
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors cursor-pointer"
+                            onClick={() => handleEditEvent(event)}
+                            title="Edit Event"
+                          >
+                            <Edit size={18} />
+                          </button>
                           
                           <button 
                             onClick={() => handleBookSeats(event._id)}
@@ -615,34 +973,31 @@ const ManageEvents = () => {
                         </div>
 
                         <button
-                          onClick={() =>
-                            togglePublish(event._id, event.isPublished)
-                          }
-                          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-200 cursor-pointer ${
+                          onClick={() => togglePublish(event._id, event.isPublished)}
+                          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer ${
                             event.isPublished
-                              ? "bg-red-100 text-red-700 hover:bg-red-200"
-                              : "bg-green-100 text-green-700 hover:bg-green-200"
+                              ? "bg-red-100 text-red-700 hover:bg-red-200 hover:shadow-md"
+                              : "bg-green-100 text-green-700 hover:bg-green-200 hover:shadow-md"
                           }`}
                           title={
                             event.isPublished
-                              ? "Unpublish this event"
-                              : "Publish this event"
+                              ? "Make event private"
+                              : "Publish event to public"
                           }
                         >
-                          {event.isPublished ? "Unpublish" : "Publish"}
+                          {event.isPublished ? (
+                            <>
+                              <Lock size={16} />
+                              {/* <span>Private</span> */}
+                            </>
+                          ) : (
+                            <>
+                              <Globe size={16} />
+                              {/* <span>Publish</span> */}
+                            </>
+                          )}
                         </button>
                       </div>
-
-                      {/* Book Seats Button - Full width below action buttons */}
-                      {/* <div className="mt-4 pt-4 border-t border-gray-100">
-                        <button 
-                          onClick={() => handleBookSeats(event._id)}
-                          className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-green-500 to-green-600 text-white px-4 py-2.5 rounded-lg shadow hover:shadow-lg transition-all duration-200 font-medium cursor-pointer"
-                        >
-                          <Users size={18} />
-                          Book Seats for Personal Guests
-                        </button>
-                      </div> */}
                     </div>
                   </div>
                 ))}
@@ -716,6 +1071,16 @@ const ManageEvents = () => {
 
       {/* Modals */}
       {isViewModalOpen && <ViewEventModal />}
+      {isEditModalOpen && (
+        <EditEventModal 
+          selectedEvent={selectedEvent}
+          editFormData={editFormData}
+          handleInputChange={handleInputChange}
+          handleEditSubmit={handleEditSubmit}
+          setIsEditModalOpen={setIsEditModalOpen}
+          setSelectedEvent={setSelectedEvent}
+        />
+      )}
       {isDeleteModalOpen && <DeleteConfirmationModal />}
     </div>
   );

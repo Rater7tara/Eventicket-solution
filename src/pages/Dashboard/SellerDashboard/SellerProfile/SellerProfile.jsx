@@ -22,7 +22,8 @@ import {
   Shield,
   Send,
   Upload,
-  ImageIcon
+  ImageIcon,
+  XCircle
 } from "lucide-react";
 import serverURL from "../../../../ServerConfig";
 import { AuthContext } from "../../../../providers/AuthProvider";
@@ -60,27 +61,25 @@ const SellerProfile = () => {
     email: "",
     phone: "",
     address: "",
-    profilePicture: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Image upload states
-  const [selectedImage, setSelectedImage] = useState(null);
+  // Image upload states - Following AdminProfile pattern
   const [imagePreview, setImagePreview] = useState(null);
-  const [imageUploading, setImageUploading] = useState(false);
+  const [imageFile, setImageFile] = useState(null);
 
   // Delete confirmation
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
   // Password states
-  const [showChangePassword, setShowChangePassword] = useState(false);
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
     email: ""
   });
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [resetToken, setResetToken] = useState("");
@@ -93,15 +92,8 @@ const SellerProfile = () => {
 
   // Get user ID from user context or localStorage
   const getUserId = () => {
-    // Try to get from user context first
-    if (user && user.id) {
-      return user.id;
-    }
-    // Try to get from user context with different property name
-    if (user && user._id) {
-      return user._id;
-    }
-    // Try to get from localStorage if stored there
+    if (user && user.id) return user.id;
+    if (user && user._id) return user._id;
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
       try {
@@ -130,77 +122,50 @@ const SellerProfile = () => {
     };
   };
 
-  // Set up headers for file upload
-  const getFileUploadHeaders = () => {
-    const token = getAuthToken();
-    return {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'multipart/form-data'
-      }
-    };
-  };
-
-  // Handle image file selection
+  // Handle image file selection - Following AdminProfile pattern
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       // Validate file type
-      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
       if (!validTypes.includes(file.type)) {
-        toast.error('Please select a valid image file (JPEG, PNG, or GIF)');
+        toast.error('Please select a valid image file (JPEG, PNG, GIF, or WebP)');
         return;
       }
 
       // Validate file size (max 5MB)
       const maxSize = 5 * 1024 * 1024; // 5MB in bytes
       if (file.size > maxSize) {
-        toast.error('Image file size must be less than 5MB');
+        toast.error('Image size should be less than 5MB');
         return;
       }
 
-      setSelectedImage(file);
+      console.log("🖼️ Image selected:", file.name);
+      setImageFile(file);
       
-      // Create preview
+      // Create preview URL
       const reader = new FileReader();
       reader.onload = (e) => {
         setImagePreview(e.target.result);
       };
       reader.readAsDataURL(file);
-      setError(''); // Clear any previous errors
+      
+      toast.success("Image selected successfully!");
     }
   };
 
-  // Upload image to server
-  const uploadImage = async () => {
-    if (!selectedImage) return null;
-
-    try {
-      setImageUploading(true);
-      const formData = new FormData();
-      formData.append('image', selectedImage);
-
-      // Upload to your image upload endpoint
-      const response = await axios.post(
-        `${serverURL.url}upload/image`, // Adjust this endpoint as needed
-        formData,
-        getFileUploadHeaders()
-      );
-
-      if (response.data && response.data.imageUrl) {
-        return response.data.imageUrl;
-      } else {
-        throw new Error('No image URL returned from server');
-      }
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      throw new Error('Failed to upload image. Please try again.');
-    } finally {
-      setImageUploading(false);
+  // Remove image - Following AdminProfile pattern
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    // Clear the file input
+    const fileInput = document.getElementById('image-upload');
+    if (fileInput) {
+      fileInput.value = '';
     }
   };
 
-  // Fetch user profile - UPDATED to handle correct API response structure
+  // Fetch user profile
   const fetchProfile = async () => {
     try {
       setLoading(true);
@@ -225,30 +190,21 @@ const SellerProfile = () => {
         const profileData = response.data.data || response.data.profile;
         
         if (profileData) {
-          console.log("Setting profile data:", profileData); // Debug log
+          console.log("Setting profile data:", profileData);
           setProfile(profileData);
           
-          // Initialize edit form with current data - handle nested userId structure
+          // Initialize edit form with current data
           setEditFormData({
             name: profileData.userId?.name || profileData.name || "",
             email: profileData.email || profileData.userId?.email || "",
             phone: profileData.contactNumber || profileData.phone || "",
             address: profileData.address || "",
-            profilePicture: profileData.profileImg || profileData.profilePicture || "",
           });
           
           // Set current image preview if exists
           if (profileData.profileImg || profileData.profilePicture) {
             setImagePreview(profileData.profileImg || profileData.profilePicture);
           }
-          
-          console.log("Edit form data set to:", {
-            name: profileData.userId?.name || profileData.name || "",
-            email: profileData.email || profileData.userId?.email || "",
-            phone: profileData.contactNumber || profileData.phone || "",
-            address: profileData.address || "",
-            profilePicture: profileData.profileImg || profileData.profilePicture || "",
-          }); // Debug log
           
           // Set email in password form
           setPasswordData(prev => ({ 
@@ -278,9 +234,11 @@ const SellerProfile = () => {
     }
   };
 
-  // Update user profile - ENHANCED WITH IMAGE UPLOAD
+  // Update user profile - Following AdminProfile pattern
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
+    
+    if (isSubmitting) return;
     setIsSubmitting(true);
     
     try {
@@ -302,42 +260,67 @@ const SellerProfile = () => {
         return;
       }
 
-      const authHeaders = getAuthHeaders();
-      if (!authHeaders) return;
-
-      const userId = getUserId();
-      if (!userId) {
-        throw new Error("User ID not found. Please login again.");
+      const token = getAuthToken();
+      if (!token) {
+        throw new Error('Authentication required. Please log in.');
       }
 
-      // Clean the data - remove empty strings and trim whitespace
-      let cleanedData = {
-        name: editFormData.name.trim(),
-        email: editFormData.email.trim(),
-        phone: editFormData.phone?.trim() || null,
-        address: editFormData.address?.trim() || null,
-        profilePicture: editFormData.profilePicture?.trim() || null,
-      };
+      let dataToSubmit;
+      let headers;
 
-      // Upload new image if selected
-      if (selectedImage) {
-        try {
-          const uploadedImageUrl = await uploadImage();
-          cleanedData.profilePicture = uploadedImageUrl;
-        } catch (uploadError) {
-          toast.error(uploadError.message);
-          setIsSubmitting(false);
-          return;
-        }
+      // Following AdminProfile pattern for handling FormData vs JSON
+      if (imageFile) {
+        // Use FormData if there's an image file
+        dataToSubmit = new FormData();
+        
+        // Append all text fields
+        dataToSubmit.append('name', editFormData.name.trim());
+        dataToSubmit.append('email', editFormData.email.trim());
+        dataToSubmit.append('phone', editFormData.phone?.trim() || '');
+        dataToSubmit.append('address', editFormData.address?.trim() || '');
+
+        // Append the image file
+        dataToSubmit.append('profileImg', imageFile);
+
+        headers = {
+          'Authorization': `Bearer ${token}`,
+          // Don't set Content-Type for FormData, let browser set it with boundary
+        };
+      } else if (imagePreview === null) {
+        // If image was removed, use FormData with removeImage flag
+        dataToSubmit = new FormData();
+        
+        dataToSubmit.append('name', editFormData.name.trim());
+        dataToSubmit.append('email', editFormData.email.trim());
+        dataToSubmit.append('phone', editFormData.phone?.trim() || '');
+        dataToSubmit.append('address', editFormData.address?.trim() || '');
+        dataToSubmit.append('removeImage', 'true');
+
+        headers = {
+          'Authorization': `Bearer ${token}`,
+        };
+      } else {
+        // Use regular JSON for text-only updates
+        dataToSubmit = {
+          name: editFormData.name.trim(),
+          email: editFormData.email.trim(),
+          phone: editFormData.phone?.trim() || null,
+          address: editFormData.address?.trim() || null,
+        };
+
+        headers = {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        };
       }
 
-      console.log("Sending update data:", cleanedData);
+      console.log("Sending update data...");
 
-      // Using the existing update endpoint with PATCH method
+      // Use axios following AdminProfile pattern
       const response = await axios.patch(
         `${serverURL.url}seller/update-profile`,
-        cleanedData,
-        authHeaders
+        dataToSubmit,
+        { headers }
       );
       
       console.log("Update response:", response.data);
@@ -345,7 +328,9 @@ const SellerProfile = () => {
       if (response.data?.success) {
         toast.success("Profile updated successfully!");
         setIsEditing(false);
-        setSelectedImage(null); // Clear selected image
+        
+        // Clean up image states
+        setImageFile(null);
         
         // Refetch profile to get updated data from server
         await fetchProfile();
@@ -354,8 +339,8 @@ const SellerProfile = () => {
         if (setUser) {
           setUser(prev => ({ 
             ...prev, 
-            name: cleanedData.name,
-            email: cleanedData.email 
+            name: editFormData.name.trim(),
+            email: editFormData.email.trim()
           }));
         }
       } else {
@@ -388,57 +373,83 @@ const SellerProfile = () => {
     }
   };
 
-  // Change password
+  // Change password - FIXED: Use oldPassword instead of currentPassword
   const handleChangePassword = async (e) => {
     e.preventDefault();
     
-    // Validate passwords
+    // Enhanced validation
+    if (!passwordData.currentPassword.trim()) {
+      toast.error("Current password is required!");
+      return;
+    }
+
+    if (!passwordData.newPassword.trim()) {
+      toast.error("New password is required!");
+      return;
+    }
+
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       toast.error("New passwords don't match!");
       return;
     }
-    
+
     if (passwordData.newPassword.length < 6) {
       toast.error("New password must be at least 6 characters long!");
+      return;
+    }
+
+    // Check if new password is different from current
+    if (passwordData.currentPassword === passwordData.newPassword) {
+      toast.error("New password must be different from current password!");
       return;
     }
     
     setIsSubmitting(true);
     
     try {
-      const authHeaders = getAuthHeaders();
-      if (!authHeaders) return;
+      const token = getAuthToken();
+      if (!token) {
+        toast.error("Authentication required. Please log in again.");
+        navigate("/login");
+        return;
+      }
 
-      const response = await axios.put(
-        `${serverURL.url}auth/change-password`,
-        {
-          currentPassword: passwordData.currentPassword,
-          newPassword: passwordData.newPassword
+      console.log("🔑 Attempting password change...");
+
+      // FIXED: Send oldPassword instead of currentPassword to match API
+      const response = await fetch(`${serverURL.url}auth/change-password`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         },
-        authHeaders
-      );
-      
-      console.log("Password change response:", response.data);
-      
-      if (response.data?.success) {
+        body: JSON.stringify({
+          oldPassword: passwordData.currentPassword.trim(),
+          newPassword: passwordData.newPassword.trim()
+        })
+      });
+
+      const result = await response.json();
+      console.log("🔑 Password change response:", result);
+
+      if (response.ok && result?.success) {
         toast.success("Password changed successfully!");
         setShowChangePassword(false);
         // Reset form
-        setPasswordData({
+        setPasswordData(prev => ({
+          ...prev,
           currentPassword: "",
           newPassword: "",
-          confirmPassword: "",
-          email: profile?.email || profile?.userId?.email || ""
-        });
+          confirmPassword: ""
+        }));
       } else {
-        toast.error(response.data?.message || "Password change failed. Please try again.");
+        const errorMessage = result?.message || `Error: ${response.status} ${response.statusText}`;
+        toast.error(errorMessage);
+        console.error("Password change failed:", result);
       }
     } catch (err) {
-      console.error("Error changing password:", err);
-      toast.error(
-        err.response?.data?.message || 
-        "Failed to change password. Please try again."
-      );
+      console.error("❌ Error changing password:", err);
+      toast.error("Network error. Please check your connection and try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -480,7 +491,7 @@ const SellerProfile = () => {
     }
   };
 
-  // Reset password (simulated - in a real app, this would be on a separate page)
+  // Reset password
   const handleResetPassword = async (e) => {
     e.preventDefault();
     
@@ -520,7 +531,7 @@ const SellerProfile = () => {
     }
   };
 
-  // Delete account - FIXED VERSION
+  // Delete account
   const handleDeleteAccount = async () => {
     try {
       const authHeaders = getAuthHeaders();
@@ -531,7 +542,6 @@ const SellerProfile = () => {
         throw new Error("User ID not found. Please login again.");
       }
 
-      // Using the correct delete endpoint pattern: seller/{id}
       const response = await axios.delete(
         `${serverURL.url}seller/${userId}`,
         authHeaders
@@ -542,7 +552,7 @@ const SellerProfile = () => {
       if (response.data?.success) {
         toast.success("Account deleted successfully!");
         localStorage.removeItem("auth-token");
-        localStorage.removeItem("user"); // Also remove user data if stored
+        localStorage.removeItem("user");
         if (logout) {
           logout();
         }
@@ -559,7 +569,7 @@ const SellerProfile = () => {
     }
   };
 
-  // Handle form field changes - IMPROVED
+  // Handle form field changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setEditFormData(prev => ({
@@ -586,31 +596,28 @@ const SellerProfile = () => {
     });
   };
 
-  // Cancel editing - UPDATED to handle correct field mapping
+  // Cancel editing
   const handleCancelEdit = () => {
-    // Reset form data to original profile data with correct field mapping
+    // Reset form data to original profile data
     setEditFormData({
       name: profile?.userId?.name || profile?.name || "",
       email: profile?.email || profile?.userId?.email || "",
       phone: profile?.contactNumber || profile?.phone || "",
       address: profile?.address || "",
-      profilePicture: profile?.profileImg || profile?.profilePicture || "",
     });
     
-    // Reset image preview to original
-    if (profile?.profileImg || profile?.profilePicture) {
-      setImagePreview(profile.profileImg || profile.profilePicture);
-    } else {
-      setImagePreview(null);
+    // Reset image states
+    setImageFile(null);
+    setImagePreview(profile?.profileImg || profile?.profilePicture || null);
+    
+    // Clear the file input
+    const fileInput = document.getElementById('image-upload');
+    if (fileInput) {
+      fileInput.value = '';
     }
-    setSelectedImage(null);
+    
     setIsEditing(false);
   };
-
-  // Load profile data on component mount
-  useEffect(() => {
-    fetchProfile();
-  }, []);
 
   // Reset modal states when closing
   const resetModals = () => {
@@ -624,6 +631,11 @@ const SellerProfile = () => {
       email: profile?.email || profile?.userId?.email || ""
     });
   };
+
+  // Load profile data on component mount
+  useEffect(() => {
+    fetchProfile();
+  }, []);
 
   return (
     <div className="bg-gray-50 min-h-screen p-6">
@@ -658,7 +670,7 @@ const SellerProfile = () => {
             <>
               {/* Main Content */}
               <div className="p-6">
-                {/* Profile View Mode - UPDATED to show correct data */}
+                {/* Profile View Mode */}
                 {!isEditing && (
                   <div className="animate-fade-in-up" key={`profile-${profile?._id}-${profile?.updatedAt}`}>
                     <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-8">
@@ -669,14 +681,12 @@ const SellerProfile = () => {
                             alt={profile.userId?.name || profile.name || "Profile"}
                             className="w-full h-full object-cover"
                             onError={(e) => {
-                              e.target.style.display = 'none';
-                              e.target.nextSibling.style.display = 'flex';
+                              console.error("Failed to load profile image");
                             }}
                           />
-                        ) : null}
-                        <div className={`w-full h-full items-center justify-center ${(profile?.profileImg || profile?.profilePicture) ? 'hidden' : 'flex'}`}>
+                        ) : (
                           <User className="text-orange-500" size={48} />
-                        </div>
+                        )}
                       </div>
                       <div className="flex-1">
                         <h2 className="text-2xl font-bold text-gray-800 mb-1">
@@ -769,60 +779,52 @@ const SellerProfile = () => {
                 {isEditing && (
                   <form onSubmit={handleUpdateProfile} className="animate-fade-in-up">
                     <div className="grid grid-cols-1 gap-6">
-                      <div className="flex justify-center mb-4">
-                        <div className="relative w-32 h-32 rounded-full bg-orange-100 flex items-center justify-center overflow-hidden border-4 border-orange-200">
-                          {imagePreview ? (
-                            <img
-                              src={imagePreview}
-                              alt={editFormData.name || "Profile"}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                                e.target.nextSibling.style.display = 'flex';
-                              }}
-                            />
-                          ) : (
-                            <User className="text-orange-500" size={48} />
-                          )}
-                          <div className="hidden w-full h-full items-center justify-center">
-                            <User className="text-orange-500" size={48} />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Image Upload */}
-                      <div className="space-y-2">
-                        <label className="flex items-center gap-2 text-gray-700 font-medium">
-                          <ImageIcon size={18} className="text-orange-500" />
+                      
+                      {/* Image Upload Section - Following AdminProfile pattern */}
+                      <div className="mb-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
                           Profile Picture
                         </label>
                         
-                        {/* File Upload Input */}
-                        <div className="flex items-center justify-center w-full">
-                          <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors duration-200">
-                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                              <Upload className="w-8 h-8 mb-2 text-gray-500" />
-                              <p className="mb-2 text-sm text-gray-500">
-                                <span className="font-semibold">Click to upload</span> or drag and drop
-                              </p>
-                              <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+                        {/* Image Preview */}
+                        {imagePreview ? (
+                          <div className="relative mb-4">
+                            <div className="w-32 h-32 mx-auto">
+                              <img
+                                src={imagePreview}
+                                alt="Profile preview"
+                                className="w-full h-full object-cover rounded-full border border-gray-300"
+                              />
+                              <button
+                                type="button"
+                                onClick={handleRemoveImage}
+                                className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors duration-200"
+                                title="Remove image"
+                              >
+                                <XCircle size={20} />
+                              </button>
                             </div>
-                            <input 
-                              type="file" 
-                              className="hidden" 
-                              accept="image/*"
-                              onChange={handleImageChange}
-                            />
-                          </label>
-                        </div>
-                        
-                        {/* Upload Status */}
-                        {imageUploading && (
-                          <div className="flex items-center gap-2 text-blue-600">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                            <span className="text-sm">Uploading image...</span>
+                          </div>
+                        ) : (
+                          <div className="w-32 h-32 mx-auto border-2 border-dashed border-gray-300 rounded-full flex items-center justify-center mb-4 bg-gray-50">
+                            <div className="text-center">
+                              <User className="mx-auto text-gray-400 mb-2" size={48} />
+                              <p className="text-gray-500 text-sm">No image</p>
+                            </div>
                           </div>
                         )}
+
+                        {/* File Input */}
+                        <input
+                          type="file"
+                          id="image-upload"
+                          accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                          onChange={handleImageChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Supported formats: JPEG, PNG, GIF, WebP. Max size: 5MB
+                        </p>
                       </div>
 
                       <div>
@@ -888,23 +890,19 @@ const SellerProfile = () => {
                           type="button"
                           className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 text-gray-800 transition-colors duration-200 font-medium cursor-pointer"
                           onClick={handleCancelEdit}
+                          disabled={isSubmitting}
                         >
                           Cancel
                         </button>
                         <button
                           type="submit"
-                          className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors duration-200 shadow-md font-medium cursor-pointer flex items-center"
-                          disabled={isSubmitting || imageUploading}
+                          className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors duration-200 shadow-md font-medium cursor-pointer flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={isSubmitting}
                         >
                           {isSubmitting ? (
                             <>
                               <RefreshCw className="animate-spin mr-2" size={16} />
                               Saving...
-                            </>
-                          ) : imageUploading ? (
-                            <>
-                              <RefreshCw className="animate-spin mr-2" size={16} />
-                              Uploading Image...
                             </>
                           ) : (
                             <>
@@ -955,9 +953,8 @@ const SellerProfile = () => {
                       onChange={handlePasswordChange}
                       className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                       required
-                      minLength="6"
                     />
-                    <Key className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                    <Lock className="absolute left-3 top-2.5 text-gray-400" size={18} />
                     <button
                       type="button"
                       className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
@@ -1144,7 +1141,7 @@ const SellerProfile = () => {
         </div>
       )}
 
-      {/* Reset Password Modal (Simulated) */}
+      {/* Reset Password Modal */}
       {resetPasswordView && (
         <div className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity duration-300 ease-in-out">
           <div
