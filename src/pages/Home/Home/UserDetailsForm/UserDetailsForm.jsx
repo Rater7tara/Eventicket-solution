@@ -26,6 +26,36 @@ const UserDetailsForm = () => {
   // Get auth context
   const { user, loading, createUser, signIn } = useContext(AuthContext);
 
+  // Function to convert time to 12-hour format
+  const formatTo12Hour = (timeString) => {
+    if (!timeString) return timeString;
+    
+    // Check if the time string contains date information
+    const dateTimeRegex = /(\d{4}-\d{2}-\d{2})\s+(\d{1,2}):(\d{2})/;
+    const timeOnlyRegex = /^(\d{1,2}):(\d{2})$/;
+    
+    let hours, minutes, datePort = '';
+    
+    if (dateTimeRegex.test(timeString)) {
+      const match = timeString.match(dateTimeRegex);
+      datePort = match[1] + ' ';
+      hours = parseInt(match[2]);
+      minutes = match[3];
+    } else if (timeOnlyRegex.test(timeString)) {
+      const match = timeString.match(timeOnlyRegex);
+      hours = parseInt(match[1]);
+      minutes = match[2];
+    } else {
+      // If format doesn't match expected patterns, return as is
+      return timeString;
+    }
+    
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+    
+    return `${datePort}${displayHours}:${minutes} ${period}`;
+  };
+
   // Check if we have the event data, if not redirect back to events
   useEffect(() => {
     if (!eventData) {
@@ -282,7 +312,7 @@ const getSummaryContent = () => {
         </div>
         <div className="flex justify-between items-center">
           <span className="text-gray-300">Date & Time:</span>
-          <span className="font-medium text-white">{eventData.time}</span>
+          <span className="font-medium text-white">{formatTo12Hour(eventData.time)}</span>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-gray-300">Location:</span>
@@ -301,7 +331,7 @@ const getSummaryContent = () => {
           </div>
           {/* <div className="flex justify-between items-center mb-2">
             <span className="text-gray-300">Service Fee:</span>
-            <span className="font-medium text-white">{serviceFee}</span>
+            <span className="font-medium text-white">{serviceFee} BDT</span>
           </div> */}
           <div className="flex justify-between items-center pt-2 border-t border-gray-700">
             <span className="text-lg text-gray-300">Total:</span>
@@ -322,7 +352,7 @@ const getSummaryContent = () => {
         </div>
         <div className="flex justify-between items-center">
           <span className="text-gray-300">Date & Time:</span>
-          <span className="font-medium text-white">{eventData.time}</span>
+          <span className="font-medium text-white">{formatTo12Hour(eventData.time)}</span>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-gray-300">Location:</span>

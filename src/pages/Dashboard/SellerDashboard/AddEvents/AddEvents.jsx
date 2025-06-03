@@ -28,6 +28,8 @@ const AddEvent = () => {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(null);
     
+
+    
     // Get auth token from localStorage
     const getAuthToken = () => {
         return localStorage.getItem('auth-token');
@@ -38,9 +40,6 @@ const AddEvent = () => {
         const handleOutsideClick = (e) => {
             if (!e.target.closest('.date-picker-container') && !e.target.closest('.date-input-container')) {
                 setShowDatePicker(false);
-            }
-            if (!e.target.closest('.time-picker-container') && !e.target.closest('.time-input-container')) {
-                setShowTimePicker(false);
             }
         };
 
@@ -79,34 +78,22 @@ const AddEvent = () => {
     };
 
     const handleDateSelect = (day) => {
-        const selectedDate = new Date(
-            currentMonth.getFullYear(),
-            currentMonth.getMonth(),
-            day
-        );
+        // Create date using local time to avoid timezone issues
+        const year = currentMonth.getFullYear();
+        const month = currentMonth.getMonth();
+        const selectedDate = new Date(year, month, day);
         
-        // Format date as YYYY-MM-DD
-        const formattedDate = selectedDate.toISOString().split('T')[0];
+        // Format date as YYYY-MM-DD using local date components
+        const formattedDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         
         setSelectedDate(selectedDate);
         setEventData({ ...eventData, date: formattedDate });
         setShowDatePicker(false);
     };
 
-    const handleTimeSelect = (hour, minute, period) => {
-        // Convert to 24-hour format for the input
-        let hours24 = parseInt(hour);
-        if (period === 'PM' && hours24 < 12) {
-            hours24 += 12;
-        } else if (period === 'AM' && hours24 === 12) {
-            hours24 = 0;
-        }
-        
-        // Format as HH:MM for the input
-        const formattedTime = `${hours24.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-        
-        setEventData({ ...eventData, time: formattedTime });
-        setShowTimePicker(false);
+    const handleTimeChange = (e) => {
+        const value = e.target.value;
+        setEventData({ ...eventData, time: value });
     };
 
     // Form handling functions
@@ -234,10 +221,10 @@ const AddEvent = () => {
                 <div 
                     key={`day-${day}`} 
                     onClick={() => handleDateSelect(day)}
-                    className={`w-10 h-10 flex items-center justify-center cursor-pointer rounded-full text-sm
+                    className={`w-10 h-10 flex items-center justify-center cursor-pointer rounded-full text-sm font-medium
                     ${isSelected ? 'bg-orange-500 text-white' : ''}
                     ${!isSelected && isToday ? 'bg-orange-100 text-orange-800' : ''}
-                    ${!isSelected && !isToday ? 'hover:bg-gray-100' : ''}
+                    ${!isSelected && !isToday ? 'hover:bg-gray-100 text-gray-700' : ''}
                     `}
                 >
                     {day}
@@ -248,76 +235,14 @@ const AddEvent = () => {
         return days;
     };
 
-    // Time picker rendering
-    const renderTimePicker = () => {
-        const hours = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-        const minutes = ['00', '15', '30', '45'];
-        const periods = ['AM', 'PM'];
-        
-        return (
-            <div className="p-4 bg-white rounded-lg shadow-lg border border-gray-200">
-                <div className="text-center mb-3 font-medium text-gray-800">Select Time</div>
-                
-                <div className="flex">
-                    {/* Hours */}
-                    <div className="flex flex-col overflow-y-auto h-40 mr-2 pr-2">
-                        {hours.map(hour => (
-                            <div
-                                key={`hour-${hour}`}
-                                onClick={() => {
-                                    // Extract current values
-                                    const [_, currentMinute, currentPeriod] = /(\d+):(\d+)\s*([APM]{2})?/.exec(eventData.time || '12:00 AM') || [null, '00', 'AM'];
-                                    handleTimeSelect(hour, currentMinute, currentPeriod);
-                                }}
-                                className="py-2 px-3 cursor-pointer hover:bg-orange-100 rounded text-center"
-                            >
-                                {hour}
-                            </div>
-                        ))}
-                    </div>
-                    
-                    {/* Minutes */}
-                    <div className="flex flex-col overflow-y-auto h-40 mr-2 pr-2">
-                        {minutes.map(minute => (
-                            <div
-                                key={`minute-${minute}`}
-                                onClick={() => {
-                                    // Extract current values
-                                    const [_, currentHour, __, currentPeriod] = /(\d+):(\d+)\s*([APM]{2})?/.exec(eventData.time || '12:00 AM') || [null, '12', null, 'AM'];
-                                    handleTimeSelect(currentHour, minute, currentPeriod);
-                                }}
-                                className="py-2 px-3 cursor-pointer hover:bg-orange-100 rounded text-center"
-                            >
-                                {minute}
-                            </div>
-                        ))}
-                    </div>
-                    
-                    {/* AM/PM */}
-                    <div className="flex flex-col">
-                        {periods.map(period => (
-                            <div
-                                key={`period-${period}`}
-                                onClick={() => {
-                                    // Extract current values
-                                    const [_, currentHour, currentMinute] = /(\d+):(\d+)\s*([APM]{2})?/.exec(eventData.time || '12:00 AM') || [null, '12', '00'];
-                                    handleTimeSelect(currentHour, currentMinute, period);
-                                }}
-                                className="py-2 px-3 cursor-pointer hover:bg-orange-100 rounded text-center"
-                            >
-                                {period}
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-        );
-    };
+
 
     // Format date for display
     const formatDateForDisplay = (dateString) => {
         if (!dateString) return '';
-        const date = new Date(dateString);
+        // Parse the date string directly to avoid timezone issues
+        const [year, month, day] = dateString.split('-').map(num => parseInt(num, 10));
+        const date = new Date(year, month - 1, day); // month is 0-indexed
         return date.toLocaleDateString('en-US', { 
             weekday: 'long', 
             year: 'numeric', 
@@ -492,7 +417,7 @@ const AddEvent = () => {
                         )}
                     </div>
                     
-                    {/* Time with Time Picker */}
+                    {/* Time with Clock Picker */}
                     <div className="space-y-2 relative">
                         <label className="flex items-center gap-2 text-gray-700 font-medium">
                             <Clock size={18} className="text-orange-500" />
@@ -501,27 +426,14 @@ const AddEvent = () => {
                         
                         <div className="relative time-input-container">
                             <input
-                                type="text"
+                                type="time"
                                 name="time"
-                                value={formatTimeForDisplay(eventData.time)}
-                                readOnly
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer"
-                                placeholder="Select time"
-                                onClick={() => setShowTimePicker(!showTimePicker)}
+                                value={eventData.time}
+                                onChange={handleTimeChange}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
                                 required
                             />
-                            <Clock 
-                                size={20} 
-                                className="absolute right-3 top-3.5 text-gray-500 pointer-events-none" 
-                            />
                         </div>
-                        
-                        {/* Time Picker Popover */}
-                        {showTimePicker && (
-                            <div className="absolute z-10 mt-1 time-picker-container">
-                                {renderTimePicker()}
-                            </div>
-                        )}
                     </div>
                 </div>
                 
