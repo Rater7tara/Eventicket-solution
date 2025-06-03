@@ -115,7 +115,7 @@ const ContactUs = () => {
             
             <div className="space-y-6">
               {/* Phone */}
-              <div className="flex items-center">
+              {/* <div className="flex items-center">
                 <div className="mr-4 p-3 bg-orange-100 rounded-full">
                   <Phone size={24} className="text-orange-500" />
                 </div>
@@ -123,7 +123,7 @@ const ContactUs = () => {
                   <p className="font-semibold text-gray-700">Phone</p>
                   <p className="text-gray-600">(+61) 123 456 7890</p>
                 </div>
-              </div>
+              </div> */}
 
               {/* Email */}
               <div className="flex items-center">
@@ -150,7 +150,7 @@ const ContactUs = () => {
 
             {/* Social Links */}
             <div className="mt-8 flex space-x-4">
-              <a href="#" className="text-gray-500 hover:text-orange-500 transition-colors">
+              <a href="https://www.facebook.com/share/1BUxxEVuy7/?mibextid=wwXIfr" className="text-gray-500 hover:text-orange-500 transition-colors">
                 <Facebook size={24} />
               </a>
               <a href="#" className="text-gray-500 hover:text-orange-500 transition-colors">

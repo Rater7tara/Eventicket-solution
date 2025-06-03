@@ -93,7 +93,7 @@ const EventCard = ({ event }) => {
               {/* Price tag */}
               {/* <div className="absolute -top-2 -right-2 transform rotate-3 group-hover:rotate-0 transition-transform duration-300">
                                 <div className="bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold px-6 py-2 rounded shadow-lg">
-                                    {event.price ? `${event.price} BDT` : 'FREE'}
+                                    {event.price ? `${event.price}` : 'FREE'}
                                 </div>
                             </div> */}
             {/* </div> */}

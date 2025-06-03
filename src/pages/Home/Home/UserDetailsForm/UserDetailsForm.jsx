@@ -297,16 +297,16 @@ const getSummaryContent = () => {
         <div className="border-t border-gray-700 pt-3 mt-3">
           <div className="flex justify-between items-center mb-2">
             <span className="text-gray-300">Subtotal:</span>
-            <span className="font-medium text-white">{totalPrice} BDT</span>
+            <span className="font-medium text-white">${totalPrice}</span>
           </div>
-          <div className="flex justify-between items-center mb-2">
+          {/* <div className="flex justify-between items-center mb-2">
             <span className="text-gray-300">Service Fee:</span>
-            <span className="font-medium text-white">{serviceFee} BDT</span>
-          </div>
+            <span className="font-medium text-white">{serviceFee}</span>
+          </div> */}
           <div className="flex justify-between items-center pt-2 border-t border-gray-700">
             <span className="text-lg text-gray-300">Total:</span>
             <span className="text-lg font-bold text-orange-500">
-              {grandTotal} BDT
+              ${grandTotal}
             </span>
           </div>
         </div>

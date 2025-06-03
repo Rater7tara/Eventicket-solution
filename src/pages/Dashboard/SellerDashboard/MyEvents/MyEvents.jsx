@@ -720,7 +720,7 @@ const MyEvents = () => {
                                 <div className="space-y-2">
                                     <label className="flex items-center gap-2 text-gray-700 font-medium">
                                         <DollarSign size={18} className="text-orange-500" />
-                                        Price (BDT) *
+                                        Price *
                                     </label>
                                     <input
                                         type="number"
