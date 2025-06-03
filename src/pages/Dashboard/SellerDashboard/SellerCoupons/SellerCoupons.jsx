@@ -170,16 +170,19 @@ const SellerCoupons = () => {
     return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
   };
 
+  // FIXED: Format date for input using local date components to avoid timezone issues
   const formatDateForInput = (date) => {
-    return date.toISOString().split("T")[0];
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
+  // FIXED: Handle date selection using local time to avoid timezone issues
   const handleDateSelect = (day, isStartDate) => {
-    const selectedDate = new Date(
-      currentMonth.getFullYear(),
-      currentMonth.getMonth(),
-      day
-    );
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const selectedDate = new Date(year, month, day);
     const formattedDate = formatDateForInput(selectedDate);
 
     if (isStartDate) {
@@ -226,7 +229,7 @@ const SellerCoupons = () => {
           type="button"
           onClick={() => !isPast && handleDateSelect(day, isStartDate)}
           disabled={isPast}
-          className={`w-8 h-8 rounded-full text-sm transition-colors ${
+          className={`w-8 h-8 rounded-full text-sm font-medium transition-colors ${
             isToday
               ? "bg-orange-500 text-white"
               : isPast
@@ -406,91 +409,90 @@ const SellerCoupons = () => {
   };
 
   // Handle update coupon
+  const handleUpdateCoupon = async (e) => {
+    e.preventDefault();
 
-const handleUpdateCoupon = async (e) => {
-  e.preventDefault();
+    if (!editingCoupon) return;
 
-  if (!editingCoupon) return;
+    // Same validation as create
+    if (
+      !formData.eventId ||
+      !formData.code ||
+      !formData.discountPercentage ||
+      !formData.startDate ||
+      !formData.endDate
+    ) {
+      setErrorMessage("Please fill in all required fields.");
+      return;
+    }
 
-  // Same validation as create
-  if (
-    !formData.eventId ||
-    !formData.code ||
-    !formData.discountPercentage ||
-    !formData.startDate ||
-    !formData.endDate
-  ) {
-    setErrorMessage("Please fill in all required fields.");
-    return;
-  }
+    if (formData.discountPercentage < 1 || formData.discountPercentage > 100) {
+      setErrorMessage("Discount percentage must be between 1 and 100.");
+      return;
+    }
 
-  if (formData.discountPercentage < 1 || formData.discountPercentage > 100) {
-    setErrorMessage("Discount percentage must be between 1 and 100.");
-    return;
-  }
+    if (new Date(formData.startDate) >= new Date(formData.endDate)) {
+      setErrorMessage("End date must be after start date.");
+      return;
+    }
 
-  if (new Date(formData.startDate) >= new Date(formData.endDate)) {
-    setErrorMessage("End date must be after start date.");
-    return;
-  }
+    try {
+      setIsSubmitting(true);
+      setErrorMessage("");
+      setSuccessMessage("");
 
-  try {
-    setIsSubmitting(true);
-    setErrorMessage("");
-    setSuccessMessage("");
-
-    // Debug logging
-    console.log("🔧 Updating coupon:", editingCoupon._id);
-    console.log("📤 Update data:", {
-      eventId: formData.eventId,
-      code: formData.code.toUpperCase(),
-      discountPercentage: formData.discountPercentage,
-      startDate: formData.startDate,
-      endDate: formData.endDate,
-      minPurchaseAmount: formData.minPurchaseAmount,
-    });
-
-    // FIXED: Changed from PUT to PATCH to match your backend API
-    const response = await axios.patch(
-      `${serverURL.url}coupons/update/${editingCoupon._id}`,
-      {
+      // Debug logging
+      console.log("🔧 Updating coupon:", editingCoupon._id);
+      console.log("📤 Update data:", {
         eventId: formData.eventId,
         code: formData.code.toUpperCase(),
         discountPercentage: formData.discountPercentage,
         startDate: formData.startDate,
         endDate: formData.endDate,
         minPurchaseAmount: formData.minPurchaseAmount,
-        status: "approved", // Keep approved status
-        isActive: true, // Keep active
-      },
-      getAuthHeaders()
-    );
+      });
 
-    console.log("✅ Update response:", response.data);
+      // FIXED: Changed from PUT to PATCH to match your backend API
+      const response = await axios.patch(
+        `${serverURL.url}coupons/update/${editingCoupon._id}`,
+        {
+          eventId: formData.eventId,
+          code: formData.code.toUpperCase(),
+          discountPercentage: formData.discountPercentage,
+          startDate: formData.startDate,
+          endDate: formData.endDate,
+          minPurchaseAmount: formData.minPurchaseAmount,
+          status: "approved", // Keep approved status
+          isActive: true, // Keep active
+        },
+        getAuthHeaders()
+      );
 
-    if (response.data.success) {
-      setSuccessMessage("Coupon updated successfully!");
-      closeEditModal();
-      fetchCoupons(); // Refresh coupons list
-    } else {
-      setErrorMessage(response.data.message || "Failed to update coupon.");
+      console.log("✅ Update response:", response.data);
+
+      if (response.data.success) {
+        setSuccessMessage("Coupon updated successfully!");
+        closeEditModal();
+        fetchCoupons(); // Refresh coupons list
+      } else {
+        setErrorMessage(response.data.message || "Failed to update coupon.");
+      }
+    } catch (error) {
+      console.error("❌ Error updating coupon:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        url: error.config?.url,
+        method: error.config?.method
+      });
+      
+      setErrorMessage(
+        error.response?.data?.message || "Failed to update coupon."
+      );
+    } finally {
+      setIsSubmitting(false);
     }
-  } catch (error) {
-    console.error("❌ Error updating coupon:", {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status,
-      url: error.config?.url,
-      method: error.config?.method
-    });
-    
-    setErrorMessage(
-      error.response?.data?.message || "Failed to update coupon."
-    );
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+  };
 
   // Handle delete coupon
   const handleDeleteCoupon = async (couponId) => {
@@ -530,7 +532,10 @@ const handleUpdateCoupon = async (e) => {
 
   // Format date for display
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
+    // Parse the date string to avoid timezone issues
+    const [year, month, day] = dateString.split('-').map(num => parseInt(num, 10));
+    const date = new Date(year, month - 1, day); // month is 0-indexed
+    return date.toLocaleDateString("en-US", {
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -837,23 +842,6 @@ const handleUpdateCoupon = async (e) => {
                 </div>
               </div>
 
-              {/* Minimum Purchase Amount */}
-              {/* <div className="space-y-2">
-                <label className="flex items-center gap-2 text-gray-700 font-medium">
-                  <DollarSign size={18} className="text-orange-500" />
-                  Minimum Purchase Amount (Optional)
-                </label>
-                <input
-                  type="number"
-                  name="minPurchaseAmount"
-                  value={formData.minPurchaseAmount}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  placeholder="0"
-                  min="0"
-                />
-              </div> */}
-
               {/* Action Buttons */}
               <div className="flex justify-end gap-4 pt-4 border-t border-gray-200">
                 <button
@@ -1011,22 +999,6 @@ const handleUpdateCoupon = async (e) => {
                   </div>
                 </div>
               </div>
-
-              {/* <div className="space-y-2">
-                <label className="flex items-center gap-2 text-gray-700 font-medium">
-                  <DollarSign size={18} className="text-orange-500" />
-                  Minimum Purchase Amount (Optional)
-                </label>
-                <input
-                  type="number"
-                  name="minPurchaseAmount"
-                  value={formData.minPurchaseAmount}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  placeholder="0"
-                  min="0"
-                />
-              </div> */}
 
               <div className="flex justify-end gap-4 pt-4 border-t border-gray-200">
                 <button
