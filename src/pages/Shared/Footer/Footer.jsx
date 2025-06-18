@@ -171,7 +171,7 @@ const Footer = () => {
             <ul className="space-y-4">
               <li className="flex items-start space-x-3">
                 <MapPin size={20} className="text-orange-500 mt-1 flex-shrink-0" />
-                <span className="text-gray-600">123 Music Avenue, Concert City, CS 12345</span>
+                <span className="text-gray-600">Sydney, NSW, Australia</span>
               </li>
               {/* <li className="flex items-center space-x-3">
                 <Phone size={20} className="text-orange-500 flex-shrink-0" />
@@ -179,7 +179,7 @@ const Footer = () => {
               </li> */}
               <li className="flex items-center space-x-3">
                 <Mail size={20} className="text-orange-500 flex-shrink-0" />
-                <span className="text-gray-600">info@eventntickets.com</span>
+                <span className="text-gray-600">	info@eventsntickets.com.au</span>
               </li>
             </ul>
             

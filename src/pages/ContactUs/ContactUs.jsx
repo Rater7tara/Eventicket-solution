@@ -132,7 +132,7 @@ const ContactUs = () => {
                 </div>
                 <div>
                   <p className="font-semibold text-gray-700">Email</p>
-                  <p className="text-gray-600">support@eventsntickets.com.au</p>
+                  <p className="text-gray-600">	info@eventsntickets.com.au</p>
                 </div>
               </div>
 
@@ -143,7 +143,7 @@ const ContactUs = () => {
                 </div>
                 <div>
                   <p className="font-semibold text-gray-700">Address</p>
-                  <p className="text-gray-600">123 Events Street, Sydney, NSW 2000, Australia</p>
+                  <p className="text-gray-600">Sydney, NSW, Australia</p>
                 </div>
               </div>
             </div>
@@ -249,7 +249,7 @@ const ContactUs = () => {
         </div>
 
         {/* Google Maps Placeholder */}
-        <div className="mt-12 bg-white rounded-2xl overflow-hidden shadow-lg border border-orange-100 h-96">
+        {/* <div className="mt-12 bg-white rounded-2xl overflow-hidden shadow-lg border border-orange-100 h-96">
           <div className="aspect-w-16 aspect-h-8">
             <iframe 
               src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3024.2219901290355!2d-74.00369368400567!3d40.71312937933185!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89c25a47df06b185%3A0xc80b8f06e177fe62!2sNew%20York%2C%20NY%2C%20USA!5e0!3m2!1sen!2sus!4v1623164983123!5m2!1sen!2sus"
@@ -261,20 +261,17 @@ const ContactUs = () => {
               className="w-full h-96"
             ></iframe>
           </div>
-        </div>
+        </div> */}
 
         {/* Closing Section */}
-        <div className="mt-12 bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl p-8 text-white shadow-xl">
+        {/* <div className="mt-12 bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl p-8 text-white shadow-xl">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div>
               <h3 className="text-xl font-bold mb-2">We're Always Ready to Help</h3>
               <p className="opacity-90">Our support team is available 24/7 to assist you with any queries.</p>
             </div>
-            <button className="px-6 py-3 bg-white text-orange-600 rounded-full font-medium hover:bg-orange-50 transition-colors shadow-md hover:shadow-lg transform hover:-translate-y-1 duration-300">
-              Request Support
-            </button>
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );

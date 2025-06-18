@@ -37,14 +37,27 @@ const CheckoutTickets = () => {
 
   const { event, selectedSeats, totalPrice, userData } = location.state || {};
 
-  // Calculate final total
+  // FIXED: Calculate final total properly - This is the key fix
   useEffect(() => {
-    if (appliedCoupon && appliedCoupon.finalPrice) {
-      setFinalTotal(appliedCoupon.finalPrice);
-    } else {
-      setFinalTotal(totalPrice || 0);
+    let calculatedTotal = totalPrice || 0;
+    
+    if (appliedCoupon) {
+      // Use finalPrice from backend if available (this should be 0 for 100% coupons)
+      if (appliedCoupon.finalPrice !== undefined) {
+        calculatedTotal = appliedCoupon.finalPrice;
+      } else {
+        // Fallback calculation - subtract discount from original price
+        const discountAmount = appliedCoupon.discountAmount || discount || 0;
+        calculatedTotal = Math.max(0, calculatedTotal - discountAmount);
+      }
     }
-  }, [totalPrice, appliedCoupon]);
+    
+    // Ensure the total is never negative
+    calculatedTotal = Math.max(0, calculatedTotal);
+    
+    setFinalTotal(calculatedTotal);
+    console.log("Final total calculated:", calculatedTotal, "Applied coupon:", appliedCoupon);
+  }, [totalPrice, appliedCoupon, discount]);
 
   // Handle timer expiration
   const handleTimerExpire = () => {
@@ -79,160 +92,159 @@ const CheckoutTickets = () => {
     };
   };
 
-// Replace your applyCoupon function with this improved version:
-
-const applyCoupon = async () => {
-  if (!couponCode.trim()) {
-    setCouponError("Please enter a coupon code");
-    return;
-  }
-
-  if (!timerActive) {
-    setCouponError("Session expired. Please restart your booking.");
-    return;
-  }
-
-  setCouponLoading(true);
-  setCouponError("");
-  setCouponSuccess("");
-
-  try {
-    // Ensure we have the event ID
-    const eventId = event?._id || event?.id;
-    console.log("🔍 Debug Info:", {
-      eventId,
-      eventObject: event,
-      totalPrice,
-      couponCode: couponCode.trim(),
-      timerActive
-    });
-
-    if (!eventId) {
-      throw new Error("Event ID is missing. Please refresh and try again.");
+  // Fixed applyCoupon function
+  const applyCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponError("Please enter a coupon code");
+      return;
     }
 
-    // Ensure we have a valid total price
-    if (!totalPrice || totalPrice <= 0) {
-      throw new Error("Invalid total price. Please refresh and try again.");
+    if (!timerActive) {
+      setCouponError("Session expired. Please restart your booking.");
+      return;
     }
 
-    // Get auth token
-    const token = localStorage.getItem('auth-token');
-    console.log("🔐 Auth check:", {
-      tokenExists: !!token,
-      tokenLength: token?.length,
-      tokenStart: token?.substring(0, 20)
-    });
+    setCouponLoading(true);
+    setCouponError("");
+    setCouponSuccess("");
 
-    if (!token) {
-      throw new Error("Authentication required. Please log in again.");
-    }
+    try {
+      // Ensure we have the event ID
+      const eventId = event?._id || event?.id;
+      console.log("🔍 Debug Info:", {
+        eventId,
+        eventObject: event,
+        totalPrice,
+        couponCode: couponCode.trim(),
+        timerActive
+      });
 
-    // Prepare request data to match your exact API format
-    const requestData = {
-      eventId: eventId,
-      code: couponCode.toUpperCase().trim(),
-      totalAmount: parseFloat(totalPrice)
-    };
-    
-    console.log("🎟️ Coupon request data:", JSON.stringify(requestData, null, 2));
-    console.log("📍 API Endpoint:", `${serverURL.url}coupons/apply-coupon`);
-
-    // Make the API request with detailed headers
-    const config = {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      timeout: 15000
-    };
-
-    console.log("📤 Request config:", {
-      url: `${serverURL.url}coupons/apply-coupon`,
-      method: 'POST',
-      headers: config.headers,
-      data: requestData
-    });
-
-    const response = await axios.post(
-      `${serverURL.url}coupons/apply-coupon`,
-      requestData,
-      config
-    );
-
-    console.log("✅ Coupon response:", response.data);
-
-    if (response.data.success) {
-      const discountAmount = parseFloat(response.data.discountAmount) || 0;
-      const finalPrice = parseFloat(response.data.finalPrice) || totalPrice;
-      const couponId = response.data.couponId;
-      
-      // Validate the response data
-      if (finalPrice < 0) {
-        throw new Error("Invalid discount amount. Coupon cannot be applied.");
+      if (!eventId) {
+        throw new Error("Event ID is missing. Please refresh and try again.");
       }
-      
-      const appliedCouponData = {
-        id: couponId,
+
+      // Ensure we have a valid total price
+      if (!totalPrice || totalPrice <= 0) {
+        throw new Error("Invalid total price. Please refresh and try again.");
+      }
+
+      // Get auth token
+      const token = localStorage.getItem('auth-token');
+      console.log("🔐 Auth check:", {
+        tokenExists: !!token,
+        tokenLength: token?.length,
+        tokenStart: token?.substring(0, 20)
+      });
+
+      if (!token) {
+        throw new Error("Authentication required. Please log in again.");
+      }
+
+      // Prepare request data to match your exact API format
+      const requestData = {
+        eventId: eventId,
         code: couponCode.toUpperCase().trim(),
-        discountAmount: discountAmount,
-        finalPrice: finalPrice,
-        originalPrice: totalPrice
+        totalAmount: parseFloat(totalPrice)
       };
       
-      setAppliedCoupon(appliedCouponData);
-      setDiscount(discountAmount);
-      setCouponSuccess(`Coupon applied! You saved ${discountAmount.toFixed(2)}`);
-      setCouponCode("");
-    } else {
-      setCouponError(response.data.message || "Failed to apply coupon");
+      console.log("🎟️ Coupon request data:", JSON.stringify(requestData, null, 2));
+      console.log("📍 API Endpoint:", `${serverURL.url}coupons/apply-coupon`);
+
+      // Make the API request with detailed headers
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 15000
+      };
+
+      console.log("📤 Request config:", {
+        url: `${serverURL.url}coupons/apply-coupon`,
+        method: 'POST',
+        headers: config.headers,
+        data: requestData
+      });
+
+      const response = await axios.post(
+        `${serverURL.url}coupons/apply-coupon`,
+        requestData,
+        config
+      );
+
+      console.log("✅ Coupon response:", response.data);
+
+      if (response.data.success) {
+        const discountAmount = parseFloat(response.data.discountAmount) || 0;
+        const finalPrice = parseFloat(response.data.finalPrice) || 0; // Changed: ensure it defaults to 0, not totalPrice
+        const couponId = response.data.couponId;
+        
+        // Validate the response data
+        if (finalPrice < 0) {
+          throw new Error("Invalid discount amount. Coupon cannot be applied.");
+        }
+        
+        const appliedCouponData = {
+          id: couponId,
+          code: couponCode.toUpperCase().trim(),
+          discountAmount: discountAmount,
+          finalPrice: finalPrice, // This should be 0 for 100% coupons
+          originalPrice: totalPrice
+        };
+        
+        setAppliedCoupon(appliedCouponData);
+        setDiscount(discountAmount);
+        setCouponSuccess(`Coupon applied! You saved $${discountAmount.toFixed(2)}`);
+        setCouponCode("");
+      } else {
+        setCouponError(response.data.message || "Failed to apply coupon");
+      }
+    } catch (error) {
+      console.error("❌ Coupon error details:", {
+        message: error.message,
+        responseData: error.response?.data,
+        responseStatus: error.response?.status,
+        responseStatusText: error.response?.statusText,
+        responseHeaders: error.response?.headers,
+        requestUrl: error.config?.url,
+        requestMethod: error.config?.method,
+        requestData: error.config?.data,
+        requestHeaders: error.config?.headers,
+        fullError: error
+      });
+      
+      // Log the exact response body if available
+      if (error.response?.data) {
+        console.error("🚨 Backend Error Response:", error.response.data);
+      }
+      
+      // Handle specific error cases - prioritize backend message
+      let errorMessage = "Failed to apply coupon. Please try again.";
+      
+      if (error.response?.data?.message) {
+        // Use the exact message from your backend
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.response?.status === 400) {
+        errorMessage = "Invalid coupon code or request. Please check your input.";
+      } else if (error.response?.status === 401) {
+        errorMessage = "Authentication failed. Please log in again.";
+      } else if (error.response?.status === 404) {
+        errorMessage = "Coupon code not found or has expired.";
+      } else if (error.response?.status === 409) {
+        errorMessage = "Coupon has already been used or is not applicable to this event.";
+      } else if (error.code === 'ECONNABORTED') {
+        errorMessage = "Request timeout. Please check your connection and try again.";
+      } else if (!error.response) {
+        errorMessage = "Network error. Please check your connection and try again.";
+      }
+      
+      setCouponError(errorMessage);
+    } finally {
+      setCouponLoading(false);
     }
-  } catch (error) {
-    console.error("❌ Coupon error details:", {
-      message: error.message,
-      responseData: error.response?.data,
-      responseStatus: error.response?.status,
-      responseStatusText: error.response?.statusText,
-      responseHeaders: error.response?.headers,
-      requestUrl: error.config?.url,
-      requestMethod: error.config?.method,
-      requestData: error.config?.data,
-      requestHeaders: error.config?.headers,
-      fullError: error
-    });
-    
-    // Log the exact response body if available
-    if (error.response?.data) {
-      console.error("🚨 Backend Error Response:", error.response.data);
-    }
-    
-    // Handle specific error cases - prioritize backend message
-    let errorMessage = "Failed to apply coupon. Please try again.";
-    
-    if (error.response?.data?.message) {
-      // Use the exact message from your backend
-      errorMessage = error.response.data.message;
-    } else if (error.response?.data?.error) {
-      errorMessage = error.response.data.error;
-    } else if (error.response?.status === 400) {
-      errorMessage = "Invalid coupon code or request. Please check your input.";
-    } else if (error.response?.status === 401) {
-      errorMessage = "Authentication failed. Please log in again.";
-    } else if (error.response?.status === 404) {
-      errorMessage = "Coupon code not found or has expired.";
-    } else if (error.response?.status === 409) {
-      errorMessage = "Coupon has already been used or is not applicable to this event.";
-    } else if (error.code === 'ECONNABORTED') {
-      errorMessage = "Request timeout. Please check your connection and try again.";
-    } else if (!error.response) {
-      errorMessage = "Network error. Please check your connection and try again.";
-    }
-    
-    setCouponError(errorMessage);
-  } finally {
-    setCouponLoading(false);
-  }
-};
+  };
 
   // Remove applied coupon
   const removeCoupon = () => {
@@ -255,6 +267,44 @@ const applyCoupon = async () => {
     if (e.key === "Enter") {
       applyCoupon();
     }
+  };
+
+  // Handle free checkout (when final total is $0)
+  const handleFreeCheckout = async () => {
+    console.log("Processing free checkout...");
+    
+    // Generate order ID
+    const freeOrderId = `free_order_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+    
+    // Mark payment as complete
+    setPaymentComplete(true);
+    setOrderData({ 
+      orderId: freeOrderId,
+      paymentIntentId: "free_checkout",
+      appliedCoupon,
+      discount,
+      finalAmount: 0
+    });
+
+    // Stop the timer
+    setTimerActive(false);
+
+    // Store booking data
+    const tempBookingId = sessionStorage.getItem("tempBookingId");
+    if (tempBookingId) {
+      setFinalBookingId(tempBookingId);
+      sessionStorage.removeItem("tempBookingId");
+    }
+
+    // Store completed order
+    localStorage.setItem("completedOrderId", freeOrderId);
+
+    // Scroll to confirmation
+    setTimeout(() => {
+      document.getElementById("confirmation")?.scrollIntoView({ behavior: "smooth" });
+    }, 500);
+
+    console.log("Free checkout completed with order ID:", freeOrderId);
   };
 
   // FIXED: Only store user data temporarily, don't trigger authentication until payment
@@ -532,12 +582,6 @@ const applyCoupon = async () => {
                   className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors cursor-pointer"
                 >
                   Go to Home
-                </button>
-                <button
-                  onClick={handleExtendTime}
-                  className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors cursor-pointer"
-                >
-                  Try Again
                 </button>
               </div>
             </div>
@@ -914,7 +958,7 @@ const applyCoupon = async () => {
               </div>
             )}
 
-            {/* Price Summary */}
+            {/* Price Summary - FIXED: Now uses finalTotal for the total display */}
             <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
               <div className="flex justify-between items-center mb-2">
                 <span>
@@ -924,7 +968,7 @@ const applyCoupon = async () => {
                 <span>${totalPrice?.toFixed(2) || "0.00"}</span>
               </div>
 
-              {appliedCoupon && discount > 0 && (
+              {appliedCoupon && (appliedCoupon.discountAmount > 0 || discount > 0) && (
                 <div className="flex justify-between items-center mb-2 text-green-400">
                   <span className="flex items-center">
                     <svg
@@ -942,14 +986,14 @@ const applyCoupon = async () => {
                     </svg>
                     Coupon Discount
                   </span>
-                  <span>-${discount.toFixed(2)}</span>
+                  <span>-${(appliedCoupon.discountAmount || discount).toFixed(2)}</span>
                 </div>
               )}
 
               <div className="border-t border-gray-700 my-2 pt-2 flex justify-between items-center font-bold text-orange-300">
                 <span>Total</span>
                 <span className="flex flex-col items-end">
-                  {appliedCoupon && discount > 0 && (
+                  {appliedCoupon && (appliedCoupon.discountAmount > 0 || discount > 0) && (
                     <span className="text-sm text-gray-400 line-through">
                       ${totalPrice?.toFixed(2) || "0.00"}
                     </span>
@@ -963,100 +1007,143 @@ const applyCoupon = async () => {
           {/* Payment Section (conditional) */}
           {!paymentComplete ? (
             <div className="mb-6">
-              <h2 className="text-lg font-bold text-orange-300 mb-4">
-                Payment Details
-              </h2>
+              {finalTotal > 0 ? (
+                <>
+                  <h2 className="text-lg font-bold text-orange-300 mb-4">
+                    Payment Details
+                  </h2>
 
-              <Elements stripe={stripePromise}>
-                <CheckoutForm
-                  className="cursor-pointer"
-                  grandTotal={finalTotal}
-                  event={event}
-                  selectedSeats={selectedSeats || []}
-                  onPaymentComplete={handlePaymentComplete}
-                  bookingId={sessionStorage.getItem("tempBookingId")} // Use temp booking ID for payment
-                  appliedCoupon={appliedCoupon}
-                  discount={discount}
-                />
-              </Elements>
+                  <Elements stripe={stripePromise}>
+                    <CheckoutForm
+                      className="cursor-pointer"
+                      grandTotal={finalTotal}
+                      event={event}
+                      selectedSeats={selectedSeats || []}
+                      onPaymentComplete={handlePaymentComplete}
+                      bookingId={sessionStorage.getItem("tempBookingId")} // Use temp booking ID for payment
+                      appliedCoupon={appliedCoupon}
+                      discount={discount}
+                    />
+                  </Elements>
 
-              <div className="mt-4 text-xs text-center text-gray-400">
-                <p>
-                  Your payment is secure and encrypted. By proceeding, you agree
-                  to our Terms of Service and Privacy Policy.
-                </p>
-                <div className="flex justify-center items-center mt-2 space-x-3">
-                  <svg
-                    className="h-8 w-auto opacity-70"
-                    viewBox="0 0 60 40"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
+                  <div className="mt-4 text-xs text-center text-gray-400">
+                    <p>
+                      Your payment is secure and encrypted. By proceeding, you agree
+                      to our Terms of Service and Privacy Policy.
+                    </p>
+                    <div className="flex justify-center items-center mt-2 space-x-3">
+                      <svg
+                        className="h-8 w-auto opacity-70"
+                        viewBox="0 0 60 40"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <rect width="60" height="40" rx="4" fill="#E6E6E6" />
+                        <path d="M22 28H38V12H22V28Z" fill="#FF5F00" />
+                        <path
+                          d="M23 20C23 16.7 24.4 13.9 26.5 12C25.2 11 23.7 10.5 22 10.5C17.9 10.5 14.5 14.9 14.5 20C14.5 25.1 17.9 29.5 22 29.5C23.7 29.5 25.2 29 26.5 28C24.4 26.1 23 23.3 23 20Z"
+                          fill="#EB001B"
+                        />
+                        <path
+                          d="M45.5 20C45.5 25.1 42.1 29.5 38 29.5C36.3 29.5 34.8 29 33.5 28C35.6 26.1 37 23.3 37 20C37 16.7 35.6 13.9 33.5 12C34.8 11 36.3 10.5 38 10.5C42.1 10.5 45.5 14.9 45.5 20Z"
+                          fill="#F79E1B"
+                        />
+                      </svg>
+                      <svg
+                        className="h-8 w-auto opacity-70"
+                        viewBox="0 0 60 40"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <rect width="60" height="40" rx="4" fill="#E6E6E6" />
+                        <path
+                          d="M17 28.5H25.5L27 11.5H18.5L17 28.5Z"
+                          fill="#00579F"
+                        />
+                        <path
+                          d="M43 11.7C41.8 11.2 39.9 10.5 37.5 10.5C32.5 10.5 29 13.2 29 17C29 19.9 31.5 21.4 33.4 22.3C35.3 23.2 36 23.8 36 24.5C36 25.7 34.5 26.2 33.1 26.2C31 26.2 29.9 25.9 28.3 25.2L27.7 24.9L27 29.2C28.4 29.8 30.8 30.3 33.3 30.3C38.6 30.3 42 27.6 42 23.5C42 21.2 40.6 19.4 37.7 18C35.9 17.1 34.8 16.5 34.8 15.6C34.8 14.8 35.7 14 37.6 14C39.2 14 40.3 14.3 41.1 14.6L41.5 14.8L42.2 10.9L43 11.7Z"
+                          fill="#00579F"
+                        />
+                        <path
+                          d="M48 11.5H42.5C41.5 11.5 40.7 11.8 40.3 12.9L34 28.5H39.3L40.2 25.9H46.2L46.7 28.5H51.5L48 11.5ZM41.7 21.9C41.7 21.9 43.5 17 43.9 15.9C43.9 15.9 44.2 15.1 44.4 14.6L44.6 15.8C44.6 15.8 45.6 21 45.7 21.9H41.7Z"
+                          fill="#00579F"
+                        />
+                      </svg>
+                      <svg
+                        className="h-8 w-auto opacity-70"
+                        viewBox="0 0 60 40"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <rect width="60" height="40" rx="4" fill="#E6E6E6" />
+                        <path
+                          d="M22.2 20.7C22.2 24.9 25.6 28.2 29.8 28.2C34 28.2 37.4 24.9 37.4 20.7C37.4 16.5 34 13.2 29.8 13.2C25.6 13.2 22.2 16.5 22.2 20.7Z"
+                          fill="#FFB600"
+                        />
+                        <path
+                          d="M22.2 20.7C22.2 24.9 25.6 28.2 29.8 28.2C34 28.2 37.4 24.9 37.4 20.7H22.2Z"
+                          fill="#F7981D"
+                        />
+                        <path
+                          d="M29.8 28.2C34 28.2 37.4 24.9 37.4 20.7H22.2C22.2 24.9 25.6 28.2 29.8 28.2Z"
+                          fill="#FF8500"
+                        />
+                        <path
+                          d="M26.8 10H32.8L30.8 31H24.8L26.8 10Z"
+                          fill="#FF5050"
+                        />
+                        <path
+                          d="M40.3 10C38.8 10 37.5 10.8 37 12.1C37 12.1 37.8 10 39.9 10H47.3L45.8 31H39.8L40.8 17C40.8 15.3 40.6 14.3 39.8 13.5C39.1 12.8 38.1 12.5 36.8 12.5H34.2L32.3 31H26.3L28.3 10H40.3Z"
+                          fill="#FF5050"
+                        />
+                        <path
+                          d="M13.5 23.8L14.8 16.5L15.8 16.3H21.8L21.3 19.5H17.3L16.8 23.5H21.8L21.3 26.5H16.3L15.8 31H9.8L10.8 26.8C10.8 25.1 11.8 24.1 13.5 23.8Z"
+                          fill="#FF5050"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                /* Free Checkout Section */
+                <div className="mb-6">
+                  <h2 className="text-lg font-bold text-green-400 mb-4 flex items-center">
+                    <svg
+                      className="w-6 h-6 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                    Free Ticket - No Payment Required!
+                  </h2>
+                  
+                  <div className="bg-green-900 border border-green-600 rounded-lg p-4 mb-4">
+                    <p className="text-green-100 text-center mb-4">
+                      Great news! Your coupon covers the full amount. No payment is required to complete your booking.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={handleFreeCheckout}
+                    className="w-full py-3 px-6 rounded-lg bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-bold shadow-lg hover:shadow-xl transition-all cursor-pointer"
                   >
-                    <rect width="60" height="40" rx="4" fill="#E6E6E6" />
-                    <path d="M22 28H38V12H22V28Z" fill="#FF5F00" />
-                    <path
-                      d="M23 20C23 16.7 24.4 13.9 26.5 12C25.2 11 23.7 10.5 22 10.5C17.9 10.5 14.5 14.9 14.5 20C14.5 25.1 17.9 29.5 22 29.5C23.7 29.5 25.2 29 26.5 28C24.4 26.1 23 23.3 23 20Z"
-                      fill="#EB001B"
-                    />
-                    <path
-                      d="M45.5 20C45.5 25.1 42.1 29.5 38 29.5C36.3 29.5 34.8 29 33.5 28C35.6 26.1 37 23.3 37 20C37 16.7 35.6 13.9 33.5 12C34.8 11 36.3 10.5 38 10.5C42.1 10.5 45.5 14.9 45.5 20Z"
-                      fill="#F79E1B"
-                    />
-                  </svg>
-                  <svg
-                    className="h-8 w-auto opacity-70"
-                    viewBox="0 0 60 40"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <rect width="60" height="40" rx="4" fill="#E6E6E6" />
-                    <path
-                      d="M17 28.5H25.5L27 11.5H18.5L17 28.5Z"
-                      fill="#00579F"
-                    />
-                    <path
-                      d="M43 11.7C41.8 11.2 39.9 10.5 37.5 10.5C32.5 10.5 29 13.2 29 17C29 19.9 31.5 21.4 33.4 22.3C35.3 23.2 36 23.8 36 24.5C36 25.7 34.5 26.2 33.1 26.2C31 26.2 29.9 25.9 28.3 25.2L27.7 24.9L27 29.2C28.4 29.8 30.8 30.3 33.3 30.3C38.6 30.3 42 27.6 42 23.5C42 21.2 40.6 19.4 37.7 18C35.9 17.1 34.8 16.5 34.8 15.6C34.8 14.8 35.7 14 37.6 14C39.2 14 40.3 14.3 41.1 14.6L41.5 14.8L42.2 10.9L43 11.7Z"
-                      fill="#00579F"
-                    />
-                    <path
-                      d="M48 11.5H42.5C41.5 11.5 40.7 11.8 40.3 12.9L34 28.5H39.3L40.2 25.9H46.2L46.7 28.5H51.5L48 11.5ZM41.7 21.9C41.7 21.9 43.5 17 43.9 15.9C43.9 15.9 44.2 15.1 44.4 14.6L44.6 15.8C44.6 15.8 45.6 21 45.7 21.9H41.7Z"
-                      fill="#00579F"
-                    />
-                  </svg>
-                  <svg
-                    className="h-8 w-auto opacity-70"
-                    viewBox="0 0 60 40"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <rect width="60" height="40" rx="4" fill="#E6E6E6" />
-                    <path
-                      d="M22.2 20.7C22.2 24.9 25.6 28.2 29.8 28.2C34 28.2 37.4 24.9 37.4 20.7C37.4 16.5 34 13.2 29.8 13.2C25.6 13.2 22.2 16.5 22.2 20.7Z"
-                      fill="#FFB600"
-                    />
-                    <path
-                      d="M22.2 20.7C22.2 24.9 25.6 28.2 29.8 28.2C34 28.2 37.4 24.9 37.4 20.7H22.2Z"
-                      fill="#F7981D"
-                    />
-                    <path
-                      d="M29.8 28.2C34 28.2 37.4 24.9 37.4 20.7H22.2C22.2 24.9 25.6 28.2 29.8 28.2Z"
-                      fill="#FF8500"
-                    />
-                    <path
-                      d="M26.8 10H32.8L30.8 31H24.8L26.8 10Z"
-                      fill="#FF5050"
-                    />
-                    <path
-                      d="M40.3 10C38.8 10 37.5 10.8 37 12.1C37 12.1 37.8 10 39.9 10H47.3L45.8 31H39.8L40.8 17C40.8 15.3 40.6 14.3 39.8 13.5C39.1 12.8 38.1 12.5 36.8 12.5H34.2L32.3 31H26.3L28.3 10H40.3Z"
-                      fill="#FF5050"
-                    />
-                    <path
-                      d="M13.5 23.8L14.8 16.5L15.8 16.3H21.8L21.3 19.5H17.3L16.8 23.5H21.8L21.3 26.5H16.3L15.8 31H9.8L10.8 26.8C10.8 25.1 11.8 24.1 13.5 23.8Z"
-                      fill="#FF5050"
-                    />
-                  </svg>
+                    Complete Free Booking
+                  </button>
+                  
+                  <div className="mt-4 text-xs text-center text-gray-400">
+                    <p>
+                      By proceeding, you agree to our Terms of Service and Privacy Policy.
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           ) : (
             /* Confirmation Section */
@@ -1078,10 +1165,10 @@ const applyCoupon = async () => {
                   </svg>
                 </div>
                 <h2 className="text-xl font-bold text-green-400 mb-2">
-                  Purchase Successful!
+                  {finalTotal === 0 ? "Free Booking Confirmed!" : "Purchase Successful!"}
                 </h2>
                 <p className="text-gray-300 mb-4">
-                  Thank you for your purchase. Your tickets are confirmed.
+                  Thank you for your {finalTotal === 0 ? "booking" : "purchase"}. Your tickets are confirmed.
                 </p>
                 <div className="bg-gray-900 rounded-lg p-4 max-w-md mx-auto border border-gray-700 mb-4">
                   <div className="flex justify-between mb-2">
@@ -1089,7 +1176,7 @@ const applyCoupon = async () => {
                     <span className="font-mono">{confirmationNumber}</span>
                   </div>
                   <div className="flex justify-between mb-2">
-                    <span className="text-gray-400">Purchase Date:</span>
+                    <span className="text-gray-400">{finalTotal === 0 ? "Booking" : "Purchase"} Date:</span>
                     <span>{new Date().toLocaleDateString()}</span>
                   </div>
                   <div className="flex justify-between mb-2">
@@ -1108,8 +1195,8 @@ const applyCoupon = async () => {
                     </div>
                   )}
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Amount Paid:</span>
-                    <span className="font-bold text-orange-300">
+                    <span className="text-gray-400">Amount {finalTotal === 0 ? "Due" : "Paid"}:</span>
+                    <span className={`font-bold ${finalTotal === 0 ? "text-green-300" : "text-orange-300"}`}>
                       ${finalTotal.toFixed(2)}
                     </span>
                   </div>

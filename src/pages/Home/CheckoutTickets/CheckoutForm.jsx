@@ -406,14 +406,14 @@ const CheckoutForm = ({
     const userDataToUse =
       Object.keys(tempUserData).length > 0 ? tempUserData : userData;
 
-    // Set up billing details
+    // Set up billing details - REMOVED postal_code (ZIP code)
     const billingDetails = {
       name: userDataToUse.name || "Guest Checkout",
       email: userDataToUse.email || "",
       address: {
         line1: userDataToUse.address || "",
         city: userDataToUse.city || "",
-        postal_code: userDataToUse.postalCode || "",
+        // Removed postal_code field
       },
     };
 
@@ -587,6 +587,7 @@ const CheckoutForm = ({
                   color: "#ef4444",
                 },
               },
+              hidePostalCode: true, // This removes the ZIP code field
             }}
             onChange={handleChange}
           />
@@ -739,7 +740,7 @@ const CheckoutForm = ({
         ) : succeeded ? (
           "Payment Successful!"
         ) : (
-          `Pay $${grandTotal.toLocaleString()}`
+          `Pay ${grandTotal.toLocaleString()}`
         )}
       </button>
 

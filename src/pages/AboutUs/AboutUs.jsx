@@ -41,22 +41,22 @@ const AboutUs = () => {
 
   const teamMembers = [
     {
-      name: "Emily Rodriguez",
-      role: "Founder & Creative Director",
+      name: "Miraz",
+      // role: "Founder & Creative Director",
       icon: <Users size={24} className="text-orange-500" />,
-      description: "A visionary leader with 15 years of experience in music event management."
+      description: "One of the best ticketing websites. They made our event ticketing very easy. The check-in process was so smooth. Their team was always helping and response to any request we made. I will always use them as our ticketing partner."
     },
     {
-      name: "Alex Chen",
-      role: "Music Curation Specialist",
+      name: "Jewad",
+      // role: "Music Curation Specialist",
       icon: <Music size={24} className="text-orange-500" />,
-      description: "Passionate about discovering and showcasing emerging musical talents."
+      description: "This guys are genuine and honest. They are very easy to deal with. Costing is fair and very interactive support. I never had an issue dealing with them. I highly recommend them, and I will use them for my next event for sure."
     },
     {
-      name: "Sarah Thompson",
-      role: "Event Experience Designer",
+      name: "Shawn",
+      // role: "Event Experience Designer",
       icon: <Globe size={24} className="text-orange-500" />,
-      description: "Expert in creating immersive and inclusive event environments."
+      description: "Absolutely brilliant website and team. They are always up for support. They very professional to deal with. Our event ticketing was hassle free. Using barcode scanning machine made the check-in process brilliant."
     }
   ];
 
@@ -89,7 +89,7 @@ const AboutUs = () => {
         </div>
 
 
-        {/* Our Expertise Section */}
+   {/* Our Expertise Section */}
         <div className="bg-white rounded-2xl p-8 shadow-lg border border-orange-100 mb-12 overflow-hidden">
           <div className="relative">
             {/* Decorative Music Note Background */}
@@ -103,34 +103,36 @@ const AboutUs = () => {
               Our Expertise
               <div className="w-20 h-1 bg-orange-500 mx-auto mt-3 rounded"></div>
             </h2>
+
+            <div className="relative z-10 mb-8">
+              <p className="text-lg text-gray-700 leading-relaxed text-center max-w-4xl mx-auto">
+                Welcome to our music event website! We are passionate about bringing people together through the power of music and providing unforgettable experiences for all who attend our events.
+              </p>
+            </div>
           
             <div className="grid md:grid-cols-2 gap-8 relative z-10">
               <div className="space-y-6">
                 <div className="bg-orange-50 p-6 rounded-2xl shadow-md transform transition-all hover:shadow-lg hover:-translate-y-2">
                   <div className="flex items-center mb-4">
                     <div className="p-3 bg-orange-100 rounded-full mr-4">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-orange-500">
-                        <path d="M9 19c-5 1.5-5-2.5-7-3m14 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/>
-                      </svg>
+                      <Music size={24} className="text-orange-500" />
                     </div>
-                    <h3 className="text-xl font-semibold text-gray-800">Passion Driven</h3>
+                    <h3 className="text-xl font-semibold text-gray-800">Experienced Team</h3>
                   </div>
                   <p className="text-gray-600 leading-relaxed">
-                    Welcome to our official music event website — where passion for music meets exceptional event experiences.
+                    Our team is made up of experienced event planners, music enthusiasts, and creatives who work tirelessly to curate lineups that cater to a diverse range of musical tastes.
                   </p>
                 </div>
 
                 <div className="bg-orange-50 p-6 rounded-2xl shadow-md transform transition-all hover:shadow-lg hover:-translate-y-2">
                   <div className="flex items-center mb-4">
                     <div className="p-3 bg-orange-100 rounded-full mr-4">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-orange-500">
-                        <path d="M12 4V2m0 18v2m8-10h2M2 12h2m16.364 4.364l1.414 1.414M4.222 19.778l1.414-1.414m0-12.728L4.222 4.222m15.556 0l-1.414 1.414M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0z"/>
-                      </svg>
+                      <Award size={24} className="text-orange-500" />
                     </div>
-                    <h3 className="text-xl font-semibold text-gray-800">Universal Connection</h3>
+                    <h3 className="text-xl font-semibold text-gray-800">Quality Artists</h3>
                   </div>
                   <p className="text-gray-600 leading-relaxed">
-                    We are dedicated to uniting people through the universal language of music by delivering unforgettable live performances.
+                    From up-and-coming indie artists to established icons, we strive to showcase the best of the best in the music industry.
                   </p>
                 </div>
               </div>
@@ -139,29 +141,24 @@ const AboutUs = () => {
                 <div className="bg-orange-50 p-6 rounded-2xl shadow-md transform transition-all hover:shadow-lg hover:-translate-y-2">
                   <div className="flex items-center mb-4">
                     <div className="p-3 bg-orange-100 rounded-full mr-4">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-orange-500">
-                        <path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 0 0 1.946-.806 3.42 3.42 0 0 1 4.438 0 3.42 3.42 0 0 0 1.946.806 3.42 3.42 0 0 1 3.138 3.138 3.42 3.42 0 0 0 .806 1.946 3.42 3.42 0 0 1 0 4.438 3.42 3.42 0 0 0-.806 1.946 3.42 3.42 0 0 1-3.138 3.138 3.42 3.42 0 0 0-1.946.806 3.42 3.42 0 0 1-4.438 0 3.42 3.42 0 0 0-1.946-.806 3.42 3.42 0 0 1-3.138-3.138 3.42 3.42 0 0 0-.806-1.946 3.42 3.42 0 0 1 0-4.438 3.42 3.42 0 0 0 .806-1.946 3.42 3.42 0 0 1 3.138-3.138z"/>
-                      </svg>
+                      <Globe size={24} className="text-orange-500" />
                     </div>
-                    <h3 className="text-xl font-semibold text-gray-800">Professional Curation</h3>
+                    <h3 className="text-xl font-semibold text-gray-800">Inclusive Environment</h3>
                   </div>
                   <p className="text-gray-600 leading-relaxed">
-                    Our team comprises seasoned event professionals, music aficionados, and creative minds committed to curating diverse and dynamic lineups.
+                    We believe that music has the power to transcend barriers and bring people together, regardless of their backgrounds, cultures, or beliefs.
                   </p>
                 </div>
 
                 <div className="bg-orange-50 p-6 rounded-2xl shadow-md transform transition-all hover:shadow-lg hover:-translate-y-2">
                   <div className="flex items-center mb-4">
                     <div className="p-3 bg-orange-100 rounded-full mr-4">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-orange-500">
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                        <circle cx="12" cy="7" r="4"/>
-                      </svg>
+                      <Users size={24} className="text-orange-500" />
                     </div>
-                    <h3 className="text-xl font-semibold text-gray-800">Genre Diversity</h3>
+                    <h3 className="text-xl font-semibold text-gray-800">Safe & Welcoming</h3>
                   </div>
                   <p className="text-gray-600 leading-relaxed">
-                    From rising indie talents to renowned industry legends, we aim to highlight excellence across all musical genres.
+                    Our events provide a safe and inclusive space for everyone to come together and enjoy live music in a welcoming and accepting environment.
                   </p>
                 </div>
               </div>
@@ -169,8 +166,56 @@ const AboutUs = () => {
           </div>
         </div>
 
+        <div className="bg-white rounded-2xl p-8 shadow-lg border border-orange-100 mb-12">
+          <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">
+            Event Management
+            <div className="w-20 h-1 bg-orange-500 mx-auto mt-3 rounded"></div>
+          </h2>
+          
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="space-y-6">
+              <div className="bg-orange-50 p-6 rounded-2xl shadow-md transform transition-all hover:shadow-lg hover:-translate-y-2">
+                <div className="flex items-center mb-4">
+                  <div className="p-3 bg-orange-100 rounded-full mr-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-orange-500">
+                      <path d="M9 12l2 2 4-4"/>
+                      <path d="M21 12c.552 0 1-.448 1-1V8c0-.552-.448-1-1-1h-3V4c0-.552-.448-1-1-1H7c-.552 0-1 .448-1 1v3H3c-.552 0-1 .448-1 1v3c0 .552.448 1 1 1h3v3c0 .552.448 1 1 1h10c.552 0 1-.448 1-1v-3h3z"/>
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-800">Safety First</h3>
+                </div>
+                <p className="text-gray-600 leading-relaxed">
+                  At our events, we prioritize the safety and well-being of our attendees above all else. We work closely with local authorities and security teams to ensure that our events are as safe and secure as possible.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <div className="bg-orange-50 p-6 rounded-2xl shadow-md transform transition-all hover:shadow-lg hover:-translate-y-2">
+                <div className="flex items-center mb-4">
+                  <div className="p-3 bg-orange-100 rounded-full mr-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-orange-500">
+                      <path d="M12 2L13.09 8.26L22 9L17 14L18.18 22L12 19L5.82 22L7 14L2 9L10.91 8.26L12 2Z"/>
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-800">Sustainable Practices</h3>
+                </div>
+                <p className="text-gray-600 leading-relaxed">
+                  We also strive to minimize our environmental impact by implementing sustainable practices, such as using biodegradable products and reducing our carbon footprint.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 text-center">
+            <p className="text-lg text-gray-700 leading-relaxed max-w-3xl mx-auto">
+              Thank you for visiting our website, and we hope to see you at one of our events soon!
+            </p>
+          </div>
+        </div>
+
         {/* Mission Statement */}
-        <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl p-8 text-white shadow-xl mb-12">
+        <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl p-8 text-white shadow-xl mb-4">
           <div className="max-w-3xl mx-auto text-center">
             <Award size={48} className="mx-auto mb-4" />
             <h3 className="text-2xl font-bold mb-4">Our Mission</h3>
@@ -181,7 +226,7 @@ const AboutUs = () => {
         </div>
 
         {/* Team Members */}
-        <div className="bg-white rounded-2xl p-8 shadow-lg border border-orange-100">
+        {/* <div className="bg-white rounded-2xl p-8 shadow-lg border border-orange-100">
           <h2 className="text-2xl font-bold text-gray-800 mb-8 text-center">Meet Our Team</h2>
           
           <div className="grid md:grid-cols-3 gap-8">
@@ -199,10 +244,10 @@ const AboutUs = () => {
               </div>
             ))}
           </div>
-        </div>
+        </div> */}
 
         {/* Contact Section */}
-        <div className="mt-12 bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl p-8 text-white shadow-xl">
+        {/* <div className="mt-12 bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl p-8 text-white shadow-xl">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div>
               <h3 className="text-xl font-bold mb-2">Want to Learn More?</h3>
@@ -212,7 +257,7 @@ const AboutUs = () => {
               Contact Us
             </a>
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* Custom Animations */}

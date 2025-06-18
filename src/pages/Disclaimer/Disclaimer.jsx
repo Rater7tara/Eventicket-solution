@@ -303,7 +303,7 @@ const Disclaimer = () => {
             </div>
 
             {/* Contact Us */}
-            <div 
+            {/* <div 
               ref={el => sectionRefs.current[8] = el}
               className="bg-white rounded-2xl overflow-hidden shadow-lg shadow-orange-50 border border-orange-100 transition-all duration-300"
             >
@@ -334,7 +334,7 @@ const Disclaimer = () => {
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
           </div>
         </div>
 

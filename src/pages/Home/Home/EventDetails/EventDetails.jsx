@@ -74,7 +74,7 @@ const EventDetails = () => {
         console.log("Fetched event data:", data);
 
         // Check if we got an event or an array of events
-        const eventData = data.ticket || data;
+        const eventData = data.event || data;
 
         if (eventData) {
           console.log("Event data before preparation:", eventData);
@@ -112,12 +112,12 @@ const EventDetails = () => {
       ];
     }
 
-    // Set default organizer if not provided
+    // Set default organizer if not provided - using API structure
     if (!preparedData.organizer) {
       preparedData.organizer = {
         name: "Event Organizer",
-        phone: "+880 1XX XXX XXXX",
-        email: "contact@eventorganizer.com",
+        phone: preparedData.contactNumber || "+880 1XX XXX XXXX",
+        email: preparedData.email || "contact@eventorganizer.com",
       };
     }
 
@@ -131,7 +131,6 @@ const EventDetails = () => {
     preparedData.date = preparedData.date || new Date().toISOString();
     preparedData.location = preparedData.location || "TBD";
     preparedData.price = preparedData.price || "0";
-    preparedData.ticketsAvailable = preparedData.ticketsAvailable || 0;
     preparedData.createdAt = preparedData.createdAt || new Date().toISOString();
 
     setEvent(preparedData);
@@ -379,64 +378,58 @@ const EventDetails = () => {
                 <div className="bg-gradient-to-r from-orange-500 to-red-600 p-4 text-white">
                   <h3 className="text-xl font-bold">Get Your Tickets</h3>
                   <p className="text-orange-100 text-sm">
-                    {event.ticketsAvailable <= 0
-                      ? "Sold Out"
-                      : `${event.ticketsAvailable} tickets available`}
+                    Book your spot now!
                   </p>
                 </div>
 
                 <div className="p-4">
                   {/* Ticket types */}
-<div className="mb-6">
-  <label className="block text-sm font-medium text-gray-300 mb-2">
-    Available Seating Sections
-  </label>
-  
-  <div className="grid grid-cols-2 gap-2">
-    <div className="p-3 border border-red-500 bg-gray-700 rounded-lg">
-      <div className="font-medium text-white text-sm">VIP Lounge</div>
-      <div className="text-xs text-gray-400">$200</div>
-    </div>
-    
-    <div className="p-3 border border-orange-500 bg-gray-700 rounded-lg">
-      <div className="font-medium text-white text-sm">Energon Enclave</div>
-      <div className="text-xs text-gray-400">$160</div>
-    </div>
-    
-    <div className="p-3 border border-orange-300 bg-gray-700 rounded-lg">
-      <div className="font-medium text-white text-sm">HDB House</div>
-      <div className="text-xs text-gray-400">$120</div>
-    </div>
-    
-    <div className="p-3 border border-purple-500 bg-gray-700 rounded-lg">
-      <div className="font-medium text-white text-sm">AusDream Arena</div>
-      <div className="text-xs text-gray-400">$80</div>
-    </div>
-    
-    <div className="p-3 border border-blue-500 bg-gray-700 rounded-lg">
-      <div className="font-medium text-white text-sm">Century Circle</div>
-      <div className="text-xs text-gray-400">$70</div>
-    </div>
-    
-    <div className="p-3 border border-purple-700 bg-gray-700 rounded-lg">
-      <div className="font-medium text-white text-sm">Gamma Gallery</div>
-      <div className="text-xs text-gray-400">$60</div>
-    </div>
-  </div>
-</div>
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Available Seating Sections
+                    </label>
+                    
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="p-3 border border-red-500 bg-gray-700 rounded-lg">
+                        <div className="font-medium text-white text-sm">VIP Lounge</div>
+                        <div className="text-xs text-gray-400">$200</div>
+                      </div>
+                      
+                      <div className="p-3 border border-orange-500 bg-gray-700 rounded-lg">
+                        <div className="font-medium text-white text-sm">Energon Enclave</div>
+                        <div className="text-xs text-gray-400">$160</div>
+                      </div>
+                      
+                      <div className="p-3 border border-orange-300 bg-gray-700 rounded-lg">
+                        <div className="font-medium text-white text-sm">HDB House</div>
+                        <div className="text-xs text-gray-400">$120</div>
+                      </div>
+                      
+                      <div className="p-3 border border-purple-500 bg-gray-700 rounded-lg">
+                        <div className="font-medium text-white text-sm">AusDream Arena</div>
+                        <div className="text-xs text-gray-400">$80</div>
+                      </div>
+                      
+                      <div className="p-3 border border-blue-500 bg-gray-700 rounded-lg">
+                        <div className="font-medium text-white text-sm">Century Circle</div>
+                        <div className="text-xs text-gray-400">$70</div>
+                      </div>
+                      
+                      <div className="p-3 border border-purple-700 bg-gray-700 rounded-lg">
+                        <div className="font-medium text-white text-sm">Gamma Gallery</div>
+                        <div className="text-xs text-gray-400">$60</div>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Action buttons */}
                   <div className="space-y-3">
                     {!isContactOnly ? (
                       <button
                         onClick={handleBookNow}
-                        disabled={event.ticketsAvailable <= 0}
-                        className={`w-full py-3 px-4 rounded-lg font-bold shadow-md text-center cursor-pointer ${
-                          event.ticketsAvailable <= 0
-                            ? "bg-gray-600 text-gray-400 cursor-not-allowed"
-                            : "bg-gradient-to-r from-orange-500 to-red-600 text-white hover:shadow-lg transform transition-all duration-300 hover:translate-y-0 hover:scale-105"
-                        }`}
+                        className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white py-3 px-4 rounded-lg font-bold shadow-md hover:shadow-lg transform transition-all duration-300 hover:translate-y-0 hover:scale-105"
                       >
-                        {event.ticketsAvailable <= 0 ? "Sold Out" : "Book Now"}
+                        Book Now
                       </button>
                     ) : (
                       <button
@@ -446,15 +439,6 @@ const EventDetails = () => {
                         Contact Organizer
                       </button>
                     )}
-
-                    {/* {!isContactOnly && (
-                      <button
-                        onClick={handleContactOrganizer}
-                        className="w-full bg-transparent border-2 border-orange-500 text-orange-400 py-3 px-4 rounded-lg font-medium hover:bg-orange-500/10 transition-colors cursor-pointer"
-                      >
-                        Contact Organizer
-                      </button>
-                    )} */}
                   </div>
                 </div>
               </div>

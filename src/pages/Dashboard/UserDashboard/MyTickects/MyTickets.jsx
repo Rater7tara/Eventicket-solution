@@ -24,14 +24,130 @@ const MyTickets = () => {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [statusMessage, setStatusMessage] = useState("");
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [ticketToCancel, setTicketToCancel] = useState(null);
-  
+
+  // IMPROVED BARCODE GENERATION - Consistent and realistic
+  const generateBarcode = (ticketId, seatInfo = "") => {
+    // Create a consistent seed from ticketId and seat info
+    const baseString = `${ticketId || 'DEFAULT'}${seatInfo || 'SEAT'}`;
+    
+    // Simple hash function to create consistent number from string
+    let hash = 0;
+    for (let i = 0; i < baseString.length; i++) {
+      const char = baseString.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    
+    // Convert to positive number and create barcode
+    const positiveHash = Math.abs(hash);
+    const barcodeNumber = positiveHash.toString().padStart(12, '0').substring(0, 12);
+    
+    return `${barcodeNumber}`;
+  };
+
+  // ENHANCED REALISTIC BARCODE COMPONENT
+  const BarcodeDisplay = ({ ticketId, seatInfo, isCancelled = false, size = "normal" }) => {
+    const barcodeId = generateBarcode(ticketId, seatInfo);
+    const containerHeight = size === "large" ? "h-16" : "h-12";
+    
+    // Generate REALISTIC Code 128 style barcode pattern
+    const generateRealisticBarcode = (data) => {
+      const bars = [];
+      
+      // Start pattern for Code 128
+      bars.push({ type: 'bar', width: 2 });
+      bars.push({ type: 'space', width: 1 });
+      bars.push({ type: 'bar', width: 1 });
+      bars.push({ type: 'space', width: 1 });
+      bars.push({ type: 'bar', width: 1 });
+      bars.push({ type: 'space', width: 1 });
+      
+      // Data pattern based on barcode ID
+      for (let i = 0; i < data.length; i++) {
+        const charCode = data.charCodeAt(i);
+        const digit = parseInt(data[i]) || 0;
+        
+        // Create realistic barcode pattern based on digit value
+        switch (digit % 4) {
+          case 0:
+            bars.push({ type: 'bar', width: 1 });
+            bars.push({ type: 'space', width: 1 });
+            bars.push({ type: 'bar', width: 3 });
+            bars.push({ type: 'space', width: 2 });
+            break;
+          case 1:
+            bars.push({ type: 'bar', width: 2 });
+            bars.push({ type: 'space', width: 1 });
+            bars.push({ type: 'bar', width: 1 });
+            bars.push({ type: 'space', width: 3 });
+            break;
+          case 2:
+            bars.push({ type: 'bar', width: 1 });
+            bars.push({ type: 'space', width: 2 });
+            bars.push({ type: 'bar', width: 2 });
+            bars.push({ type: 'space', width: 1 });
+            break;
+          case 3:
+            bars.push({ type: 'bar', width: 3 });
+            bars.push({ type: 'space', width: 1 });
+            bars.push({ type: 'bar', width: 1 });
+            bars.push({ type: 'space', width: 2 });
+            break;
+        }
+      }
+      
+      // End pattern for Code 128
+      bars.push({ type: 'bar', width: 2 });
+      bars.push({ type: 'space', width: 1 });
+      bars.push({ type: 'bar', width: 1 });
+      bars.push({ type: 'space', width: 1 });
+      bars.push({ type: 'bar', width: 1 });
+      bars.push({ type: 'space', width: 1 });
+      bars.push({ type: 'bar', width: 2 });
+      
+      return bars;
+    };
+    
+    const barPattern = generateRealisticBarcode(barcodeId);
+    
+    return (
+      <div className="text-center">
+        <div className={`bg-white p-3 rounded border ${containerHeight} flex items-center justify-center shadow-sm`}>
+          <div className="flex items-end">
+            {barPattern.map((element, i) => {
+              if (element.type === 'space') {
+                return <div key={i} style={{ width: `${element.width}px` }} />;
+              }
+              
+              const height = size === "large" ? 45 : 35;
+              
+              return (
+                <div
+                  key={i}
+                  className={`${isCancelled ? "bg-gray-400" : "bg-black"}`}
+                  style={{ 
+                    width: `${element.width}px`, 
+                    height: `${height}px`
+                  }}
+                />
+              );
+            })}
+          </div>
+        </div>
+        <div className={`text-center ${size === "large" ? "text-sm" : "text-xs"} mt-2 font-mono tracking-wider ${
+          isCancelled ? "text-gray-400" : "text-gray-700"
+        }`}>
+          {barcodeId}
+        </div>
+      </div>
+    );
+  };
 
   // Function to format time to 12-hour format
   const formatTime = (timeString) => {
@@ -185,7 +301,6 @@ const MyTickets = () => {
         // If ticketPurchases is an array, use it directly
         if (Array.isArray(ticketPurchases) && ticketPurchases.length > 0) {
           setTickets(ticketPurchases);
-          setStatusMessage("Your tickets have been loaded successfully.");
           return true;
         }
         // If it's an object (single purchase), wrap it in an array
@@ -195,7 +310,6 @@ const MyTickets = () => {
           !Array.isArray(ticketPurchases)
         ) {
           setTickets([ticketPurchases]);
-          setStatusMessage("Your ticket has been loaded successfully.");
           return true;
         }
       }
@@ -230,7 +344,6 @@ const MyTickets = () => {
                   : [value];
 
                 setTickets(ticketData);
-                setStatusMessage("Your ticket has been loaded successfully.");
                 return true;
               }
             } catch (err) {
@@ -245,6 +358,148 @@ const MyTickets = () => {
       console.error("Error loading local tickets:", err);
       return false;
     }
+  };
+
+  // Helper function to get ticket price with fallbacks
+  const getTicketPrice = (ticket) => {
+    // Try multiple price fields in order of preference
+    const priceFields = [
+      ticket.grandTotal,
+      ticket.totalPrice,
+      ticket.seat?.price,
+      ticket.rawOrderData?.totalAmount,
+      ticket.rawOrderData?.amount,
+      ticket.rawOrderData?.price,
+      ticket.rawOrderData?.total,
+      ticket.rawOrderData?.cost
+    ];
+    
+    for (const price of priceFields) {
+      if (price && price > 0) {
+        return parseFloat(price);
+      }
+    }
+    
+    // If no valid price found, try to calculate from order total and seat count
+    if (ticket.rawOrderData?.totalAmount && ticket.rawOrderData?.seats?.length > 0) {
+      return parseFloat(ticket.rawOrderData.totalAmount) / ticket.rawOrderData.seats.length;
+    }
+    
+    return 0;
+  };
+
+  // Function to convert orders to individual seat tickets
+  const convertOrdersToIndividualTickets = (orders) => {
+    const individualTickets = [];
+
+    orders.forEach((order) => {
+      // ENHANCED CANCELLED STATUS DETECTION
+      const isCancelled =
+        order.status === "cancelled" ||
+        order.status === "canceled" ||
+        order.status === "CANCELLED" ||
+        order.status === "CANCELED" ||
+        order.paymentStatus === "cancelled" ||
+        order.paymentStatus === "canceled" ||
+        order.paymentStatus === "CANCELLED" ||
+        order.paymentStatus === "CANCELED" ||
+        order.paymentStatus === "refunded" ||
+        order.paymentStatus === "REFUNDED" ||
+        order.paymentStatus === "failed" ||
+        order.paymentStatus === "FAILED" ||
+        order.orderStatus === "cancelled" ||
+        order.orderStatus === "canceled" ||
+        order.orderStatus === "CANCELLED" ||
+        order.orderStatus === "CANCELED" ||
+        order.bookingStatus === "cancelled" ||
+        order.bookingStatus === "canceled" ||
+        order.bookingStatus === "CANCELLED" ||
+        order.bookingStatus === "CANCELED" ||
+        order.cancellationDate ||
+        order.cancelledAt ||
+        order.cancelled_at ||
+        order.refundAmount > 0 ||
+        order.refund_amount > 0;
+
+      // If there are seats, create individual tickets for each seat
+      if (order.seats && order.seats.length > 0) {
+        order.seats.forEach((seat, seatIndex) => {
+          // Enhanced price calculation for individual seats
+          const seatPrice = seat.price || seat.seatPrice || seat.amount || 
+                           (order.totalAmount / order.seats.length) || 
+                           order.amount || order.price || 0;
+          
+          individualTickets.push({
+            _id: `${order._id}_seat_${seatIndex}`,
+            orderId: order._id,
+            bookingId: order.bookingId,
+            originalOrderId: order._id,
+            seatIndex: seatIndex,
+            event: null, // Will be populated later
+            seat: {
+              section: seat.section,
+              row: seat.row,
+              number: seat.seatNumber,
+              price: seatPrice,
+              name: `${seat.section} ${seat.row}${seat.seatNumber}`,
+            },
+            quantity: 1, // Each ticket is for one seat
+            totalPrice: seatPrice,
+            grandTotal: seatPrice,
+            purchaseDate: order.orderTime || order.createdAt,
+            createdAt: order.createdAt,
+            paymentStatus: order.paymentStatus || "Unknown",
+            isCancelled: isCancelled,
+            rawOrderData: order,
+            userInfo: {
+              name:
+                user?.name ||
+                user?.firstName + " " + user?.lastName ||
+                "Guest User",
+              email: user?.email || "No email provided",
+            },
+          });
+        });
+      } else {
+        // If no seats, create a general admission ticket
+        // Enhanced price calculation for general admission
+        const ticketPrice = order.totalAmount || order.amount || order.price || 
+                           order.grandTotal || order.total || order.cost || 0;
+        
+        individualTickets.push({
+          _id: order._id,
+          orderId: order._id,
+          bookingId: order.bookingId,
+          originalOrderId: order._id,
+          seatIndex: 0,
+          event: null, // Will be populated later
+          seat: {
+            name: "General Admission",
+            section: "GA",
+            row: "",
+            number: "",
+            price: ticketPrice,
+          },
+          quantity: order.quantity || 1,
+          totalPrice: ticketPrice,
+          grandTotal: ticketPrice,
+          purchaseDate: order.orderTime || order.createdAt,
+          createdAt: order.createdAt,
+          paymentStatus: order.paymentStatus || "Unknown",
+          isCancelled: isCancelled,
+          rawOrderData: order,
+          userInfo: {
+            name:
+              user?.name ||
+              user?.firstName + " " + user?.lastName ||
+              "Guest User",
+            email: user?.email || "No email provided",
+          },
+        });
+      }
+    });
+
+    return individualTickets;
   };
 
   // Load tickets when component mounts
@@ -292,263 +547,71 @@ const MyTickets = () => {
       if (data.success && data.data && Array.isArray(data.data)) {
         console.log("Processing orders:", data.data);
 
-        // Map the API data to match our component's expected format
-        const formattedTickets = await Promise.all(
-          data.data.map(async (order, index) => {
-            console.log(`Processing order ${index + 1}:`, order);
+        // Convert orders to individual tickets
+        const individualTickets = convertOrdersToIndividualTickets(data.data);
 
-            // Fetch event details for each order
-            let eventDetails = {
-              title: `Order ${index + 1}`,
-              date: order.orderTime || order.createdAt,
-              time: order.eventTime || order.time || "19:00",
-              location: "Loading venue...",
-              description: "Loading event details...",
-            };
+        // Fetch event details for each unique event
+        const uniqueEventIds = [...new Set(individualTickets.map(ticket => ticket.rawOrderData.eventId).filter(Boolean))];
+        const eventDetailsMap = {};
 
-            if (order.eventId) {
-              console.log(`Fetching details for eventId: ${order.eventId}`);
-              const fetchedEventDetails = await fetchEventDetails(
-                order.eventId
-              );
-              eventDetails = {
-                title:
-                  fetchedEventDetails.title ||
-                  fetchedEventDetails.name ||
-                  `Event ${order.eventId.substring(0, 8)}`,
-                name:
-                  fetchedEventDetails.name ||
-                  fetchedEventDetails.title ||
-                  `Event ${order.eventId.substring(0, 8)}`,
-                date:
-                  fetchedEventDetails.date ||
-                  order.orderTime ||
-                  order.createdAt,
-                time:
-                  fetchedEventDetails.time ||
-                  order.eventTime ||
-                  order.time ||
-                  "19:00",
-                location:
-                  fetchedEventDetails.location ||
-                  fetchedEventDetails.venue ||
-                  "Venue details unavailable",
-                venue:
-                  fetchedEventDetails.venue ||
-                  fetchedEventDetails.location ||
-                  "Venue details unavailable",
-                description:
-                  fetchedEventDetails.description || "No description available",
-                _id: order.eventId,
-              };
-              console.log("Final event details:", eventDetails);
-            } else {
-              console.warn("No eventId found in order:", order);
-              eventDetails.title = `Order #${
-                order._id?.substring(0, 8) || index + 1
-              }`;
-            }
+        for (const eventId of uniqueEventIds) {
+          const eventDetails = await fetchEventDetails(eventId);
+          eventDetailsMap[eventId] = eventDetails;
+        }
 
-            // ENHANCED CANCELLED STATUS DETECTION
-            // Check multiple possible fields and values that indicate cancellation
-            const isCancelled =
-              // Check status field
-              order.status === "cancelled" ||
-              order.status === "canceled" ||
-              order.status === "CANCELLED" ||
-              order.status === "CANCELED" ||
-              // Check paymentStatus field
-              order.paymentStatus === "cancelled" ||
-              order.paymentStatus === "canceled" ||
-              order.paymentStatus === "CANCELLED" ||
-              order.paymentStatus === "CANCELED" ||
-              order.paymentStatus === "refunded" ||
-              order.paymentStatus === "REFUNDED" ||
-              order.paymentStatus === "failed" ||
-              order.paymentStatus === "FAILED" ||
-              // Check orderStatus field
-              order.orderStatus === "cancelled" ||
-              order.orderStatus === "canceled" ||
-              order.orderStatus === "CANCELLED" ||
-              order.orderStatus === "CANCELED" ||
-              // Check booking status if available
-              order.bookingStatus === "cancelled" ||
-              order.bookingStatus === "canceled" ||
-              order.bookingStatus === "CANCELLED" ||
-              order.bookingStatus === "CANCELED" ||
-              // Check if there's a cancellation date
-              order.cancellationDate ||
-              order.cancelledAt ||
-              order.cancelled_at ||
-              // Check if refund amount exists (indicates cancellation)
-              order.refundAmount > 0 ||
-              order.refund_amount > 0;
+        // Update tickets with event details
+        const ticketsWithEventDetails = individualTickets.map(ticket => {
+          const eventId = ticket.rawOrderData.eventId;
+          const eventDetails = eventDetailsMap[eventId];
 
-            console.log(`Order ${index + 1} cancellation status:`, {
-              orderId: order._id,
-              status: order.status,
-              paymentStatus: order.paymentStatus,
-              orderStatus: order.orderStatus,
-              bookingStatus: order.bookingStatus,
-              isCancelled: isCancelled,
-              cancellationDate: order.cancellationDate,
-              cancelledAt: order.cancelledAt,
-              refundAmount: order.refundAmount,
-            });
+          return {
+            ...ticket,
+            event: eventDetails || {
+              title: `Order ${ticket.originalOrderId.substring(0, 8)}`,
+              date: ticket.purchaseDate,
+              time: "19:00",
+              location: "Venue details unavailable",
+              description: "Event details unavailable",
+            },
+          };
+        });
 
-            return {
-              _id: order._id,
-              orderId: order._id,
-              bookingId: order.bookingId,
-              event: eventDetails,
-              selectedSeats:
-                order.seats?.map((seat) => ({
-                  section: seat.section,
-                  row: seat.row,
-                  number: seat.seatNumber,
-                  price: seat.price,
-                  name: `${seat.section} ${seat.row}${seat.seatNumber}`,
-                })) || [],
-              quantity: order.quantity || 1,
-              totalPrice: order.totalAmount || 0,
-              grandTotal: order.totalAmount || 0,
-              purchaseDate: order.orderTime || order.createdAt,
-              createdAt: order.createdAt,
-              paymentStatus: order.paymentStatus || "Unknown",
-              isCancelled: isCancelled,
-              // Store raw order data for debugging
-              rawOrderData: order,
-              // Add user info
-              userInfo: {
-                name:
-                  user?.name ||
-                  user?.firstName + " " + user?.lastName ||
-                  "Guest User",
-                email: user?.email || "No email provided",
-              },
-            };
-          })
-        );
+        // Sort tickets by purchase date (newest first) - ensure proper date comparison
+        const sortedTickets = ticketsWithEventDetails.sort((a, b) => {
+          const dateA = new Date(a.purchaseDate || a.createdAt || 0);
+          const dateB = new Date(b.purchaseDate || b.createdAt || 0);
+          
+          // If dates are invalid, put them at the end
+          if (isNaN(dateA.getTime())) return 1;
+          if (isNaN(dateB.getTime())) return -1;
+          
+          return dateB.getTime() - dateA.getTime(); // Newest first (descending order)
+        });
 
-        console.log("Final formatted tickets:", formattedTickets);
-        setTickets(formattedTickets);
-        setStatusMessage("Your tickets have been loaded successfully.");
+        console.log("Final formatted individual tickets:", sortedTickets);
+        setTickets(sortedTickets);
       } else if (data.success && data.data) {
-        // Handle single ticket response (same logic as above for single order)
+        // Handle single order response
         const order = data.data;
         console.log("Processing single order:", order);
 
-        // Fetch event details
-        let eventDetails = {
-          title: "Single Event",
-          date: order.orderTime || order.createdAt,
-          time: order.eventTime || order.time || "19:00",
-          location: "Loading venue...",
-          description: "Loading event details...",
-        };
+        const individualTickets = convertOrdersToIndividualTickets([order]);
 
+        // Fetch event details if available
         if (order.eventId) {
-          const fetchedEventDetails = await fetchEventDetails(order.eventId);
-          eventDetails = {
-            title:
-              fetchedEventDetails.title ||
-              fetchedEventDetails.name ||
-              `Event ${order.eventId.substring(0, 8)}`,
-            name:
-              fetchedEventDetails.name ||
-              fetchedEventDetails.title ||
-              `Event ${order.eventId.substring(0, 8)}`,
-            date:
-              fetchedEventDetails.date || order.orderTime || order.createdAt,
-            time:
-              fetchedEventDetails.time ||
-              order.eventTime ||
-              order.time ||
-              "19:00",
-            location:
-              fetchedEventDetails.location ||
-              fetchedEventDetails.venue ||
-              "Venue details unavailable",
-            venue:
-              fetchedEventDetails.venue ||
-              fetchedEventDetails.location ||
-              "Venue details unavailable",
-            description:
-              fetchedEventDetails.description || "No description available",
-            _id: order.eventId,
-          };
+          const eventDetails = await fetchEventDetails(order.eventId);
+          individualTickets.forEach(ticket => {
+            ticket.event = eventDetails;
+          });
         }
 
-        // Same enhanced cancellation detection for single order
-        const isCancelled =
-          order.status === "cancelled" ||
-          order.status === "canceled" ||
-          order.status === "CANCELLED" ||
-          order.status === "CANCELED" ||
-          order.paymentStatus === "cancelled" ||
-          order.paymentStatus === "canceled" ||
-          order.paymentStatus === "CANCELLED" ||
-          order.paymentStatus === "CANCELED" ||
-          order.paymentStatus === "refunded" ||
-          order.paymentStatus === "REFUNDED" ||
-          order.paymentStatus === "failed" ||
-          order.paymentStatus === "FAILED" ||
-          order.orderStatus === "cancelled" ||
-          order.orderStatus === "canceled" ||
-          order.orderStatus === "CANCELLED" ||
-          order.orderStatus === "CANCELED" ||
-          order.bookingStatus === "cancelled" ||
-          order.bookingStatus === "canceled" ||
-          order.bookingStatus === "CANCELLED" ||
-          order.bookingStatus === "CANCELED" ||
-          order.cancellationDate ||
-          order.cancelledAt ||
-          order.cancelled_at ||
-          order.refundAmount > 0 ||
-          order.refund_amount > 0;
-
-        const formattedTicket = {
-          _id: order._id,
-          orderId: order._id,
-          bookingId: order.bookingId,
-          event: eventDetails,
-          selectedSeats:
-            order.seats?.map((seat) => ({
-              section: seat.section,
-              row: seat.row,
-              number: seat.seatNumber,
-              price: seat.price,
-              name: `${seat.section} ${seat.row}${seat.seatNumber}`,
-            })) || [],
-          quantity: order.quantity || 1,
-          totalPrice: order.totalAmount || 0,
-          grandTotal: order.totalAmount || 0,
-          purchaseDate: order.orderTime || order.createdAt,
-          createdAt: order.createdAt,
-          paymentStatus: order.paymentStatus || "Unknown",
-          isCancelled: isCancelled,
-          rawOrderData: order,
-          // Add user info
-          userInfo: {
-            name:
-              user?.name ||
-              user?.firstName + " " + user?.lastName ||
-              "Guest User",
-            email: user?.email || "No email provided",
-          },
-        };
-
-        setTickets([formattedTicket]);
-        setStatusMessage("Your ticket has been loaded successfully.");
+        setTickets(individualTickets);
       } else {
         // If API returns empty or incorrect data, try localStorage as fallback
         const foundLocalTickets = loadLocalTickets();
 
         if (!foundLocalTickets) {
           setTickets([]);
-          setStatusMessage(
-            "No tickets found. Purchase tickets to see them here."
-          );
         }
       }
     } catch (err) {
@@ -564,14 +627,96 @@ const MyTickets = () => {
     }
   };
 
-const cancelTicket = async (ticket) => {
-  setCancelLoading(true);
-  setError("");
+  const cancelTicket = async (ticket) => {
+    setCancelLoading(true);
+    setError("");
 
-  try {
-    // Check if ticket is already cancelled
-    if (ticket.isCancelled) {
-      // Remove already cancelled tickets from the list
+    try {
+      // Check if ticket is already cancelled
+      if (ticket.isCancelled) {
+        // Remove already cancelled tickets from the list
+        setTickets((prevTickets) =>
+          prevTickets.filter((t) => 
+            t._id !== ticket._id && 
+            t.orderId !== ticket.orderId && 
+            t.bookingId !== ticket.bookingId
+          )
+        );
+        setShowCancelModal(false);
+        setTicketToCancel(null);
+        setCancelLoading(false);
+        return;
+      }
+
+      // Check if refreshToken function is available
+      if (typeof refreshToken === "function") {
+        await refreshToken();
+      }
+
+      // Get token from localStorage
+      const token = localStorage.getItem("auth-token");
+
+      if (!token) {
+        throw new Error("Authentication token not found. Please log in again.");
+      }
+
+      // Validate bookingId exists
+      if (!ticket.bookingId) {
+        throw new Error("Booking ID is missing. Cannot cancel this ticket.");
+      }
+
+      // Updated request body to only include bookingId
+      const requestBody = {
+        bookingId: ticket.bookingId,
+      };
+
+      console.log("Cancelling ticket with body:", requestBody);
+
+      // Call the cancel ticket API
+      const response = await fetch(`${API_BASE_URL}payments/booking/cancel`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const data = await response.json();
+      console.log("Cancel API response:", data);
+
+      if (!response.ok) {
+        // Check if the error is about booking already being cancelled
+        if (response.status === 400 && data.message) {
+          const errorMessage = data.message.toLowerCase();
+
+          if (
+            errorMessage.includes("already cancelled") ||
+            errorMessage.includes("already canceled") ||
+            errorMessage.includes("booking already cancelled") ||
+            errorMessage.includes("booking already canceled")
+          ) {
+            // If booking is already cancelled, REMOVE the ticket from the list
+            setTickets((prevTickets) =>
+              prevTickets.filter((t) => 
+                t._id !== ticket._id && 
+                t.orderId !== ticket.orderId && 
+                t.bookingId !== ticket.bookingId
+              )
+            );
+            setShowCancelModal(false);
+            setTicketToCancel(null);
+            return; // Exit the function early
+          }
+        }
+
+        // For other errors, throw them
+        throw new Error(
+          data.message || `Failed to cancel ticket (Status: ${response.status})`
+        );
+      }
+
+      // If cancellation was successful, REMOVE the ticket from the list
       setTickets((prevTickets) =>
         prevTickets.filter((t) => 
           t._id !== ticket._id && 
@@ -579,111 +724,21 @@ const cancelTicket = async (ticket) => {
           t.bookingId !== ticket.bookingId
         )
       );
-      setStatusMessage("Cancelled ticket has been removed from your list.");
+
       setShowCancelModal(false);
       setTicketToCancel(null);
+    } catch (err) {
+      console.error("Error cancelling ticket:", err);
+      setError(`Failed to cancel ticket: ${err.message}`);
+    } finally {
       setCancelLoading(false);
-      return;
     }
-
-    // Check if refreshToken function is available
-    if (typeof refreshToken === "function") {
-      await refreshToken();
-    }
-
-    // Get token from localStorage
-    const token = localStorage.getItem("auth-token");
-
-    if (!token) {
-      throw new Error("Authentication token not found. Please log in again.");
-    }
-
-    // Validate bookingId exists
-    if (!ticket.bookingId) {
-      throw new Error("Booking ID is missing. Cannot cancel this ticket.");
-    }
-
-    // Updated request body to only include bookingId
-    const requestBody = {
-      bookingId: ticket.bookingId,
-    };
-
-    console.log("Cancelling ticket with body:", requestBody);
-
-    // Call the cancel ticket API
-    const response = await fetch(`${API_BASE_URL}payments/booking/cancel`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-    });
-
-    const data = await response.json();
-    console.log("Cancel API response:", data);
-
-    if (!response.ok) {
-      // Check if the error is about booking already being cancelled
-      if (response.status === 400 && data.message) {
-        const errorMessage = data.message.toLowerCase();
-
-        if (
-          errorMessage.includes("already cancelled") ||
-          errorMessage.includes("already canceled") ||
-          errorMessage.includes("booking already cancelled") ||
-          errorMessage.includes("booking already canceled")
-        ) {
-          // If booking is already cancelled, REMOVE the ticket from the list
-          setTickets((prevTickets) =>
-            prevTickets.filter((t) => 
-              t._id !== ticket._id && 
-              t.orderId !== ticket.orderId && 
-              t.bookingId !== ticket.bookingId
-            )
-          );
-          setStatusMessage(
-            "This ticket was already cancelled and has been removed from your list."
-          );
-          setShowCancelModal(false);
-          setTicketToCancel(null);
-          return; // Exit the function early
-        }
-      }
-
-      // For other errors, throw them
-      throw new Error(
-        data.message || `Failed to cancel ticket (Status: ${response.status})`
-      );
-    }
-
-    // If cancellation was successful, REMOVE the ticket from the list
-    setTickets((prevTickets) =>
-      prevTickets.filter((t) => 
-        t._id !== ticket._id && 
-        t.orderId !== ticket.orderId && 
-        t.bookingId !== ticket.bookingId
-      )
-    );
-
-    setStatusMessage(
-      "Ticket cancelled successfully and removed from your list. Refund will be processed shortly."
-    );
-    setShowCancelModal(false);
-    setTicketToCancel(null);
-  } catch (err) {
-    console.error("Error cancelling ticket:", err);
-    setError(`Failed to cancel ticket: ${err.message}`);
-  } finally {
-    setCancelLoading(false);
-  }
-};
+  };
 
   // Function to show cancel confirmation modal
   const showCancelConfirmation = (ticket) => {
     // Check if ticket is already cancelled
     if (ticket.isCancelled) {
-      setStatusMessage("This ticket has already been cancelled.");
       return;
     }
 
@@ -697,9 +752,8 @@ const cancelTicket = async (ticket) => {
     setShowCancelModal(true);
   };
 
-  // 4. Force refresh function to update cancelled status
+  // Force refresh function to update cancelled status
   const forceRefreshTickets = async () => {
-    setStatusMessage("");
     setError("");
     await fetchTickets();
   };
@@ -718,7 +772,7 @@ const cancelTicket = async (ticket) => {
     try {
       // First check if we have this ticket in our state already
       const localTicket = tickets.find(
-        (ticket) => ticket.orderId === ticketId || ticket._id === ticketId
+        (ticket) => ticket._id === ticketId || ticket.orderId === ticketId
       );
 
       if (localTicket) {
@@ -740,9 +794,14 @@ const cancelTicket = async (ticket) => {
         throw new Error("Authentication token not found. Please log in again.");
       }
 
+      // Extract original order ID if this is an individual seat ticket
+      const orderIdToFetch = ticketId.includes("_seat_") 
+        ? ticketId.split("_seat_")[0] 
+        : ticketId;
+
       // Call the ticket details API with the correct endpoint
       const response = await fetch(
-        `${API_BASE_URL}orders/my-orders/${ticketId}`,
+        `${API_BASE_URL}orders/my-orders/${orderIdToFetch}`,
         {
           method: "GET",
           headers: {
@@ -759,73 +818,9 @@ const cancelTicket = async (ticket) => {
         throw new Error(data.message || "Failed to fetch ticket details");
       }
 
-      // Set selected ticket in state based on the API structure
-      if (data.success && data.data) {
-        const order = data.data;
-
-        // Fetch event details
-        let eventDetails = {
-          title: "Event Details Loading...",
-          date: order.orderTime || order.createdAt,
-          time: order.eventTime || order.time || "19:00",
-          location: "Event Venue",
-          description: "Loading event details...",
-        };
-
-        if (order.eventId) {
-          const fetchedEventDetails = await fetchEventDetails(order.eventId);
-          eventDetails = {
-            title:
-              fetchedEventDetails.title ||
-              fetchedEventDetails.name ||
-              "Untitled Event",
-            date:
-              fetchedEventDetails.date || order.orderTime || order.createdAt,
-            time:
-              fetchedEventDetails.time ||
-              order.eventTime ||
-              order.time ||
-              "19:00",
-            location:
-              fetchedEventDetails.location ||
-              fetchedEventDetails.venue ||
-              "Event Venue",
-            description:
-              fetchedEventDetails.description || "No description available",
-          };
-        }
-
-        const formattedTicket = {
-          _id: order._id,
-          orderId: order._id,
-          bookingId: order.bookingId,
-          event: eventDetails,
-          selectedSeats: order.seats.map((seat) => ({
-            section: seat.section,
-            row: seat.row,
-            number: seat.seatNumber,
-            price: seat.price,
-            name: `${seat.section} ${seat.row}${seat.seatNumber}`,
-          })),
-          quantity: order.quantity,
-          totalPrice: order.totalAmount,
-          grandTotal: order.totalAmount,
-          purchaseDate: order.orderTime || order.createdAt,
-          createdAt: order.createdAt,
-          paymentStatus: order.paymentStatus,
-          isCancelled:
-            order.status === "cancelled" || order.paymentStatus === "cancelled",
-          // Add user info
-          userInfo: {
-            name:
-              user?.name ||
-              user?.firstName + " " + user?.lastName ||
-              "Guest User",
-            email: user?.email || "No email provided",
-          },
-        };
-
-        setSelectedTicket(formattedTicket);
+      // Set selected ticket based on local ticket if available
+      if (localTicket) {
+        setSelectedTicket(localTicket);
       } else {
         throw new Error("No ticket data returned from server");
       }
@@ -848,668 +843,370 @@ const cancelTicket = async (ticket) => {
     }
   };
 
-// Replace your existing generateLocalTicketPDF function with this enhanced version
-// const generateLocalTicketPDF = (ticketId) => {
-//   // Find the ticket in our state
-//   const ticket = tickets.find(
-//     (t) => t._id === ticketId || t.orderId === ticketId
-//   );
+  // IMPROVED PDF GENERATION WITH SAME BARCODE
+  const generateLocalTicketPDF = (ticketId) => {
+    // Find the ticket in our state
+    const ticket = tickets.find(
+      (t) => t._id === ticketId || t.orderId === ticketId
+    );
 
-//   if (!ticket) {
-//     setError("Could not find ticket data for local generation");
-//     return;
-//   }
-
-//   try {
-//     // Create new PDF document
-//     const doc = new jsPDF();
-
-//     // Set up dimensions and colors
-//     const pageWidth = doc.internal.pageSize.getWidth();
-//     const pageHeight = doc.internal.pageSize.getHeight();
-//     const margin = 15;
-//     const contentWidth = pageWidth - margin * 2;
-    
-//     // Color palette (RGB values for jsPDF)
-//     const colors = {
-//       primary: [224, 88, 41],      // Orange
-//       secondary: [180, 71, 35],    // Darker orange
-//       dark: [45, 55, 72],          // Dark gray
-//       light: [247, 250, 252],      // Light gray
-//       white: [255, 255, 255],
-//       success: [34, 197, 94],      // Green
-//       danger: [239, 68, 68],       // Red
-//       border: [229, 231, 235]      // Border gray
-//     };
-
-//     // ----- MAIN TICKET CONTAINER -----
-    
-//     // Background with subtle gradient effect
-//     doc.setFillColor(...colors.light);
-//     doc.rect(0, 0, pageWidth, pageHeight, "F");
-    
-//     // Main ticket card
-//     doc.setFillColor(...colors.white);
-//     doc.roundedRect(margin, margin, contentWidth, 240, 5, 5, "F");
-    
-//     // Card border
-//     doc.setDrawColor(...colors.border);
-//     doc.setLineWidth(1);
-//     doc.roundedRect(margin, margin, contentWidth, 240, 5, 5, "S");
-
-//     // ----- HEADER SECTION -----
-    
-//     // Main header background
-//     doc.setFillColor(...colors.primary);
-//     doc.roundedRect(margin, margin, contentWidth, 35, 5, 5, "F");
-    
-//     // Header bottom rectangle to square off bottom corners
-//     doc.rect(margin, margin + 30, contentWidth, 5, "F");
-
-//     // Logo placeholder (you can replace this with actual logo loading)
-//     // Logo background circle
-//     doc.setFillColor(...colors.white);
-//     doc.circle(margin + 20, margin + 17.5, 12, "F");
-    
-//     // Logo text placeholder (replace with actual logo)
-//     doc.setTextColor(...colors.primary);
-//     doc.setFontSize(10);
-//     doc.setFont("helvetica", "bold");
-//     doc.text("LOGO", margin + 20, margin + 20, { align: "center" });
-    
-//     // Website name
-//     doc.setTextColor(...colors.white);
-//     doc.setFontSize(12);
-//     doc.setFont("helvetica", "bold");
-//     doc.text("YourEventSite.com", margin + 40, margin + 22);
-
-//     // Ticket status badge
-//     const isValidTicket = !ticket.isCancelled;
-//     const statusColor = isValidTicket ? colors.success : colors.danger;
-//     const statusText = isValidTicket ? "VALID TICKET" : "CANCELLED";
-    
-//     doc.setFillColor(...statusColor);
-//     const statusWidth = 35;
-//     doc.roundedRect(margin + contentWidth - statusWidth - 5, margin + 8, statusWidth, 20, 3, 3, "F");
-    
-//     doc.setTextColor(...colors.white);
-//     doc.setFontSize(8);
-//     doc.setFont("helvetica", "bold");
-//     doc.text(statusText, margin + contentWidth - statusWidth/2 - 5, margin + 20, { align: "center" });
-
-//     // ----- EVENT TITLE SECTION -----
-    
-//     const titleY = margin + 50;
-    
-//     // Event title background
-//     doc.setFillColor(245, 245, 245);
-//     doc.rect(margin + 5, titleY - 5, contentWidth - 10, 25, "F");
-    
-//     // Event title
-//     doc.setTextColor(...colors.dark);
-//     doc.setFontSize(16);
-//     doc.setFont("helvetica", "bold");
-    
-//     const title = ticket.event?.title || "Untitled Event";
-//     let displayTitle = title;
-//     if (title.length > 50) {
-//       displayTitle = title.substring(0, 47) + "...";
-//     }
-    
-//     doc.text(displayTitle, margin + 10, titleY + 8);
-    
-//     // Ticket quantity
-//     const ticketCount = ticket.quantity || ticket.selectedSeats?.length || 1;
-//     const ticketText = `${ticketCount} Ticket${ticketCount !== 1 ? "s" : ""}`;
-    
-//     doc.setFontSize(12);
-//     doc.setTextColor(...colors.secondary);
-//     doc.text(ticketText, margin + contentWidth - 15, titleY + 8, { align: "right" });
-
-//     // ----- MAIN CONTENT AREA -----
-    
-//     const contentY = titleY + 35;
-//     const leftColWidth = contentWidth * 0.55;
-//     const rightColStart = margin + leftColWidth + 10;
-//     const rightColWidth = contentWidth * 0.4;
-
-//     // ----- LEFT COLUMN: EVENT & TICKET DETAILS -----
-    
-//     let currentY = contentY;
-    
-//     // Section: Event Information
-//     doc.setFontSize(12);
-//     doc.setFont("helvetica", "bold");
-//     doc.setTextColor(...colors.primary);
-//     doc.text("EVENT INFORMATION", margin + 5, currentY);
-//     currentY += 8;
-    
-//     // Date & Time
-//     doc.setFontSize(10);
-//     doc.setFont("helvetica", "normal");
-//     doc.setTextColor(...colors.dark);
-    
-//     const eventDate = formatDate(ticket.event?.date || ticket.purchaseDate);
-//     const eventTime = formatTime(ticket.event?.time);
-    
-//     doc.text(`Date: ${eventDate}`, margin + 5, currentY);
-//     currentY += 6;
-//     doc.text(`Time: ${eventTime}`, margin + 5, currentY);
-//     currentY += 6;
-//     doc.text(`Location: ${ticket.event?.location || "Location TBA"}`, margin + 5, currentY);
-//     currentY += 12;
-    
-//     // Section: Ticket Holder Information
-//     doc.setFont("helvetica", "bold");
-//     doc.setTextColor(...colors.primary);
-//     doc.text("TICKET HOLDER", margin + 5, currentY);
-//     currentY += 8;
-    
-//     doc.setFont("helvetica", "normal");
-//     doc.setTextColor(...colors.dark);
-//     doc.text(`Name: ${ticket.userInfo?.name || "Guest User"}`, margin + 5, currentY);
-//     currentY += 6;
-//     doc.text(`Email: ${ticket.userInfo?.email || "No email provided"}`, margin + 5, currentY);
-//     currentY += 12;
-    
-//     // Section: Seat Information (if available)
-//     if (ticket.selectedSeats && ticket.selectedSeats.length > 0) {
-//       doc.setFont("helvetica", "bold");
-//       doc.setTextColor(...colors.primary);
-//       doc.text("SEAT ASSIGNMENT", margin + 5, currentY);
-//       currentY += 8;
-      
-//       doc.setFont("helvetica", "normal");
-//       doc.setTextColor(...colors.dark);
-      
-//       // Show up to 6 seats, then summarize
-//       const maxSeatsToShow = Math.min(6, ticket.selectedSeats.length);
-      
-//       for (let i = 0; i < maxSeatsToShow; i++) {
-//         const seat = ticket.selectedSeats[i];
-//         const seatInfo = seat.section && seat.row && seat.number 
-//           ? `${seat.section} - Row ${seat.row}, Seat ${seat.number}`
-//           : seat.name || `Seat ${i + 1}`;
-//         doc.text(`${seatInfo}`, margin + 5, currentY);
-//         currentY += 6;
-//       }
-      
-//       if (ticket.selectedSeats.length > 6) {
-//         doc.setFont("helvetica", "italic");
-//         doc.text(`... and ${ticket.selectedSeats.length - 6} more seats`, margin + 5, currentY);
-//         currentY += 6;
-//       }
-//       currentY += 6;
-//     }
-    
-//     // Section: Order Information
-//     doc.setFont("helvetica", "bold");
-//     doc.setTextColor(...colors.primary);
-//     doc.text("ORDER DETAILS", margin + 5, currentY);
-//     currentY += 8;
-    
-//     doc.setFont("helvetica", "normal");
-//     doc.setTextColor(...colors.dark);
-//     const orderIdDisplay = (ticket._id || ticket.orderId || "N/A").substring(0, 20);
-//     doc.text(`Order ID: ${orderIdDisplay}`, margin + 5, currentY);
-//     currentY += 6;
-    
-//     if (ticket.bookingId) {
-//       doc.text(`Booking ID: ${ticket.bookingId.substring(0, 20)}`, margin + 5, currentY);
-//       currentY += 6;
-//     }
-    
-//     const purchaseDate = new Date(ticket.purchaseDate || ticket.createdAt || Date.now());
-//     doc.text(`Purchased: ${purchaseDate.toLocaleDateString()}`, margin + 5, currentY);
-
-//     // ----- RIGHT COLUMN: PRICING & VALIDATION -----
-    
-//     // Right column border
-//     doc.setDrawColor(...colors.border);
-//     doc.setLineWidth(0.5);
-//     doc.line(rightColStart - 5, contentY - 10, rightColStart - 5, contentY + 120);
-    
-//     let rightY = contentY;
-    
-//     // Price section
-//     doc.setFontSize(12);
-//     doc.setFont("helvetica", "bold");
-//     doc.setTextColor(...colors.primary);
-//     doc.text("PAYMENT", rightColStart, rightY);
-//     rightY += 12;
-    
-//     // Total price - larger and prominent
-//     doc.setFontSize(24);
-//     doc.setFont("helvetica", "bold");
-//     doc.setTextColor(...(isValidTicket ? colors.primary : colors.danger));
-//     const totalPrice = (ticket.grandTotal || ticket.totalPrice || 0).toFixed(2);
-//     doc.text(`$${totalPrice}`, rightColStart, rightY);
-//     rightY += 12;
-    
-//     // Payment status
-//     doc.setFontSize(10);
-//     doc.setFont("helvetica", "normal");
-//     doc.setTextColor(...(isValidTicket ? colors.success : colors.danger));
-//     doc.text(`Status: ${ticket.isCancelled ? "Cancelled" : ticket.paymentStatus || "Paid"}`, rightColStart, rightY);
-//     rightY += 15;
-    
-//     // QR Code placeholder section
-//     doc.setFont("helvetica", "bold");
-//     doc.setTextColor(...colors.primary);
-//     doc.text("VALIDATION", rightColStart, rightY);
-//     rightY += 10;
-    
-//     // QR Code placeholder
-//     doc.setFillColor(240, 240, 240);
-//     doc.rect(rightColStart, rightY, 40, 40, "F");
-    
-//     // QR Code border
-//     doc.setDrawColor(...colors.border);
-//     doc.rect(rightColStart, rightY, 40, 40, "S");
-    
-//     // QR placeholder text
-//     doc.setFontSize(8);
-//     doc.setTextColor(...colors.dark);
-//     doc.text("QR CODE", rightColStart + 20, rightY + 22, { align: "center" });
-    
-//     rightY += 45;
-    
-//     // Barcode section
-//     doc.setFontSize(9);
-//     doc.setFont("helvetica", "bold");
-//     doc.setTextColor(...colors.primary);
-//     doc.text("BARCODE", rightColStart, rightY);
-//     rightY += 8;
-    
-//     // Enhanced barcode
-//     doc.setFillColor(250, 250, 250);
-//     doc.rect(rightColStart, rightY, rightColWidth - 5, 20, "F");
-    
-//     // Barcode lines with more realistic pattern
-//     doc.setFillColor(...colors.dark);
-//     for (let i = 0; i < 45; i++) {
-//       const barX = rightColStart + 2 + i * (rightColWidth - 10) / 45;
-//       const barWidth = Math.random() > 0.7 ? 1.5 : 0.8;
-//       const barHeight = 12 + Math.random() * 6;
-//       doc.rect(barX, rightY + (20 - barHeight) / 2, barWidth, barHeight, "F");
-//     }
-    
-//     rightY += 25;
-    
-//     // Ticket validation number
-//     const ticketNumber = ticket.orderId 
-//       ? ticket.orderId.substring(0, 12).toUpperCase()
-//       : `TIX${Math.floor(Math.random() * 1000000)}`;
-    
-//     doc.setFontSize(8);
-//     doc.setTextColor(...colors.dark);
-//     doc.text(ticketNumber, rightColStart + rightColWidth/2, rightY, { align: "center" });
-
-//     // ----- FOOTER SECTION -----
-    
-//     const footerY = margin + 220;
-    
-//     // Footer background
-//     doc.setFillColor(...colors.light);
-//     doc.rect(margin, footerY, contentWidth, 35, "F");
-    
-//     // Footer border
-//     doc.setDrawColor(...colors.border);
-//     doc.line(margin, footerY, margin + contentWidth, footerY);
-    
-//     // Terms and conditions
-//     doc.setFontSize(8);
-//     doc.setFont("helvetica", "normal");
-//     doc.setTextColor(...colors.dark);
-    
-//     const footerText1 = "This ticket is valid for entry to the specified event.";
-//     const footerText2 = isValidTicket 
-//       ? "Present this ticket along with valid ID at the venue entrance."
-//       : "This ticket has been cancelled. Entry will be denied.";
-//     const footerText3 = "For support, contact: support@youreventsite.com";
-    
-//     doc.text(footerText1, margin + contentWidth/2, footerY + 8, { align: "center" });
-//     doc.text(footerText2, margin + contentWidth/2, footerY + 16, { align: "center" });
-//     doc.text(footerText3, margin + contentWidth/2, footerY + 24, { align: "center" });
-    
-//     // Watermark for cancelled tickets
-//     if (ticket.isCancelled) {
-//       doc.setFontSize(60);
-//       doc.setFont("helvetica", "bold");
-//       doc.setTextColor(220, 38, 38);
-//       doc.setGState(new doc.GState({opacity: 0.3}));
-//       doc.text("CANCELLED", pageWidth/2, pageHeight/2, { 
-//         align: "center",
-//         angle: 45 
-//       });
-//     }
-
-//     // Save the PDF with descriptive filename
-//     const shortId = (ticket._id || ticket.orderId || "ticket").substring(0, 8);
-//     const userName = (ticket.userInfo?.name || "user").replace(/[^a-zA-Z0-9]/g, "_");
-//     const eventName = (ticket.event?.title || "event").replace(/[^a-zA-Z0-9]/g, "_").substring(0, 20);
-    
-//     doc.save(`${eventName}_ticket_${userName}_${shortId}.pdf`);
-
-//     setStatusMessage("Enhanced ticket PDF generated successfully!");
-    
-//   } catch (err) {
-//     console.error("Error generating enhanced PDF:", err);
-//     setError(`Failed to generate PDF: ${err.message}`);
-//   }
-// };
-
-const generateLocalTicketPDF = (ticketId) => {
-  // Find the ticket in our state
-  const ticket = tickets.find(
-    (t) => t._id === ticketId || t.orderId === ticketId
-  );
-
-  if (!ticket) {
-    setError("Could not find ticket data for local generation");
-    return;
-  }
-
-  try {
-    // Create new PDF document
-    const doc = new jsPDF();
-
-    // Set up dimensions and colors
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 15;
-    const contentWidth = pageWidth - margin * 2;
-    
-    // Color palette (RGB values for jsPDF)
-    const colors = {
-      primary: [224, 88, 41],      // Orange
-      secondary: [180, 71, 35],    // Darker orange
-      dark: [45, 55, 72],          // Dark gray
-      light: [247, 250, 252],      // Light gray
-      white: [255, 255, 255],
-      success: [34, 197, 94],      // Green
-      danger: [239, 68, 68],       // Red
-      border: [229, 231, 235]      // Border gray
-    };
-
-    // ----- MAIN TICKET CONTAINER -----
-    
-    // Background with subtle gradient effect
-    doc.setFillColor(...colors.light);
-    doc.rect(0, 0, pageWidth, pageHeight, "F");
-    
-    // Main ticket card
-    doc.setFillColor(...colors.white);
-    doc.roundedRect(margin, margin, contentWidth, 240, 5, 5, "F");
-    
-    // Card border
-    doc.setDrawColor(...colors.border);
-    doc.setLineWidth(1);
-    doc.roundedRect(margin, margin, contentWidth, 240, 5, 5, "S");
-
-    // ----- HEADER SECTION -----
-    
-    // Main header background
-    doc.setFillColor(...colors.primary);
-    doc.roundedRect(margin, margin, contentWidth, 35, 5, 5, "F");
-    
-    // Header bottom rectangle to square off bottom corners
-    doc.rect(margin, margin + 30, contentWidth, 5, "F");
-
-    // Add your imported logo
-    try {
-      // Use your imported logo (supports PNG, JPG, JPEG)
-      doc.addImage(logo, 'PNG', margin + 8, margin + 5, 24, 24);
-    } catch (logoError) {
-      console.log("Logo failed to load, using fallback");
-      // Fallback to text logo if image fails
-      doc.setFillColor(...colors.white);
-      doc.circle(margin + 20, margin + 17.5, 12, "F");
-      doc.setTextColor(...colors.primary);
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.text("LOGO", margin + 20, margin + 20, { align: "center" });
+    if (!ticket) {
+      setError("Could not find ticket data for local generation");
+      return;
     }
-    
-    // Event name in header
-    const title = ticket.event?.title || "Untitled Event";
-    let displayTitle = title.length > 40 ? title.substring(0, 37) + "..." : title;
-    
-    doc.setTextColor(...colors.white);
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text(displayTitle, margin + 40, margin + 18);
-    
-    // Ticket quantity badge
-    const ticketCount = ticket.quantity || ticket.selectedSeats?.length || 1;
-    const ticketText = `${ticketCount} Ticket${ticketCount !== 1 ? "s" : ""}`;
-    
-    doc.setFillColor(...colors.secondary);
-    const badgeWidth = 30;
-    doc.roundedRect(margin + contentWidth - badgeWidth - 5, margin + 8, badgeWidth, 20, 3, 3, "F");
-    
-    doc.setTextColor(...colors.white);
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-    doc.text(ticketText, margin + contentWidth - badgeWidth/2 - 5, margin + 20, { align: "center" });
 
-    // ----- MAIN CONTENT AREA -----
-    
-    const contentY = margin + 50; // Start content right after header
-    const leftColWidth = contentWidth * 0.55;
-    const rightColStart = margin + leftColWidth + 10;
-    const rightColWidth = contentWidth * 0.4;
+    try {
+      // Create new PDF document
+      const doc = new jsPDF();
 
-    // ----- LEFT COLUMN: EVENT & TICKET DETAILS -----
-    
-    let currentY = contentY;
-    
-    // Section: Event Information
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...colors.primary);
-    doc.text("EVENT INFORMATION", margin + 5, currentY);
-    currentY += 8;
-    
-    // Date & Time
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(...colors.dark);
-    
-    const eventDate = formatDate(ticket.event?.date || ticket.purchaseDate);
-    const eventTime = formatTime(ticket.event?.time);
-    
-    doc.text(`Date: ${eventDate}`, margin + 5, currentY);
-    currentY += 6;
-    doc.text(`Time: ${eventTime}`, margin + 5, currentY);
-    currentY += 6;
-    doc.text(`Location: ${ticket.event?.location || "Location TBA"}`, margin + 5, currentY);
-    currentY += 12;
-    
-    // Section: Ticket Holder Information
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...colors.primary);
-    doc.text("TICKET HOLDER", margin + 5, currentY);
-    currentY += 8;
-    
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(...colors.dark);
-    doc.text(`Name: ${ticket.userInfo?.name || "Guest User"}`, margin + 5, currentY);
-    currentY += 6;
-    doc.text(`Email: ${ticket.userInfo?.email || "No email provided"}`, margin + 5, currentY);
-    currentY += 12;
-    
-    // Section: Seat Information (if available)
-    if (ticket.selectedSeats && ticket.selectedSeats.length > 0) {
+      // Set up dimensions and colors
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 15;
+      const contentWidth = pageWidth - margin * 2;
+      
+      // Color palette (RGB values for jsPDF) - Updated with gray header
+      const colors = {
+        primary: [108, 117, 125],    // Gray for header background
+        secondary: [73, 80, 87],     // Darker gray
+        dark: [45, 55, 72],          // Dark gray
+        light: [247, 250, 252],      // Light gray
+        white: [255, 255, 255],
+        success: [34, 197, 94],      // Green
+        danger: [239, 68, 68],       // Red
+        border: [229, 231, 235],     // Border gray
+        accent: [224, 88, 41]        // Orange for accents
+      };
+
+      // ----- MAIN TICKET CONTAINER -----
+      
+      // Background with subtle gradient effect
+      doc.setFillColor(...colors.light);
+      doc.rect(0, 0, pageWidth, pageHeight, "F");
+      
+      // Main ticket card
+      doc.setFillColor(...colors.white);
+      doc.roundedRect(margin, margin, contentWidth, 240, 5, 5, "F");
+      
+      // Card border
+      doc.setDrawColor(...colors.border);
+      doc.setLineWidth(1);
+      doc.roundedRect(margin, margin, contentWidth, 240, 5, 5, "S");
+
+      // ----- HEADER SECTION -----
+      
+      // Main header background
+      doc.setFillColor(...colors.primary);
+      doc.roundedRect(margin, margin, contentWidth, 35, 5, 5, "F");
+      
+      // Header bottom rectangle to square off bottom corners
+      doc.rect(margin, margin + 30, contentWidth, 5, "F");
+
+      // Add your imported logo
+      try {
+        // Use your imported logo (supports PNG, JPG, JPEG)
+        doc.addImage(logo, 'PNG', margin + 8, margin + 5, 24, 24);
+      } catch (logoError) {
+        console.log("Logo failed to load, using fallback");
+        // Fallback to text logo if image fails
+        doc.setFillColor(...colors.white);
+        doc.circle(margin + 20, margin + 17.5, 12, "F");
+        doc.setTextColor(...colors.primary);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.text("LOGO", margin + 20, margin + 20, { align: "center" });
+      }
+      
+      // Event name in header
+      const title = ticket.event?.title || "Untitled Event";
+      let displayTitle = title.length > 40 ? title.substring(0, 37) + "..." : title;
+      
+      doc.setTextColor(...colors.white);
+      doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(...colors.primary);
+      doc.text(displayTitle, margin + 40, margin + 18);
+      
+      // Single ticket badge
+      doc.setFillColor(...colors.secondary);
+      const badgeWidth = 30;
+      doc.roundedRect(margin + contentWidth - badgeWidth - 5, margin + 8, badgeWidth, 20, 3, 3, "F");
+      
+      doc.setTextColor(...colors.white);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.text("1 TICKET", margin + contentWidth - badgeWidth/2 - 5, margin + 20, { align: "center" });
+
+      // ----- MAIN CONTENT AREA -----
+      
+      const contentY = margin + 50; // Start content right after header
+      const leftColWidth = contentWidth * 0.55;
+      const rightColStart = margin + leftColWidth + 10;
+      const rightColWidth = contentWidth * 0.4;
+
+      // ----- LEFT COLUMN: EVENT & TICKET DETAILS -----
+      
+      let currentY = contentY;
+      
+      // Section: Event Information
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...colors.accent);
+      doc.text("EVENT INFORMATION", margin + 5, currentY);
+      currentY += 8;
+      
+      // Date & Time
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...colors.dark);
+      
+      const eventDate = formatDate(ticket.event?.date || ticket.purchaseDate);
+      const eventTime = formatTime(ticket.event?.time);
+      
+      doc.text(`Date: ${eventDate}`, margin + 5, currentY);
+      currentY += 6;
+      doc.text(`Time: ${eventTime}`, margin + 5, currentY);
+      currentY += 6;
+      doc.text(`Location: ${ticket.event?.location || "Location TBA"}`, margin + 5, currentY);
+      currentY += 12;
+      
+      // Section: Ticket Holder Information
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...colors.accent);
+      doc.text("TICKET HOLDER", margin + 5, currentY);
+      currentY += 8;
+      
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...colors.dark);
+      doc.text(`Name: ${ticket.userInfo?.name || "Guest User"}`, margin + 5, currentY);
+      currentY += 6;
+      doc.text(`Email: ${ticket.userInfo?.email || "No email provided"}`, margin + 5, currentY);
+      currentY += 12;
+      
+      // Section: Seat Information
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...colors.accent);
       doc.text("SEAT ASSIGNMENT", margin + 5, currentY);
       currentY += 8;
       
       doc.setFont("helvetica", "normal");
       doc.setTextColor(...colors.dark);
       
-      // Show up to 6 seats, then summarize
-      const maxSeatsToShow = Math.min(6, ticket.selectedSeats.length);
+      const seatInfo = ticket.seat?.name || "General Admission";
+      doc.text(`Seat: ${seatInfo}`, margin + 5, currentY);
+      currentY += 6;
       
-      for (let i = 0; i < maxSeatsToShow; i++) {
-        const seat = ticket.selectedSeats[i];
-        const seatInfo = seat.section && seat.row && seat.number 
-          ? `${seat.section} - Row ${seat.row}, Seat ${seat.number}`
-          : seat.name || `Seat ${i + 1}`;
-        doc.text(`${seatInfo}`, margin + 5, currentY);
+      if (ticket.seat?.section && ticket.seat?.row && ticket.seat?.number) {
+        doc.text(`Section: ${ticket.seat.section}`, margin + 5, currentY);
         currentY += 6;
-      }
-      
-      if (ticket.selectedSeats.length > 6) {
-        doc.setFont("helvetica", "italic");
-        doc.text(`... and ${ticket.selectedSeats.length - 6} more seats`, margin + 5, currentY);
+        doc.text(`Row: ${ticket.seat.row}`, margin + 5, currentY);
+        currentY += 6;
+        doc.text(`Seat Number: ${ticket.seat.number}`, margin + 5, currentY);
         currentY += 6;
       }
       currentY += 6;
-    }
-    
-    // Section: Order Information
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...colors.primary);
-    doc.text("ORDER DETAILS", margin + 5, currentY);
-    currentY += 8;
-    
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(...colors.dark);
-    const orderIdDisplay = (ticket._id || ticket.orderId || "N/A").substring(0, 20);
-    doc.text(`Order ID: ${orderIdDisplay}`, margin + 5, currentY);
-    currentY += 6;
-    
-    if (ticket.bookingId) {
-      doc.text(`Booking ID: ${ticket.bookingId.substring(0, 20)}`, margin + 5, currentY);
-      currentY += 6;
-    }
-    
-    const purchaseDate = new Date(ticket.purchaseDate || ticket.createdAt || Date.now());
-    doc.text(`Purchased: ${purchaseDate.toLocaleDateString()}`, margin + 5, currentY);
-
-    // ----- RIGHT COLUMN: PRICING & VALIDATION -----
-    
-    // Right column border
-    doc.setDrawColor(...colors.border);
-    doc.setLineWidth(0.5);
-    doc.line(rightColStart - 5, contentY - 10, rightColStart - 5, contentY + 120);
-    
-    let rightY = contentY;
-    
-    // Price section
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...colors.primary);
-    doc.text("PAYMENT", rightColStart, rightY);
-    rightY += 12;
-    
-    // Total price - larger and prominent
-    doc.setFontSize(24);
-    doc.setFont("helvetica", "bold");
-    const isValidTicket = !ticket.isCancelled;
-    doc.setTextColor(...(isValidTicket ? colors.primary : colors.danger));
-    const totalPrice = (ticket.grandTotal || ticket.totalPrice || 0).toFixed(2);
-    doc.text(`$${totalPrice}`, rightColStart, rightY);
-    rightY += 12;
-    
-    // Payment status
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(...(isValidTicket ? colors.success : colors.danger));
-    doc.text(`Status: ${ticket.isCancelled ? "Cancelled" : ticket.paymentStatus || "Paid"}`, rightColStart, rightY);
-    rightY += 15;
-    
-    // Barcode section (moved up since QR code is removed)
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...colors.primary);
-    doc.text("VALIDATION", rightColStart, rightY);
-    rightY += 10;
-    
-    // Barcode
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...colors.primary);
-    doc.text("BARCODE", rightColStart, rightY);
-    rightY += 8;
-    
-    // Enhanced barcode
-    doc.setFillColor(250, 250, 250);
-    doc.rect(rightColStart, rightY, rightColWidth - 5, 20, "F");
-    
-    // Barcode lines with more realistic pattern
-    doc.setFillColor(...colors.dark);
-    for (let i = 0; i < 45; i++) {
-      const barX = rightColStart + 2 + i * (rightColWidth - 10) / 45;
-      const barWidth = Math.random() > 0.7 ? 1.5 : 0.8;
-      const barHeight = 12 + Math.random() * 6;
-      doc.rect(barX, rightY + (20 - barHeight) / 2, barWidth, barHeight, "F");
-    }
-    
-    rightY += 25;
-    
-    // Ticket validation number
-    const ticketNumber = ticket.orderId 
-      ? ticket.orderId.substring(0, 12).toUpperCase()
-      : `TIX${Math.floor(Math.random() * 1000000)}`;
-    
-    doc.setFontSize(8);
-    doc.setTextColor(...colors.dark);
-    doc.text(ticketNumber, rightColStart + rightColWidth/2, rightY, { align: "center" });
-
-    // ----- FOOTER SECTION -----
-    
-    const footerY = margin + 220;
-    
-    // Footer background
-    doc.setFillColor(...colors.light);
-    doc.rect(margin, footerY, contentWidth, 35, "F");
-    
-    // Footer border
-    doc.setDrawColor(...colors.border);
-    doc.line(margin, footerY, margin + contentWidth, footerY);
-    
-    // Terms and conditions
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(...colors.dark);
-    
-    const footerText1 = "This ticket is valid for entry to the specified event.";
-    const footerText2 = isValidTicket 
-      ? "Present this ticket along with valid ID at the venue entrance."
-      : "This ticket has been cancelled. Entry will be denied.";
-    const footerText3 = "For support, contact: support@youreventsite.com";
-    
-    doc.text(footerText1, margin + contentWidth/2, footerY + 8, { align: "center" });
-    doc.text(footerText2, margin + contentWidth/2, footerY + 16, { align: "center" });
-    doc.text(footerText3, margin + contentWidth/2, footerY + 24, { align: "center" });
-    
-    // Watermark for cancelled tickets
-    if (ticket.isCancelled) {
-      doc.setFontSize(60);
+      
+      // Section: Order Information
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(220, 38, 38, 0.3);
-      doc.text("CANCELLED", pageWidth/2, pageHeight/2, { 
-        align: "center"
+      doc.setTextColor(...colors.accent);
+      doc.text("ORDER DETAILS", margin + 5, currentY);
+      currentY += 8;
+      
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...colors.dark);
+      const orderIdDisplay = (ticket.originalOrderId || ticket.orderId || "N/A").substring(0, 20);
+      doc.text(`Order ID: ${orderIdDisplay}`, margin + 5, currentY);
+      currentY += 6;
+      
+      if (ticket.bookingId) {
+        doc.text(`Booking ID: ${ticket.bookingId.substring(0, 20)}`, margin + 5, currentY);
+        currentY += 6;
+      }
+      
+      const purchaseDate = new Date(ticket.purchaseDate || ticket.createdAt || Date.now());
+      doc.text(`Purchased: ${purchaseDate.toLocaleDateString()}`, margin + 5, currentY);
+
+      // ----- RIGHT COLUMN: PRICING & VALIDATION -----
+      
+      // Right column border
+      doc.setDrawColor(...colors.border);
+      doc.setLineWidth(0.5);
+      doc.line(rightColStart - 5, contentY - 10, rightColStart - 5, contentY + 120);
+      
+      let rightY = contentY;
+      
+      // Price section
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...colors.accent);
+      doc.text("PAYMENT", rightColStart, rightY);
+      rightY += 12;
+      
+      // Total price - larger and prominent
+      doc.setFontSize(24);
+      doc.setFont("helvetica", "bold");
+      const isValidTicket = !ticket.isCancelled;
+      doc.setTextColor(...(isValidTicket ? colors.primary : colors.danger));
+      const totalPrice = (ticket.grandTotal || ticket.totalPrice || 0).toFixed(2);
+      doc.text(`${totalPrice}`, rightColStart, rightY);
+      rightY += 15;
+      
+      // Enhanced Barcode section
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...colors.accent);
+      doc.text("VALIDATION", rightColStart, rightY);
+      rightY += 10;
+      
+      // Generate the SAME barcode as display
+      const barcodeId = generateBarcode(ticket._id, ticket.seat?.name);
+      
+      // Barcode
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...colors.primary);
+      doc.text("BARCODE", rightColStart, rightY);
+      rightY += 8;
+      
+      // Generate IDENTICAL barcode pattern as in display component
+      const generateRealisticBarcodePDF = (data) => {
+        const bars = [];
+        
+        // Start pattern for Code 128 (same as display)
+        bars.push({ type: 'bar', width: 2 });
+        bars.push({ type: 'space', width: 1 });
+        bars.push({ type: 'bar', width: 1 });
+        bars.push({ type: 'space', width: 1 });
+        bars.push({ type: 'bar', width: 1 });
+        bars.push({ type: 'space', width: 1 });
+        
+        // Data pattern based on barcode ID (IDENTICAL to display)
+        for (let i = 0; i < data.length; i++) {
+          const digit = parseInt(data[i]) || 0;
+          
+          // Create realistic barcode pattern based on digit value (SAME LOGIC)
+          switch (digit % 4) {
+            case 0:
+              bars.push({ type: 'bar', width: 1 });
+              bars.push({ type: 'space', width: 1 });
+              bars.push({ type: 'bar', width: 3 });
+              bars.push({ type: 'space', width: 2 });
+              break;
+            case 1:
+              bars.push({ type: 'bar', width: 2 });
+              bars.push({ type: 'space', width: 1 });
+              bars.push({ type: 'bar', width: 1 });
+              bars.push({ type: 'space', width: 3 });
+              break;
+            case 2:
+              bars.push({ type: 'bar', width: 1 });
+              bars.push({ type: 'space', width: 2 });
+              bars.push({ type: 'bar', width: 2 });
+              bars.push({ type: 'space', width: 1 });
+              break;
+            case 3:
+              bars.push({ type: 'bar', width: 3 });
+              bars.push({ type: 'space', width: 1 });
+              bars.push({ type: 'bar', width: 1 });
+              bars.push({ type: 'space', width: 2 });
+              break;
+          }
+        }
+        
+        // End pattern for Code 128 (same as display)
+        bars.push({ type: 'bar', width: 2 });
+        bars.push({ type: 'space', width: 1 });
+        bars.push({ type: 'bar', width: 1 });
+        bars.push({ type: 'space', width: 1 });
+        bars.push({ type: 'bar', width: 1 });
+        bars.push({ type: 'space', width: 1 });
+        bars.push({ type: 'bar', width: 2 });
+        
+        return bars;
+      };
+
+      // Create barcode background
+      doc.setFillColor(250, 250, 250);
+      const barcodeHeight = 25;
+      doc.rect(rightColStart, rightY, rightColWidth - 5, barcodeHeight, "F");
+      
+      // Generate the SAME barcode pattern as display
+      const barPattern = generateRealisticBarcodePDF(barcodeId);
+      doc.setFillColor(...colors.dark);
+      
+      let barX = rightColStart + 2;
+      const barSpacing = (rightColWidth - 10) / barPattern.length;
+      
+      // Draw each bar with exact same pattern as display
+      barPattern.forEach((element, i) => {
+        if (element.type === 'bar') {
+          const barWidth = element.width * 0.8; // Scale for PDF
+          const barHeight = barcodeHeight * 0.8;
+          const barY = rightY + (barcodeHeight - barHeight) / 2;
+          
+          doc.rect(barX, barY, barWidth, barHeight, "F");
+        }
+        barX += barSpacing;
       });
+      
+      rightY += barcodeHeight + 5;
+      
+      // Barcode number
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...colors.dark);
+      doc.text(barcodeId, rightColStart + (rightColWidth - 5) / 2, rightY, { align: "center" });
+
+      // ----- FOOTER SECTION -----
+      
+      const footerY = margin + 220;
+      
+      // Footer background
+      doc.setFillColor(...colors.light);
+      doc.rect(margin, footerY, contentWidth, 35, "F");
+      
+      // Footer border
+      doc.setDrawColor(...colors.border);
+      doc.line(margin, footerY, margin + contentWidth, footerY);
+      
+      // Terms and conditions
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...colors.dark);
+      
+      const footerText1 = "This ticket is valid for entry to the specified event.";
+      const footerText2 = isValidTicket 
+        ? "Present this ticket along with valid ID at the venue entrance."
+        : "This ticket has been cancelled. Entry will be denied.";
+      const footerText3 = "For support, contact: support@youreventsite.com";
+      
+      doc.text(footerText1, margin + contentWidth/2, footerY + 8, { align: "center" });
+      doc.text(footerText2, margin + contentWidth/2, footerY + 16, { align: "center" });
+      doc.text(footerText3, margin + contentWidth/2, footerY + 24, { align: "center" });
+      
+      // Watermark for cancelled tickets
+      if (ticket.isCancelled) {
+        doc.setFontSize(60);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(220, 38, 38, 0.3);
+        doc.text("CANCELLED", pageWidth/2, pageHeight/2, { 
+          align: "center"
+        });
+      }
+
+      // Save the PDF with descriptive filename
+      const shortId = (ticket._id || ticket.orderId || "ticket").substring(0, 8);
+      const userName = (ticket.userInfo?.name || "user").replace(/[^a-zA-Z0-9]/g, "_");
+      const eventName = (ticket.event?.title || "event").replace(/[^a-zA-Z0-9]/g, "_").substring(0, 20);
+      const seatName = ticket.seat?.name ? ticket.seat.name.replace(/[^a-zA-Z0-9]/g, "_") : "seat";
+      
+      doc.save(`${eventName}_${seatName}_ticket_${userName}_${shortId}.pdf`);
+      
+    } catch (err) {
+      console.error("Error generating enhanced PDF:", err);
+      setError(`Failed to generate PDF: ${err.message}`);
     }
+  };
 
-    // Save the PDF with descriptive filename
-    const shortId = (ticket._id || ticket.orderId || "ticket").substring(0, 8);
-    const userName = (ticket.userInfo?.name || "user").replace(/[^a-zA-Z0-9]/g, "_");
-    const eventName = (ticket.event?.title || "event").replace(/[^a-zA-Z0-9]/g, "_").substring(0, 20);
-    
-    doc.save(`${eventName}_ticket_${userName}_${shortId}.pdf`);
-
-    setStatusMessage("Enhanced ticket PDF generated successfully!");
-    
-  } catch (err) {
-    console.error("Error generating enhanced PDF:", err);
-    setError(`Failed to generate PDF: ${err.message}`);
-  }
-};
   // Modified downloadTicket function that prioritizes local generation
   const downloadTicket = async (ticketId) => {
     setDownloadLoading(true);
@@ -1517,7 +1214,7 @@ const generateLocalTicketPDF = (ticketId) => {
 
     try {
       // Generate the PDF locally first to avoid API errors
-      console.log("Generating ticket PDF locally");
+      console.log("Generating individual ticket PDF locally");
       generateLocalTicketPDF(ticketId);
       setDownloadLoading(false);
       return;
@@ -1621,16 +1318,10 @@ const generateLocalTicketPDF = (ticketId) => {
         </div>
       </div>
 
-      {/* Status/Error Messages */}
+      {/* Error Messages Only - Removed Status Messages */}
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
           {error}
-        </div>
-      )}
-
-      {statusMessage && !error && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4">
-          {statusMessage}
         </div>
       )}
 
@@ -1654,12 +1345,12 @@ const generateLocalTicketPDF = (ticketId) => {
         </div>
       )}
 
-      {/* Tickets list */}
+      {/* Individual Tickets list */}
       {tickets.length > 0 && (
-        <div className="space-y-6 mt-6">
+        <div className="space-y-4 mt-6">
           {tickets.map((ticket, index) => (
             <div
-              key={ticket._id || ticket.orderId || index}
+              key={ticket._id || index}
               className={`bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200 hover:shadow-xl transition-shadow duration-200 ${
                 ticket.isCancelled ? "opacity-60 grayscale" : ""
               }`}
@@ -1671,7 +1362,7 @@ const generateLocalTicketPDF = (ticketId) => {
                 </div>
               )}
 
-              {/* Ticket UI inspired by checkout tickets */}
+              {/* Individual Ticket UI */}
               <div className="ticket-card relative overflow-hidden">
                 {/* Ticket Header */}
                 <div
@@ -1691,12 +1382,7 @@ const generateLocalTicketPDF = (ticketId) => {
                         : "bg-orange-900 bg-opacity-50"
                     } rounded px-2 py-1 text-white`}
                   >
-                    {ticket.quantity || ticket.selectedSeats?.length || 1}{" "}
-                    Ticket
-                    {(ticket.quantity || ticket.selectedSeats?.length || 1) !==
-                    1
-                      ? "s"
-                      : ""}
+                    Single Ticket
                   </div>
                 </div>
 
@@ -1765,38 +1451,28 @@ const generateLocalTicketPDF = (ticketId) => {
                       </div>
                     </div>
 
-                    {/* Seats section */}
-                    {ticket.selectedSeats &&
-                      ticket.selectedSeats.length > 0 && (
-                        <div className="mb-4">
-                          <h4 className="text-sm font-semibold text-gray-500 mb-2">
-                            Selected Seats:
-                          </h4>
-                          <div className="flex flex-wrap gap-2">
-                            {ticket.selectedSeats
-                              .slice(0, 4)
-                              .map((seat, idx) => (
-                                <div
-                                  key={idx}
-                                  className="inline-block bg-gray-100 rounded px-2 py-1 text-sm"
-                                >
-                                  {seat.name || `Seat ${idx + 1}`}
-                                </div>
-                              ))}
-                            {ticket.selectedSeats.length > 4 && (
-                              <div className="inline-block bg-gray-100 rounded px-2 py-1 text-sm">
-                                +{ticket.selectedSeats.length - 4} more
-                              </div>
-                            )}
-                          </div>
+                    {/* Individual Seat section */}
+                    <div className="mb-4">
+                      <h4 className="text-sm font-semibold text-gray-500 mb-2">
+                        Seat Assignment:
+                      </h4>
+                      <div className="bg-gradient-to-r from-orange-50 to-orange-100 rounded-lg p-3 border border-orange-200">
+                        <div className="font-bold text-orange-800 text-lg">
+                          {ticket.seat?.name || "General Admission"}
                         </div>
-                      )}
+                        {ticket.seat?.section && ticket.seat?.row && ticket.seat?.number && (
+                          <div className="text-sm text-orange-600 mt-1">
+                            Section {ticket.seat.section} • Row {ticket.seat.row} • Seat {ticket.seat.number}
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
                     {/* Order info */}
                     <div className="text-sm text-gray-500 mt-4 flex items-center gap-1">
                       <FileText size={16} />
                       <span>
-                        Order ID: {ticket._id || ticket.orderId || "N/A"}
+                        Order ID: {ticket.originalOrderId || ticket.orderId || "N/A"}
                       </span>
                     </div>
                   </div>
@@ -1812,12 +1488,10 @@ const generateLocalTicketPDF = (ticketId) => {
                         }`}
                       >
                         $
-                        {(ticket.grandTotal || ticket.totalPrice || 0).toFixed(
-                          2
-                        )}
+                        {getTicketPrice(ticket).toFixed(2)}
                       </div>
                       <div className="text-sm text-gray-500 mb-2">
-                        Total Amount
+                        Individual Ticket Price
                       </div>
                       <div className="text-sm text-gray-500">
                         Purchased on{" "}
@@ -1825,50 +1499,22 @@ const generateLocalTicketPDF = (ticketId) => {
                           ticket.purchaseDate || ticket.createdAt || Date.now()
                         ).toLocaleDateString()}
                       </div>
-                      <div
-                        className={`text-sm font-medium mt-1 ${
-                          ticket.isCancelled ? "text-red-600" : "text-green-600"
-                        }`}
-                      >
-                        Status:{" "}
-                        {ticket.isCancelled
-                          ? "Cancelled"
-                          : ticket.paymentStatus || "Paid"}
-                      </div>
                     </div>
 
-                    {/* Barcode */}
+                    {/* Enhanced Barcode */}
                     <div className="mt-4 mb-4 md:mb-0">
-                      <div className="bg-gray-200 p-1 rounded">
-                        <div className="flex space-x-0.5">
-                          {Array.from({ length: 30 }).map((_, i) => (
-                            <div
-                              key={i}
-                              className={`w-0.5 ${
-                                ticket.isCancelled
-                                  ? "bg-gray-400"
-                                  : "bg-gray-900"
-                              }`}
-                              style={{
-                                height: `${6 + Math.random() * 14}px`,
-                              }}
-                            ></div>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="text-center text-xs mt-1 text-gray-400">
-                        {/* Generate a ticket ID based on order ID */}
-                        {ticket.orderId
-                          ? ticket.orderId.substring(0, 12)
-                          : `TIX-${Math.floor(Math.random() * 1000000)}`}
-                      </div>
+                      <BarcodeDisplay 
+                        ticketId={ticket._id}
+                        seatInfo={ticket.seat?.name}
+                        isCancelled={ticket.isCancelled}
+                      />
                     </div>
 
                     {/* Action buttons */}
                     <div className="flex flex-wrap gap-2 mt-4">
                       <button
                         onClick={() =>
-                          viewTicketDetails(ticket._id || ticket.orderId)
+                          viewTicketDetails(ticket._id)
                         }
                         className="inline-flex items-center gap-1 bg-blue-50 text-blue-600 px-3 py-2 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer"
                         disabled={detailsLoading}
@@ -1885,7 +1531,7 @@ const generateLocalTicketPDF = (ticketId) => {
                         <>
                           <button
                             onClick={() =>
-                              downloadTicket(ticket._id || ticket.orderId)
+                              downloadTicket(ticket._id)
                             }
                             className="inline-flex items-center gap-1 bg-green-50 text-green-600 px-3 py-2 rounded-lg hover:bg-green-100 transition-colors cursor-pointer"
                             disabled={downloadLoading}
@@ -1965,18 +1611,12 @@ const generateLocalTicketPDF = (ticketId) => {
                     )}
                   </p>
                   <p className="text-sm text-gray-600 mb-1">
-                    <strong>Tickets:</strong>{" "}
-                    {ticketToCancel.quantity ||
-                      ticketToCancel.selectedSeats?.length ||
-                      1}
+                    <strong>Seat:</strong>{" "}
+                    {ticketToCancel.seat?.name || "General Admission"}
                   </p>
                   <p className="text-sm text-gray-600">
-                    <strong>Total Amount:</strong> $
-                    {(
-                      ticketToCancel.grandTotal ||
-                      ticketToCancel.totalPrice ||
-                      0
-                    ).toFixed(2)}
+                    <strong>Price:</strong> $
+                    {getTicketPrice(ticketToCancel).toFixed(2)}
                   </p>
                 </div>
                 <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg">
@@ -2032,7 +1672,7 @@ const generateLocalTicketPDF = (ticketId) => {
               } p-4 flex justify-between items-center`}
             >
               <h3 className="text-xl font-bold text-white">
-                Ticket Details {selectedTicket.isCancelled && "(Cancelled)"}
+                Individual Ticket Details {selectedTicket.isCancelled && "(Cancelled)"}
               </h3>
               <button
                 onClick={closeModal}
@@ -2156,7 +1796,7 @@ const generateLocalTicketPDF = (ticketId) => {
                       <div>
                         <p className="text-sm text-gray-500">Order ID</p>
                         <p className="font-medium text-gray-800 break-all">
-                          {selectedTicket._id ||
+                          {selectedTicket.originalOrderId ||
                             selectedTicket.orderId ||
                             "N/A"}
                         </p>
@@ -2172,26 +1812,15 @@ const generateLocalTicketPDF = (ticketId) => {
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Quantity</p>
+                        <p className="text-sm text-gray-500">Seat Assignment</p>
                         <p className="font-medium text-gray-800">
-                          {selectedTicket.quantity ||
-                            selectedTicket.selectedSeats?.length ||
-                            1}
+                          {selectedTicket.seat?.name || "General Admission"}
                         </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Payment Status</p>
-                        <p
-                          className={`font-medium ${
-                            selectedTicket.isCancelled
-                              ? "text-red-600"
-                              : "text-green-600"
-                          }`}
-                        >
-                          {selectedTicket.isCancelled
-                            ? "Cancelled"
-                            : selectedTicket.paymentStatus || "Paid"}
-                        </p>
+                        {selectedTicket.seat?.section && selectedTicket.seat?.row && selectedTicket.seat?.number && (
+                          <p className="text-sm text-gray-600">
+                            Section {selectedTicket.seat.section} • Row {selectedTicket.seat.row} • Seat {selectedTicket.seat.number}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -2218,11 +1847,7 @@ const generateLocalTicketPDF = (ticketId) => {
                             }
                           >
                             $
-                            {(
-                              selectedTicket.grandTotal ||
-                              selectedTicket.totalPrice ||
-                              0
-                            ).toFixed(2)}
+                            {getTicketPrice(selectedTicket).toFixed(2)}
                           </span>
                         </div>
                       </div>
@@ -2230,40 +1855,6 @@ const generateLocalTicketPDF = (ticketId) => {
                   </div>
                 </div>
               </div>
-
-              {/* Seat selection */}
-              {selectedTicket.selectedSeats &&
-                selectedTicket.selectedSeats.length > 0 && (
-                  <div className="mb-6">
-                    <h4 className="font-bold text-gray-700 mb-3">
-                      Selected Seats
-                    </h4>
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                        {selectedTicket.selectedSeats.map((seat, idx) => (
-                          <div
-                            key={idx}
-                            className={`border border-gray-200 rounded-md p-3 text-center ${
-                              selectedTicket.isCancelled
-                                ? "bg-gray-100"
-                                : "bg-white"
-                            }`}
-                          >
-                            <div className="font-bold text-gray-800">
-                              {seat.name || `Seat ${idx + 1}`}
-                            </div>
-                            {seat.section && (
-                              <div className="text-xs text-gray-500">
-                                {seat.section}, Row {seat.row}, Seat{" "}
-                                {seat.number}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
 
               {/* Ticket visualization */}
               <div className="mb-6 border-t border-gray-200 pt-6">
@@ -2293,10 +1884,7 @@ const generateLocalTicketPDF = (ticketId) => {
                           : "bg-orange-900 bg-opacity-50"
                       }`}
                     >
-                      Admit{" "}
-                      {selectedTicket.quantity ||
-                        selectedTicket.selectedSeats?.length ||
-                        1}
+                      Single Ticket
                     </div>
                   </div>
 
@@ -2353,16 +1941,12 @@ const generateLocalTicketPDF = (ticketId) => {
                           </div>
                         </div>
 
-                        {selectedTicket.selectedSeats &&
-                          selectedTicket.selectedSeats[0] && (
-                            <div>
-                              <div className="text-xs text-gray-500">Seat</div>
-                              <div className="font-medium">
-                                {selectedTicket.selectedSeats[0].name ||
-                                  "General Admission"}
-                              </div>
-                            </div>
-                          )}
+                        <div>
+                          <div className="text-xs text-gray-500">Seat</div>
+                          <div className="font-medium">
+                            {selectedTicket.seat?.name || "General Admission"}
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -2377,39 +1961,18 @@ const generateLocalTicketPDF = (ticketId) => {
                           }`}
                         >
                           $
-                          {(
-                            selectedTicket.grandTotal ||
-                            selectedTicket.totalPrice ||
-                            0
-                          ).toFixed(2)}
+                          {getTicketPrice(selectedTicket).toFixed(2)}
                         </div>
                       </div>
 
-                      {/* Barcode */}
+                      {/* Enhanced Barcode in preview */}
                       <div className="mt-2">
-                        <div className="bg-gray-200 p-1 rounded">
-                          <div className="flex space-x-0.5">
-                            {Array.from({ length: 20 }).map((_, i) => (
-                              <div
-                                key={i}
-                                className={`w-0.5 ${
-                                  selectedTicket.isCancelled
-                                    ? "bg-gray-400"
-                                    : "bg-gray-900"
-                                }`}
-                                style={{
-                                  height: `${6 + Math.random() * 14}px`,
-                                }}
-                              ></div>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="text-center text-xs mt-1 text-gray-400">
-                          {/* Generate ticket ID based on order ID */}
-                          {selectedTicket.orderId
-                            ? selectedTicket.orderId.substring(0, 12)
-                            : `TIX-${Math.floor(Math.random() * 1000000)}`}
-                        </div>
+                        <BarcodeDisplay 
+                          ticketId={selectedTicket._id}
+                          seatInfo={selectedTicket.seat?.name}
+                          isCancelled={selectedTicket.isCancelled}
+                          size="large"
+                        />
                       </div>
                     </div>
                   </div>
@@ -2441,9 +2004,7 @@ const generateLocalTicketPDF = (ticketId) => {
                   <>
                     <button
                       onClick={() =>
-                        downloadTicket(
-                          selectedTicket._id || selectedTicket.orderId
-                        )
+                        downloadTicket(selectedTicket._id)
                       }
                       className={`inline-flex items-center gap-2 px-4 py-2 ${
                         downloadLoading

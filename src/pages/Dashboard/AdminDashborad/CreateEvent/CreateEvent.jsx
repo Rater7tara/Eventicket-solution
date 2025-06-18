@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { Calendar, Clock, MapPin, DollarSign, TicketIcon, Upload, FileText, CalendarIcon } from 'lucide-react';
+import { Calendar, Clock, MapPin, DollarSign, Upload, FileText, CalendarIcon, Phone, Mail } from 'lucide-react';
 import { AuthContext } from '../../../../providers/AuthProvider';
 import serverURL from "../../../../ServerConfig";
 
@@ -13,7 +13,9 @@ const CreateEvent = () => {
         location: '',
         image: '',
         price: '',
-        ticketsAvailable: ''
+        priceRange: '',
+        contactNumber: '',
+        email: ''
     });
     const [loading, setLoading] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
@@ -114,8 +116,16 @@ const CreateEvent = () => {
         
         // Validate form
         if (!eventData.title || !eventData.description || !eventData.date || !eventData.time || 
-            !eventData.location || !eventData.price || !eventData.ticketsAvailable) {
+            !eventData.location || !eventData.price || !eventData.priceRange || 
+            !eventData.contactNumber || !eventData.email) {
             setErrorMessage('Please fill in all required fields');
+            return;
+        }
+        
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(eventData.email)) {
+            setErrorMessage('Please enter a valid email address');
             return;
         }
         
@@ -145,7 +155,9 @@ const CreateEvent = () => {
             formData.append('time', eventData.time);
             formData.append('location', eventData.location);
             formData.append('price', parseInt(eventData.price));
-            formData.append('ticketsAvailable', parseInt(eventData.ticketsAvailable));
+            formData.append('priceRange', eventData.priceRange);
+            formData.append('contactNumber', eventData.contactNumber);
+            formData.append('email', eventData.email);
             formData.append('createdBy', user?.email || 'unknown_user');
             
             // Append the image file
@@ -182,7 +194,9 @@ const CreateEvent = () => {
                 location: '',
                 image: '',
                 price: '',
-                ticketsAvailable: ''
+                priceRange: '',
+                contactNumber: '',
+                email: ''
             });
             setSelectedDate(null);
             setUploadedImage(null);
@@ -234,8 +248,6 @@ const CreateEvent = () => {
         
         return days;
     };
-
-
 
     // Format date for display
     const formatDateForDisplay = (dateString) => {
@@ -505,7 +517,7 @@ const CreateEvent = () => {
                     )}
                 </div>
                 
-                {/* Price and Tickets - 2 column layout */}
+                {/* Price and Price Range - 2 column layout */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Price */}
                     <div className="space-y-2">
@@ -525,20 +537,56 @@ const CreateEvent = () => {
                         />
                     </div>
                     
-                    {/* Tickets Available */}
+                    {/* Price Range */}
                     <div className="space-y-2">
                         <label className="flex items-center gap-2 text-gray-700 font-medium">
-                            <TicketIcon size={18} className="text-orange-500" />
-                            Tickets Available *
+                            <DollarSign size={18} className="text-orange-500" />
+                            Price Range *
                         </label>
                         <input
-                            type="number"
-                            name="ticketsAvailable"
-                            value={eventData.ticketsAvailable}
+                            type="text"
+                            name="priceRange"
+                            value={eventData.priceRange}
                             onChange={handleChange}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                            placeholder="100"
-                            min="1"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            placeholder="e.g., $100 - $500"
+                            required
+                        />
+                    </div>
+                </div>
+                
+                {/* Contact Information - 2 column layout */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Contact Number */}
+                    <div className="space-y-2">
+                        <label className="flex items-center gap-2 text-gray-700 font-medium">
+                            <Phone size={18} className="text-orange-500" />
+                            Contact Number *
+                        </label>
+                        <input
+                            type="tel"
+                            name="contactNumber"
+                            value={eventData.contactNumber}
+                            onChange={handleChange}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            placeholder="+1 (555) 123-4567"
+                            required
+                        />
+                    </div>
+                    
+                    {/* Email */}
+                    <div className="space-y-2">
+                        <label className="flex items-center gap-2 text-gray-700 font-medium">
+                            <Mail size={18} className="text-orange-500" />
+                            Email *
+                        </label>
+                        <input
+                            type="email"
+                            name="email"
+                            value={eventData.email}
+                            onChange={handleChange}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            placeholder="contact@example.com"
                             required
                         />
                     </div>

@@ -249,21 +249,6 @@ const PrivacyPolicy = () => {
           </div>
         </div>
 
-        {/* Contact Information */}
-        <div className="mt-12 bg-white rounded-2xl p-8 shadow-lg border border-orange-100">
-          <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">How to Reach Us</h3>
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="bg-orange-50 p-6 rounded-2xl">
-              <p className="font-semibold text-gray-700">Website</p>
-              <p className="text-gray-600">eventsntickets.com.au</p>
-            </div>
-            <div className="bg-orange-50 p-6 rounded-2xl">
-              <p className="font-semibold text-gray-700">Phone</p>
-              <p className="text-gray-600">+61 433 240 314</p>
-            </div>
-          </div>
-        </div>
-
         {/* Contact Section */}
         <div className="mt-12 bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl p-8 text-white shadow-xl">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">

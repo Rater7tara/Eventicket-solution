@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from "react";
-import { Search, Calendar, Clock, Filter } from "lucide-react";
+import { Search, Calendar, Clock, Filter, ChevronDown } from "lucide-react";
 import EventCard from "./EventCard";
 import serverURL from "../../../../ServerConfig"; // adjust path as needed
 
@@ -156,7 +156,6 @@ const EventList = () => {
   const EventsHeader = () => (
     <div className="relative py-12 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white overflow-hidden">
       <div className="absolute inset-0 opacity-20">
-        <div className="absolute inset-0 bg-[url('/api/placeholder/1200/400')] bg-cover bg-center"></div>
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-gray-900"></div>
       </div>
       
@@ -207,7 +206,7 @@ const EventList = () => {
                 <option value="upcoming">Upcoming ({eventCounts.upcoming})</option>
                 <option value="previous">Previous ({eventCounts.previous})</option>
               </select>
-              <Filter className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
             </div>
           </div>
         </div>
@@ -363,9 +362,25 @@ const EventList = () => {
       <div className="bg-gray-900">
         <div className="container m-auto py-8 px-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 justify-items-center">
-            {filteredEvents.map((event) => (
-              <EventCard key={event._id} event={event} />
-            ))}
+            {filteredEvents.map((event) => {
+              // Check if event is expired (more robust check)
+              const now = new Date();
+              const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+              const eventDate = new Date(event.date);
+              const eventDateOnly = new Date(eventDate.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+              const isExpired = eventDateOnly < today;
+              
+              console.log('Event:', event.title || event.name, 'Date:', event.date, 'isExpired:', isExpired); // Debug log
+              
+              return (
+                <EventCard 
+                  key={event._id} 
+                  event={event} 
+                  isExpired={isExpired}
+                  isPreviousEvent={activeFilter === "previous"}
+                />
+              );
+            })}
           </div>
         </div>
       </div>

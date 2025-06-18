@@ -1,16 +1,27 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 
-const EventCard = ({ event }) => {
+const EventCard = ({ event, isExpired = false, isPreviousEvent = false }) => {
   const navigate = useNavigate();
+  const shouldDisableButton = isExpired || isPreviousEvent;
 
   const handleClick = () => {
+    // Prevent navigation if event is expired or is a previous event
+    if (shouldDisableButton) {
+      return;
+    }
     navigate(`/events/${String(event._id)}`, { state: { event } });
   };
 
   // Modify the button click handler to redirect to event details
   const handleGetTickets = (e) => {
     e.stopPropagation(); // Prevent the parent div's onClick from firing
+    
+    // Prevent navigation if event is expired or is a previous event
+    if (shouldDisableButton || event.ticketsAvailable <= 0) {
+      return;
+    }
+    
     navigate(`/events/${String(event._id)}`, { state: { event } });
     console.log(
       "Navigating to event with ID:",
@@ -20,43 +31,53 @@ const EventCard = ({ event }) => {
     );
   };
 
-    // Format date to show only date (e.g., "25 May")
+  // Format date to show only date (e.g., "25 May")
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-GB', { 
-      day: 'numeric', 
-      month: 'short',
-      year: 'numeric' 
+    return date.toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
     });
   };
 
   // Format time to 12-hour format (e.g., "2:30 PM")
   const formatTime = (timeString) => {
     // If timeString is already in 12-hour format, return as is
-    if (timeString && (timeString.includes('AM') || timeString.includes('PM'))) {
+    if (
+      timeString &&
+      (timeString.includes("AM") || timeString.includes("PM"))
+    ) {
       return timeString;
     }
-    
+
     // If it's a time string like "14:30", convert to 12-hour format
-    if (timeString && timeString.includes(':')) {
-      const [hours, minutes] = timeString.split(':');
+    if (timeString && timeString.includes(":")) {
+      const [hours, minutes] = timeString.split(":");
       const hour24 = parseInt(hours);
       const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24;
-      const ampm = hour24 >= 12 ? 'PM' : 'AM';
+      const ampm = hour24 >= 12 ? "PM" : "AM";
       return `${hour12}:${minutes} ${ampm}`;
     }
-    
+
     return timeString;
   };
 
   return (
-    <div onClick={handleClick} className="w-72 h-full">
-      {" "}
-      {/* Added h-full for consistent height */}
+    <div 
+      onClick={handleClick} 
+      className={`w-72 h-full ${shouldDisableButton ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'}`}
+    >
       {/* Main card container with 3D-like effect */}
-      <div className="group relative cursor-pointer transition-all duration-500 hover:rotate-1 transform perspective-1000">
+      <div className={`group relative transition-all duration-500 transform perspective-1000 ${
+        shouldDisableButton ? '' : 'hover:rotate-1 cursor-pointer'
+      }`}>
         {/* Background gradient layer */}
-        <div className="absolute inset-0 bg-gradient-to-br from-orange-300 via-orange-400 to-orange-500 rounded-xl shadow-2xl opacity-80 group-hover:opacity-90 transition-opacity duration-300"></div>
+        <div className={`absolute inset-0 bg-gradient-to-br rounded-xl shadow-2xl transition-opacity duration-300 ${
+          shouldDisableButton 
+            ? 'from-gray-300 via-gray-400 to-gray-500 opacity-60' 
+            : 'from-orange-300 via-orange-400 to-orange-500 opacity-80 group-hover:opacity-90'
+        }`}></div>
 
         {/* Main content */}
         <div className="relative p-2 rounded-xl overflow-hidden">
@@ -67,51 +88,59 @@ const EventCard = ({ event }) => {
                 <img
                   src={event.image}
                   alt={event.title}
-                  className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-in-out"
+                  className={`w-full h-full object-cover transition-transform duration-700 ease-in-out ${
+                    shouldDisableButton ? '' : 'transform group-hover:scale-105'
+                  }`}
                 />
               </div>
 
               {/* Date badge */}
-               <div className="absolute top-3 left-3">
-                <div className={`text-xs font-bold px-3 py-1 rounded-full ${
-                  event.ticketsAvailable <= 0 
-                  ? 'bg-red-500 text-white' 
-                  : event.ticketsAvailable < 10 
-                  ? 'bg-amber-400 text-black' 
-                  : 'bg-green-500 text-white'
-                } shadow-md`}>
-                  {event.date ? formatDate(event.date) : 'TBD'}
+              <div className="absolute top-3 left-3">
+                <div
+                  className={`text-xs font-bold px-3 py-1 rounded-full shadow-md ${
+                    shouldDisableButton
+                      ? "bg-gray-500 text-white"
+                      : event.ticketsAvailable <= 0
+                      ? "bg-red-500 text-white"
+                      : event.ticketsAvailable < 10
+                      ? "bg-amber-400 text-black"
+                      : "bg-green-500 text-white"
+                  }`}
+                >
+                  {event.date ? formatDate(event.date) : "TBD"}
                 </div>
               </div>
 
               {/* Time badge */}
               <div className="absolute bottom-3 left-3 bg-white/80 backdrop-blur-sm px-2 py-1 rounded shadow-md text-xs font-semibold text-gray-800">
-                {event.time ? formatTime(event.time) : 'TBD'}
+                {event.time ? formatTime(event.time) : "TBD"}
               </div>
             </div>
 
-              {/* Price tag */}
-              {/* <div className="absolute -top-2 -right-2 transform rotate-3 group-hover:rotate-0 transition-transform duration-300">
-                                <div className="bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold px-6 py-2 rounded shadow-lg">
-                                    {event.price ? `${event.price}` : 'FREE'}
-                                </div>
-                            </div> */}
-            {/* </div> */}
-
             {/* Content section */}
             <div className="p-4">
-              <h3 className="text-lg font-bold text-gray-800 mb-2 group-hover:text-orange-600 transition-colors duration-300 truncate">
+              <h3 className={`text-lg font-bold mb-2 transition-colors duration-300 truncate ${
+                shouldDisableButton 
+                  ? 'text-gray-500' 
+                  : 'text-gray-800 group-hover:text-orange-600'
+              }`}>
                 {event.title}
               </h3>
 
-              <p className="text-gray-600 text-sm mb-4 line-clamp-2 h-9">
+              <p className={`text-sm mb-4 line-clamp-2 h-9 ${
+                shouldDisableButton ? 'text-gray-400' : 'text-gray-600'
+              }`}>
                 {event.description}
               </p>
 
               {/* Location */}
-              <div className="flex items-center text-sm text-gray-700 mb-4">
+              <div className={`flex items-center text-sm mb-4 ${
+                shouldDisableButton ? 'text-gray-400' : 'text-gray-700'
+              }`}>
                 <svg
-                  className="w-4 h-4 text-orange-500 flex-shrink-0 mr-1"
+                  className={`w-4 h-4 flex-shrink-0 mr-1 ${
+                    shouldDisableButton ? 'text-gray-400' : 'text-orange-500'
+                  }`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -135,23 +164,31 @@ const EventCard = ({ event }) => {
 
               {/* Show appropriate button based on ticket availability */}
               <button
+                disabled={shouldDisableButton || event.ticketsAvailable <= 0}
                 onClick={handleGetTickets}
-                disabled={event.ticketsAvailable <= 0}
-                className={`w-full py-2.5 px-4 rounded-lg font-medium shadow-md hover:shadow-xl transform cursor-pointer group-hover:translate-y-0 translate-y-0 transition-all duration-300 ${
-                  event.ticketsAvailable <= 0
+                className={`w-full py-2.5 px-4 rounded-lg font-medium shadow-md transition-all duration-300 ${
+                  shouldDisableButton || event.ticketsAvailable <= 0
                     ? "bg-gray-400 text-gray-700 cursor-not-allowed"
-                    : "bg-gradient-to-r from-orange-500 to-red-600 text-white group-hover:scale-105"
+                    : "bg-gradient-to-r from-orange-500 to-red-600 text-white hover:shadow-xl transform cursor-pointer group-hover:scale-105"
                 }`}
               >
-                {event.ticketsAvailable <= 0 ? "Sold Out" : "Get Tickets"}
+                {shouldDisableButton
+                  ? isPreviousEvent ? "Past Event" : "Event Expired"
+                  : event.ticketsAvailable <= 0
+                  ? "Sold Out"
+                  : "Get Tickets"}
               </button>
             </div>
           </div>
         </div>
 
-        {/* Decorative elements */}
-        <div className="absolute -bottom-2 -right-2 w-16 h-16 bg-orange-300 rounded-full opacity-50 blur-lg"></div>
-        <div className="absolute -top-2 -left-2 w-20 h-20 bg-yellow-400 rounded-full opacity-50 blur-lg"></div>
+        {/* Decorative elements - only show for active events */}
+        {!shouldDisableButton && (
+          <>
+            <div className="absolute -bottom-2 -right-2 w-16 h-16 bg-orange-300 rounded-full opacity-50 blur-lg"></div>
+            <div className="absolute -top-2 -left-2 w-20 h-20 bg-yellow-400 rounded-full opacity-50 blur-lg"></div>
+          </>
+        )}
       </div>
     </div>
   );
