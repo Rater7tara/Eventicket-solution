@@ -1219,7 +1219,7 @@ const CheckoutTickets = () => {
           <div className="text-center text-sm text-gray-500 border-t border-gray-700 pt-4">
             <p>
               Need assistance? Contact our support team at
-              info@eventntickets.com
+              info@eventsntickets.com.au
             </p>
           </div>
         </div>

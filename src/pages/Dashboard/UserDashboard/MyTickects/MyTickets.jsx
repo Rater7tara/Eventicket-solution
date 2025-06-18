@@ -389,118 +389,118 @@ const MyTickets = () => {
   };
 
   // Function to convert orders to individual seat tickets
-  const convertOrdersToIndividualTickets = (orders) => {
-    const individualTickets = [];
+  // const convertOrdersToIndividualTickets = (orders) => {
+  //   const individualTickets = [];
 
-    orders.forEach((order) => {
-      // ENHANCED CANCELLED STATUS DETECTION
-      const isCancelled =
-        order.status === "cancelled" ||
-        order.status === "canceled" ||
-        order.status === "CANCELLED" ||
-        order.status === "CANCELED" ||
-        order.paymentStatus === "cancelled" ||
-        order.paymentStatus === "canceled" ||
-        order.paymentStatus === "CANCELLED" ||
-        order.paymentStatus === "CANCELED" ||
-        order.paymentStatus === "refunded" ||
-        order.paymentStatus === "REFUNDED" ||
-        order.paymentStatus === "failed" ||
-        order.paymentStatus === "FAILED" ||
-        order.orderStatus === "cancelled" ||
-        order.orderStatus === "canceled" ||
-        order.orderStatus === "CANCELLED" ||
-        order.orderStatus === "CANCELED" ||
-        order.bookingStatus === "cancelled" ||
-        order.bookingStatus === "canceled" ||
-        order.bookingStatus === "CANCELLED" ||
-        order.bookingStatus === "CANCELED" ||
-        order.cancellationDate ||
-        order.cancelledAt ||
-        order.cancelled_at ||
-        order.refundAmount > 0 ||
-        order.refund_amount > 0;
+  //   orders.forEach((order) => {
+  //     // ENHANCED CANCELLED STATUS DETECTION
+  //     const isCancelled =
+  //       order.status === "cancelled" ||
+  //       order.status === "canceled" ||
+  //       order.status === "CANCELLED" ||
+  //       order.status === "CANCELED" ||
+  //       order.paymentStatus === "cancelled" ||
+  //       order.paymentStatus === "canceled" ||
+  //       order.paymentStatus === "CANCELLED" ||
+  //       order.paymentStatus === "CANCELED" ||
+  //       order.paymentStatus === "refunded" ||
+  //       order.paymentStatus === "REFUNDED" ||
+  //       order.paymentStatus === "failed" ||
+  //       order.paymentStatus === "FAILED" ||
+  //       order.orderStatus === "cancelled" ||
+  //       order.orderStatus === "canceled" ||
+  //       order.orderStatus === "CANCELLED" ||
+  //       order.orderStatus === "CANCELED" ||
+  //       order.bookingStatus === "cancelled" ||
+  //       order.bookingStatus === "canceled" ||
+  //       order.bookingStatus === "CANCELLED" ||
+  //       order.bookingStatus === "CANCELED" ||
+  //       order.cancellationDate ||
+  //       order.cancelledAt ||
+  //       order.cancelled_at ||
+  //       order.refundAmount > 0 ||
+  //       order.refund_amount > 0;
 
-      // If there are seats, create individual tickets for each seat
-      if (order.seats && order.seats.length > 0) {
-        order.seats.forEach((seat, seatIndex) => {
-          // Enhanced price calculation for individual seats
-          const seatPrice = seat.price || seat.seatPrice || seat.amount || 
-                           (order.totalAmount / order.seats.length) || 
-                           order.amount || order.price || 0;
+  //     // If there are seats, create individual tickets for each seat
+  //     if (order.seats && order.seats.length > 0) {
+  //       order.seats.forEach((seat, seatIndex) => {
+  //         // Enhanced price calculation for individual seats
+  //         const seatPrice = seat.price || seat.seatPrice || seat.amount || 
+  //                          (order.totalAmount / order.seats.length) || 
+  //                          order.amount || order.price || 0;
           
-          individualTickets.push({
-            _id: `${order._id}_seat_${seatIndex}`,
-            orderId: order._id,
-            bookingId: order.bookingId,
-            originalOrderId: order._id,
-            seatIndex: seatIndex,
-            event: null, // Will be populated later
-            seat: {
-              section: seat.section,
-              row: seat.row,
-              number: seat.seatNumber,
-              price: seatPrice,
-              name: `${seat.section} ${seat.row}${seat.seatNumber}`,
-            },
-            quantity: 1, // Each ticket is for one seat
-            totalPrice: seatPrice,
-            grandTotal: seatPrice,
-            purchaseDate: order.orderTime || order.createdAt,
-            createdAt: order.createdAt,
-            paymentStatus: order.paymentStatus || "Unknown",
-            isCancelled: isCancelled,
-            rawOrderData: order,
-            userInfo: {
-              name:
-                user?.name ||
-                user?.firstName + " " + user?.lastName ||
-                "Guest User",
-              email: user?.email || "No email provided",
-            },
-          });
-        });
-      } else {
-        // If no seats, create a general admission ticket
-        // Enhanced price calculation for general admission
-        const ticketPrice = order.totalAmount || order.amount || order.price || 
-                           order.grandTotal || order.total || order.cost || 0;
+  //         individualTickets.push({
+  //           _id: `${order._id}_seat_${seatIndex}`,
+  //           orderId: order._id,
+  //           bookingId: order.bookingId,
+  //           originalOrderId: order._id,
+  //           seatIndex: seatIndex,
+  //           event: null, // Will be populated later
+  //           seat: {
+  //             section: seat.section,
+  //             row: seat.row,
+  //             number: seat.seatNumber,
+  //             price: seatPrice,
+  //             name: `${seat.section} ${seat.row}${seat.seatNumber}`,
+  //           },
+  //           quantity: 1, // Each ticket is for one seat
+  //           totalPrice: seatPrice,
+  //           grandTotal: seatPrice,
+  //           purchaseDate: order.orderTime || order.createdAt,
+  //           createdAt: order.createdAt,
+  //           paymentStatus: order.paymentStatus || "Unknown",
+  //           isCancelled: isCancelled,
+  //           rawOrderData: order,
+  //           userInfo: {
+  //             name:
+  //               user?.name ||
+  //               user?.firstName + " " + user?.lastName ||
+  //               "Guest User",
+  //             email: user?.email || "No email provided",
+  //           },
+  //         });
+  //       });
+  //     } else {
+  //       // If no seats, create a general admission ticket
+  //       // Enhanced price calculation for general admission
+  //       const ticketPrice = order.totalAmount || order.amount || order.price || 
+  //                          order.grandTotal || order.total || order.cost || 0;
         
-        individualTickets.push({
-          _id: order._id,
-          orderId: order._id,
-          bookingId: order.bookingId,
-          originalOrderId: order._id,
-          seatIndex: 0,
-          event: null, // Will be populated later
-          seat: {
-            name: "General Admission",
-            section: "GA",
-            row: "",
-            number: "",
-            price: ticketPrice,
-          },
-          quantity: order.quantity || 1,
-          totalPrice: ticketPrice,
-          grandTotal: ticketPrice,
-          purchaseDate: order.orderTime || order.createdAt,
-          createdAt: order.createdAt,
-          paymentStatus: order.paymentStatus || "Unknown",
-          isCancelled: isCancelled,
-          rawOrderData: order,
-          userInfo: {
-            name:
-              user?.name ||
-              user?.firstName + " " + user?.lastName ||
-              "Guest User",
-            email: user?.email || "No email provided",
-          },
-        });
-      }
-    });
+  //       individualTickets.push({
+  //         _id: order._id,
+  //         orderId: order._id,
+  //         bookingId: order.bookingId,
+  //         originalOrderId: order._id,
+  //         seatIndex: 0,
+  //         event: null, // Will be populated later
+  //         seat: {
+  //           name: "General Admission",
+  //           section: "GA",
+  //           row: "",
+  //           number: "",
+  //           price: ticketPrice,
+  //         },
+  //         quantity: order.quantity || 1,
+  //         totalPrice: ticketPrice,
+  //         grandTotal: ticketPrice,
+  //         purchaseDate: order.orderTime || order.createdAt,
+  //         createdAt: order.createdAt,
+  //         paymentStatus: order.paymentStatus || "Unknown",
+  //         isCancelled: isCancelled,
+  //         rawOrderData: order,
+  //         userInfo: {
+  //           name:
+  //             user?.name ||
+  //             user?.firstName + " " + user?.lastName ||
+  //             "Guest User",
+  //           email: user?.email || "No email provided",
+  //         },
+  //       });
+  //     }
+  //   });
 
-    return individualTickets;
-  };
+  //   return individualTickets;
+  // };
 
   // Load tickets when component mounts
   useEffect(() => {
@@ -627,96 +627,15 @@ const MyTickets = () => {
     }
   };
 
-  const cancelTicket = async (ticket) => {
-    setCancelLoading(true);
-    setError("");
+// FIXED: Enhanced Cancel Ticket Function with better bookingId handling
+const cancelTicket = async (ticket) => {
+  setCancelLoading(true);
+  setError("");
 
-    try {
-      // Check if ticket is already cancelled
-      if (ticket.isCancelled) {
-        // Remove already cancelled tickets from the list
-        setTickets((prevTickets) =>
-          prevTickets.filter((t) => 
-            t._id !== ticket._id && 
-            t.orderId !== ticket.orderId && 
-            t.bookingId !== ticket.bookingId
-          )
-        );
-        setShowCancelModal(false);
-        setTicketToCancel(null);
-        setCancelLoading(false);
-        return;
-      }
-
-      // Check if refreshToken function is available
-      if (typeof refreshToken === "function") {
-        await refreshToken();
-      }
-
-      // Get token from localStorage
-      const token = localStorage.getItem("auth-token");
-
-      if (!token) {
-        throw new Error("Authentication token not found. Please log in again.");
-      }
-
-      // Validate bookingId exists
-      if (!ticket.bookingId) {
-        throw new Error("Booking ID is missing. Cannot cancel this ticket.");
-      }
-
-      // Updated request body to only include bookingId
-      const requestBody = {
-        bookingId: ticket.bookingId,
-      };
-
-      console.log("Cancelling ticket with body:", requestBody);
-
-      // Call the cancel ticket API
-      const response = await fetch(`${API_BASE_URL}payments/booking/cancel`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      const data = await response.json();
-      console.log("Cancel API response:", data);
-
-      if (!response.ok) {
-        // Check if the error is about booking already being cancelled
-        if (response.status === 400 && data.message) {
-          const errorMessage = data.message.toLowerCase();
-
-          if (
-            errorMessage.includes("already cancelled") ||
-            errorMessage.includes("already canceled") ||
-            errorMessage.includes("booking already cancelled") ||
-            errorMessage.includes("booking already canceled")
-          ) {
-            // If booking is already cancelled, REMOVE the ticket from the list
-            setTickets((prevTickets) =>
-              prevTickets.filter((t) => 
-                t._id !== ticket._id && 
-                t.orderId !== ticket.orderId && 
-                t.bookingId !== ticket.bookingId
-              )
-            );
-            setShowCancelModal(false);
-            setTicketToCancel(null);
-            return; // Exit the function early
-          }
-        }
-
-        // For other errors, throw them
-        throw new Error(
-          data.message || `Failed to cancel ticket (Status: ${response.status})`
-        );
-      }
-
-      // If cancellation was successful, REMOVE the ticket from the list
+  try {
+    // Check if ticket is already cancelled
+    if (ticket.isCancelled) {
+      // Remove already cancelled tickets from the list
       setTickets((prevTickets) =>
         prevTickets.filter((t) => 
           t._id !== ticket._id && 
@@ -724,33 +643,417 @@ const MyTickets = () => {
           t.bookingId !== ticket.bookingId
         )
       );
-
       setShowCancelModal(false);
       setTicketToCancel(null);
-    } catch (err) {
-      console.error("Error cancelling ticket:", err);
-      setError(`Failed to cancel ticket: ${err.message}`);
-    } finally {
       setCancelLoading(false);
+      return;
     }
-  };
+
+    // Check if refreshToken function is available
+    if (typeof refreshToken === "function") {
+      await refreshToken();
+    }
+
+    // Get token from localStorage
+    const token = localStorage.getItem("auth-token");
+
+    if (!token) {
+      throw new Error("Authentication token not found. Please log in again.");
+    }
+
+    // ENHANCED: Multiple ways to find bookingId
+    let bookingIdToUse = null;
+    
+    // Try different sources for bookingId
+    const possibleBookingIds = [
+      ticket.bookingId,
+      ticket.rawOrderData?.bookingId,
+      ticket.rawOrderData?._id,
+      ticket.originalOrderId,
+      ticket.orderId,
+      ticket._id.includes('_seat_') ? ticket._id.split('_seat_')[0] : ticket._id
+    ];
+
+    // Find the first valid booking ID
+    for (const id of possibleBookingIds) {
+      if (id && typeof id === 'string' && id.trim() !== '') {
+        bookingIdToUse = id;
+        break;
+      }
+    }
+
+    console.log("Available booking ID options:", possibleBookingIds);
+    console.log("Using booking ID:", bookingIdToUse);
+
+    // Validate that we have a booking ID
+    if (!bookingIdToUse) {
+      // Try to fetch the latest order data to get booking ID
+      try {
+        const orderIdToFetch = ticket.originalOrderId || ticket.orderId || ticket._id;
+        const orderResponse = await fetch(`${API_BASE_URL}orders/my-orders/${orderIdToFetch}`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (orderResponse.ok) {
+          const orderData = await orderResponse.json();
+          if (orderData.success && orderData.data) {
+            bookingIdToUse = orderData.data.bookingId || orderData.data._id;
+            console.log("Found booking ID from order fetch:", bookingIdToUse);
+          }
+        }
+      } catch (fetchError) {
+        console.error("Failed to fetch order for booking ID:", fetchError);
+      }
+
+      // If still no booking ID, show detailed error
+      if (!bookingIdToUse) {
+        const debugInfo = {
+          ticketId: ticket._id,
+          orderId: ticket.orderId,
+          originalOrderId: ticket.originalOrderId,
+          rawOrderData: ticket.rawOrderData ? Object.keys(ticket.rawOrderData) : 'No rawOrderData',
+          allTicketKeys: Object.keys(ticket)
+        };
+        
+        console.error("No valid booking ID found. Debug info:", debugInfo);
+        throw new Error(
+          `Booking ID is missing. Cannot cancel this ticket. Please contact support with Order ID: ${ticket.originalOrderId || ticket.orderId || 'Unknown'}`
+        );
+      }
+    }
+
+    // Prepare request body with multiple possible formats
+    const requestBody = {
+      bookingId: bookingIdToUse,
+    };
+
+    // Add alternative ID fields that the API might expect
+    if (ticket.originalOrderId && ticket.originalOrderId !== bookingIdToUse) {
+      requestBody.orderId = ticket.originalOrderId;
+    }
+    if (ticket.orderId && ticket.orderId !== bookingIdToUse) {
+      requestBody.orderId = ticket.orderId;
+    }
+
+    console.log("Cancelling ticket with request body:", requestBody);
+
+    // Try the primary cancel endpoint
+    let response = await fetch(`${API_BASE_URL}payments/booking/cancel`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    let data = await response.json();
+    console.log("Cancel API response:", { status: response.status, data });
+
+    // If primary endpoint fails, try alternative endpoints
+    if (!response.ok) {
+      console.log("Primary cancel endpoint failed, trying alternatives...");
+      
+      // Try alternative endpoint 1: /orders/cancel
+      try {
+        response = await fetch(`${API_BASE_URL}orders/cancel`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestBody),
+        });
+        data = await response.json();
+        console.log("Alternative endpoint 1 response:", { status: response.status, data });
+      } catch (altError) {
+        console.log("Alternative endpoint 1 failed:", altError);
+      }
+
+      // Try alternative endpoint 2: /bookings/cancel
+      if (!response.ok) {
+        try {
+          response = await fetch(`${API_BASE_URL}bookings/cancel`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(requestBody),
+          });
+          data = await response.json();
+          console.log("Alternative endpoint 2 response:", { status: response.status, data });
+        } catch (altError) {
+          console.log("Alternative endpoint 2 failed:", altError);
+        }
+      }
+
+      // Try alternative endpoint 3: DELETE method
+      if (!response.ok) {
+        try {
+          response = await fetch(`${API_BASE_URL}payments/booking/${bookingIdToUse}`, {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          });
+          data = await response.json();
+          console.log("DELETE endpoint response:", { status: response.status, data });
+        } catch (altError) {
+          console.log("DELETE endpoint failed:", altError);
+        }
+      }
+    }
+
+    // Handle the response
+    if (!response.ok) {
+      // Check if the error is about booking already being cancelled
+      if (response.status === 400 && data.message) {
+        const errorMessage = data.message.toLowerCase();
+
+        if (
+          errorMessage.includes("already cancelled") ||
+          errorMessage.includes("already canceled") ||
+          errorMessage.includes("booking already cancelled") ||
+          errorMessage.includes("booking already canceled") ||
+          errorMessage.includes("not found") ||
+          errorMessage.includes("does not exist")
+        ) {
+          // If booking is already cancelled or not found, REMOVE the ticket from the list
+          setTickets((prevTickets) =>
+            prevTickets.filter((t) => 
+              t._id !== ticket._id && 
+              t.orderId !== ticket.orderId && 
+              t.bookingId !== ticket.bookingId
+            )
+          );
+          setShowCancelModal(false);
+          setTicketToCancel(null);
+          return; // Exit the function early
+        }
+      }
+
+      // For other errors, provide detailed error message
+      const errorDetails = {
+        status: response.status,
+        message: data.message || 'Unknown error',
+        bookingIdUsed: bookingIdToUse,
+        endpoint: `${API_BASE_URL}payments/booking/cancel`
+      };
+      
+      throw new Error(
+        `Failed to cancel ticket: ${data.message || 'Unknown error'} (Status: ${response.status}). Booking ID used: ${bookingIdToUse}`
+      );
+    }
+
+    // If cancellation was successful, REMOVE the ticket from the list
+    setTickets((prevTickets) =>
+      prevTickets.filter((t) => 
+        t._id !== ticket._id && 
+        t.orderId !== ticket.orderId && 
+        t.bookingId !== ticket.bookingId
+      )
+    );
+
+    setShowCancelModal(false);
+    setTicketToCancel(null);
+    
+    // Show success message
+    console.log("Ticket cancelled successfully");
+    
+  } catch (err) {
+    console.error("Error cancelling ticket:", err);
+    setError(`Failed to cancel ticket: ${err.message}`);
+  } finally {
+    setCancelLoading(false);
+  }
+};
+
+// ENHANCED: Better bookingId validation for showing cancel confirmation
+const showCancelConfirmation = (ticket) => {
+  // Check if ticket is already cancelled
+  if (ticket.isCancelled) {
+    return;
+  }
+
+  // Enhanced check for bookingId with multiple fallbacks
+  const possibleBookingIds = [
+    ticket.bookingId,
+    ticket.rawOrderData?.bookingId,
+    ticket.rawOrderData?._id,
+    ticket.originalOrderId,
+    ticket.orderId,
+    ticket._id.includes('_seat_') ? ticket._id.split('_seat_')[0] : ticket._id
+  ];
+
+  const hasValidBookingId = possibleBookingIds.some(id => id && typeof id === 'string' && id.trim() !== '');
+
+  if (!hasValidBookingId) {
+    setError(
+      `Cannot cancel this ticket - no valid booking ID found. Please contact support with Order ID: ${ticket.originalOrderId || ticket.orderId || 'Unknown'}`
+    );
+    return;
+  }
+
+  setTicketToCancel(ticket);
+  setShowCancelModal(true);
+};
+
+// ENHANCED: Better error handling in convertOrdersToIndividualTickets
+const convertOrdersToIndividualTickets = (orders) => {
+  const individualTickets = [];
+
+  orders.forEach((order) => {
+    // ENHANCED CANCELLED STATUS DETECTION
+    const isCancelled =
+      order.status === "cancelled" ||
+      order.status === "canceled" ||
+      order.status === "CANCELLED" ||
+      order.status === "CANCELED" ||
+      order.paymentStatus === "cancelled" ||
+      order.paymentStatus === "canceled" ||
+      order.paymentStatus === "CANCELLED" ||
+      order.paymentStatus === "CANCELED" ||
+      order.paymentStatus === "refunded" ||
+      order.paymentStatus === "REFUNDED" ||
+      order.paymentStatus === "failed" ||
+      order.paymentStatus === "FAILED" ||
+      order.orderStatus === "cancelled" ||
+      order.orderStatus === "canceled" ||
+      order.orderStatus === "CANCELLED" ||
+      order.orderStatus === "CANCELED" ||
+      order.bookingStatus === "cancelled" ||
+      order.bookingStatus === "canceled" ||
+      order.bookingStatus === "CANCELLED" ||
+      order.bookingStatus === "CANCELED" ||
+      order.cancellationDate ||
+      order.cancelledAt ||
+      order.cancelled_at ||
+      order.refundAmount > 0 ||
+      order.refund_amount > 0;
+
+    // ENHANCED: Ensure we capture the booking ID properly
+    const ensureBookingId = (order) => {
+      return order.bookingId || 
+             order._id || 
+             order.id || 
+             order.orderId || 
+             order.booking_id ||
+             order.bookingReference ||
+             order.transactionId;
+    };
+
+    // If there are seats, create individual tickets for each seat
+    if (order.seats && order.seats.length > 0) {
+      order.seats.forEach((seat, seatIndex) => {
+        // Enhanced price calculation for individual seats
+        const seatPrice = seat.price || seat.seatPrice || seat.amount || 
+                         (order.totalAmount / order.seats.length) || 
+                         order.amount || order.price || 0;
+        
+        individualTickets.push({
+          _id: `${order._id}_seat_${seatIndex}`,
+          orderId: order._id,
+          bookingId: ensureBookingId(order), // ENHANCED booking ID
+          originalOrderId: order._id,
+          seatIndex: seatIndex,
+          event: null, // Will be populated later
+          seat: {
+            section: seat.section,
+            row: seat.row,
+            number: seat.seatNumber,
+            price: seatPrice,
+            name: `${seat.section} ${seat.row}${seat.seatNumber}`,
+          },
+          quantity: 1, // Each ticket is for one seat
+          totalPrice: seatPrice,
+          grandTotal: seatPrice,
+          purchaseDate: order.orderTime || order.createdAt,
+          createdAt: order.createdAt,
+          paymentStatus: order.paymentStatus || "Unknown",
+          isCancelled: isCancelled,
+          rawOrderData: order, // Store complete order data for debugging
+          userInfo: {
+            name:
+              user?.name ||
+              user?.firstName + " " + user?.lastName ||
+              "Guest User",
+            email: user?.email || "No email provided",
+          },
+        });
+      });
+    } else {
+      // If no seats, create a general admission ticket
+      // Enhanced price calculation for general admission
+      const ticketPrice = order.totalAmount || order.amount || order.price || 
+                         order.grandTotal || order.total || order.cost || 0;
+      
+      individualTickets.push({
+        _id: order._id,
+        orderId: order._id,
+        bookingId: ensureBookingId(order), // ENHANCED booking ID
+        originalOrderId: order._id,
+        seatIndex: 0,
+        event: null, // Will be populated later
+        seat: {
+          name: "General Admission",
+          section: "GA",
+          row: "",
+          number: "",
+          price: ticketPrice,
+        },
+        quantity: order.quantity || 1,
+        totalPrice: ticketPrice,
+        grandTotal: ticketPrice,
+        purchaseDate: order.orderTime || order.createdAt,
+        createdAt: order.createdAt,
+        paymentStatus: order.paymentStatus || "Unknown",
+        isCancelled: isCancelled,
+        rawOrderData: order, // Store complete order data for debugging
+        userInfo: {
+          name:
+            user?.name ||
+            user?.firstName + " " + user?.lastName ||
+            "Guest User",
+          email: user?.email || "No email provided",
+        },
+      });
+    }
+  });
+
+  // Debug: Log the booking IDs for verification
+  console.log("Generated tickets with booking IDs:", 
+    individualTickets.map(t => ({ 
+      ticketId: t._id, 
+      bookingId: t.bookingId, 
+      orderId: t.orderId 
+    }))
+  );
+
+  return individualTickets;
+};
 
   // Function to show cancel confirmation modal
-  const showCancelConfirmation = (ticket) => {
-    // Check if ticket is already cancelled
-    if (ticket.isCancelled) {
-      return;
-    }
+  // const showCancelConfirmation = (ticket) => {
+  //   // Check if ticket is already cancelled
+  //   if (ticket.isCancelled) {
+  //     return;
+  //   }
 
-    // Check if bookingId exists
-    if (!ticket.bookingId) {
-      setError("Cannot cancel this ticket - booking ID is missing.");
-      return;
-    }
+  //   // Check if bookingId exists
+  //   if (!ticket.bookingId) {
+  //     setError("Cannot cancel this ticket - booking ID is missing.");
+  //     return;
+  //   }
 
-    setTicketToCancel(ticket);
-    setShowCancelModal(true);
-  };
+  //   setTicketToCancel(ticket);
+  //   setShowCancelModal(true);
+  // };
 
   // Force refresh function to update cancelled status
   const forceRefreshTickets = async () => {
@@ -1177,7 +1480,7 @@ const MyTickets = () => {
       const footerText2 = isValidTicket 
         ? "Present this ticket along with valid ID at the venue entrance."
         : "This ticket has been cancelled. Entry will be denied.";
-      const footerText3 = "For support, contact: support@youreventsite.com";
+      const footerText3 = "For support, contact: info@eventsntickets.com.au";
       
       doc.text(footerText1, margin + contentWidth/2, footerY + 8, { align: "center" });
       doc.text(footerText2, margin + contentWidth/2, footerY + 16, { align: "center" });

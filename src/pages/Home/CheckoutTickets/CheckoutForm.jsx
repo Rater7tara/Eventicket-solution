@@ -740,7 +740,7 @@ const CheckoutForm = ({
         ) : succeeded ? (
           "Payment Successful!"
         ) : (
-          `Pay ${grandTotal.toLocaleString()}`
+          `Pay $${grandTotal.toLocaleString()}`
         )}
       </button>
 
