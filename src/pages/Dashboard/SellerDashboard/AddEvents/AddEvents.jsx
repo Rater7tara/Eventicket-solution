@@ -3,7 +3,7 @@ import { Calendar, Clock, MapPin, DollarSign, Upload, FileText, CalendarIcon, Ph
 import { AuthContext } from '../../../../providers/AuthProvider';
 import serverURL from "../../../../ServerConfig";
 
-const AddEvent = () => {
+const AddEvents = () => {
     const { user } = useContext(AuthContext);
     const [eventData, setEventData] = useState({
         title: '',
@@ -13,7 +13,7 @@ const AddEvent = () => {
         location: '',
         image: '',
         price: '',
-        priceRange: '',
+        priceRange: { min: '', max: '' },
         contactNumber: '',
         email: ''
     });
@@ -155,7 +155,7 @@ const AddEvent = () => {
             formData.append('time', eventData.time);
             formData.append('location', eventData.location);
             formData.append('price', parseInt(eventData.price));
-            formData.append('priceRange', eventData.priceRange);
+            formData.append('priceRange', JSON.stringify(eventData.priceRange));
             formData.append('contactNumber', eventData.contactNumber);
             formData.append('email', eventData.email);
             formData.append('createdBy', user?.email || 'unknown_user');
@@ -539,20 +539,49 @@ const AddEvent = () => {
                     
                     {/* Price Range */}
                     <div className="space-y-2">
-                        <label className="flex items-center gap-2 text-gray-700 font-medium">
-                            <DollarSign size={18} className="text-orange-500" />
-                            Price Range *
-                        </label>
-                        <input
-                            type="text"
-                            name="priceRange"
-                            value={eventData.priceRange}
-                            onChange={handleChange}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                            placeholder="e.g., $100 - $500"
-                            required
-                        />
-                    </div>
+    <label className="flex items-center gap-2 text-gray-700 font-medium">
+        <DollarSign size={18} className="text-orange-500" />
+        Price Range *
+    </label>
+    <div className="flex gap-4">
+        <input
+            type="number"
+            name="min"
+            value={eventData.priceRange.min}
+            onChange={(e) =>
+                setEventData({
+                    ...eventData,
+                    priceRange: {
+                        ...eventData.priceRange,
+                        min: parseInt(e.target.value) || ''
+                    }
+                })
+            }
+            className="w-1/2 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+            placeholder="Min"
+            min="0"
+            required
+        />
+        <input
+            type="number"
+            name="max"
+            value={eventData.priceRange.max}
+            onChange={(e) =>
+                setEventData({
+                    ...eventData,
+                    priceRange: {
+                        ...eventData.priceRange,
+                        max: parseInt(e.target.value) || ''
+                    }
+                })
+            }
+            className="w-1/2 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+            placeholder="Max"
+            min="0"
+            required
+        />
+    </div>
+</div>
                 </div>
                 
                 {/* Contact Information - 2 column layout */}
@@ -619,4 +648,4 @@ const AddEvent = () => {
     );
 };
 
-export default AddEvent;
+export default AddEvents;

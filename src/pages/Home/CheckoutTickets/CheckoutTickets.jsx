@@ -34,6 +34,7 @@ const CheckoutTickets = () => {
 
   const [timerActive, setTimerActive] = useState(true);
   const [showTimeoutModal, setShowTimeoutModal] = useState(false);
+  
 
   const { event, selectedSeats, totalPrice, userData } = location.state || {};
 
