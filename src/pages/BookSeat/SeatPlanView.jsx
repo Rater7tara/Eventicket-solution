@@ -643,6 +643,19 @@ const SeatPlanView = ({
             Choose a section to view:
           </div>
           <div className="flex flex-wrap gap-2 mb-4">
+            {/* All Button */}
+            <button
+              className={`px-3 py-1 rounded-full text-sm font-medium transition-all duration-200 cursor-pointer ${
+                activeSection === null
+                  ? "bg-orange-600 text-white shadow-md"
+                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+              }`}
+              onClick={() => toggleSection(null)}
+            >
+              All Sections
+            </button>
+            
+            {/* Individual Section Buttons */}
             {sections.map((section) => (
               <button
                 key={section.id}

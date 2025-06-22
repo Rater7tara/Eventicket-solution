@@ -39,6 +39,7 @@ import Blog from "../pages/Blog/Blog";
 import AddBlogs from "../pages/Dashboard/AdminDashborad/AddBlog/AddBlog";
 import BlogPost from "../pages/Blog/BlogPost";
 import RoleBasedDashboard from "../pages/Dashboard/RoleBasedDashboard";
+import EventReport from "../pages/Dashboard/AdminDashborad/Reports/EventReport";
 
 export const router = createBrowserRouter([
   {
@@ -163,6 +164,10 @@ export const router = createBrowserRouter([
       {
         path: "reports",
         element: <Reports />,
+      },
+      {
+        path: "reports/event/:eventId",
+        element: <EventReport />,
       },
 
       // Seller specific routes

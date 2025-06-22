@@ -32,21 +32,18 @@ const SeatPlan = () => {
   const mode = location.state?.mode || "book";
   const sellerId = location.state?.sellerId || null;
 
-  // Timer persistence key
+  // Timer persistence key (only used for cleanup on successful booking)
   const timerKey = `timer_${eventDetails._id || eventDetails.id}_${mode}`;
 
-  // Event handlers (moved before useEffect to avoid circular dependency)
+  // Event handlers
   const handleTimerExpire = () => {
     setTimerActive(false);
     setShowTimeoutModal(true);
     setSelectedSeats([]);
-    // Clean up timer when it expires
-    localStorage.removeItem(timerKey);
   };
 
   const handleTimeoutOk = () => {
     setShowTimeoutModal(false);
-    localStorage.removeItem(timerKey);
     navigate("/");
   };
 
@@ -62,37 +59,24 @@ const SeatPlan = () => {
     setTimerActive(false);
   };
 
-  // Initialize timer with persistence
+  // Initialize timer - ALWAYS start fresh when entering the page
   useEffect(() => {
-    const savedTimerStart = localStorage.getItem(timerKey);
-    if (savedTimerStart) {
-      const startTime = parseInt(savedTimerStart);
-      const elapsed = Date.now() - startTime;
-      const remainingTime = (10 * 60 * 1000) - elapsed; // 10 minutes in milliseconds
-      
-      if (remainingTime > 0) {
-        setTimerStartTime(startTime);
-        console.log(`Timer resumed with ${Math.floor(remainingTime / 1000)} seconds remaining`);
-      } else {
-        // Timer expired while away
-        localStorage.removeItem(timerKey);
-        handleTimerExpire();
-      }
-    } else {
-      // Start new timer
-      const startTime = Date.now();
-      setTimerStartTime(startTime);
-      localStorage.setItem(timerKey, startTime.toString());
-      console.log('New timer started');
-    }
-  }, [timerKey]);
+    // Clear any existing timer data first
+    localStorage.removeItem(timerKey);
+    
+    // Start fresh timer
+    const startTime = Date.now();
+    setTimerStartTime(startTime);
+    setTimerActive(true);
+    
+    console.log('Fresh timer started for 10 minutes');
 
-  // Clean up timer on unmount or when completing booking
-  useEffect(() => {
+    // Cleanup function to clear timer when component unmounts
     return () => {
-      // Don't clean up timer on unmount, only when explicitly completing
+      console.log('Component unmounting - timer stopped');
+      setTimerActive(false);
     };
-  }, []);
+  }, []); // Empty dependency array to run only on mount/unmount
 
   // Configuration
   const sections = [
@@ -383,6 +367,7 @@ const SeatPlan = () => {
         section: seat.section,
         row: seat.row,
         seatNumber: seat.number,
+        price: seat.price
       }));
 
       const reserveData = {
@@ -497,67 +482,33 @@ const SeatPlan = () => {
       console.log("Event ID:", eventId);
       console.log("Event priceRange:", eventDetails.priceRange);
 
+      // Updated seats formatting to match the new API structure
       const formattedSeats = selectedSeats.map((seat, index) => {
         console.log(`Seat ${index + 1}:`, seat);
         
         const seatNumber = typeof seat.number === 'string' ? 
                           parseInt(seat.number) : seat.number;
         
-        if (!seat.section || !seat.row || !seatNumber) {
-          throw new Error(`Invalid seat data at index ${index}: missing section, row, or number`);
+        if (!seat.section || !seat.row || !seatNumber || !seat.price) {
+          throw new Error(`Invalid seat data at index ${index}: missing section, row, number, or price`);
         }
 
         return {
           section: seat.section,
           row: seat.row,
-          seatNumber: seatNumber
+          seatNumber: seatNumber,
+          price: seat.price
         };
       });
 
-      const sectionsData = [
-        { id: "vip", name: "VIP Lounge", price: 200 },
-        { id: "energon-enclave", name: "Energon Enclave", price: 160 },
-        { id: "hdb-house", name: "HDB House", price: 120 },
-        { id: "ausdream-arena", name: "AusDream Arena", price: 80 },
-        { id: "century-circle", name: "Century Circle", price: 70 },
-        { id: "gamma-gallery", name: "Gamma Gallery", price: 60 }
-      ];
-
-      const minPrice = Math.min(...sectionsData.map(s => s.price));
-      const maxPrice = Math.max(...sectionsData.map(s => s.price));
-
+      // Simple booking data structure matching the new API requirements
       const bookingData = {
         eventId: eventId,
         buyerId: buyerId,
-        totalAmount: totalPrice,
-        seats: formattedSeats,
-        bookingDate: new Date().toISOString(),
-        status: "pending",
-        paymentStatus: "pending",
-        quantity: selectedSeats.length,
-        mode: mode, // Include mode to distinguish between book and reserve
-        priceRange: {
-          min: minPrice,
-          max: maxPrice
-        },
-        event: {
-          ...eventDetails,
-          _id: eventId,
-          priceRange: {
-            min: minPrice,
-            max: maxPrice
-          },
-          title: eventDetails.title || "Event",
-          date: eventDetails.date || new Date().toISOString(),
-          time: eventDetails.time || "TBA",
-          location: eventDetails.location || "TBA"
-        },
-        ...(ticketType && { ticketType: ticketType }),
-        ...(sellerId && { sellerId: sellerId })
+        seats: formattedSeats
       };
 
       console.log("📋 Complete booking data being sent:", JSON.stringify(bookingData, null, 2));
-      console.log("📊 Price range added:", { min: minPrice, max: maxPrice });
       console.log("🌐 API Endpoint:", `${serverURL.url}bookings/book`);
 
       const response = await fetch(`${serverURL.url}bookings/book`, {
@@ -660,9 +611,7 @@ const SeatPlan = () => {
       
       let userMessage = error.message;
       
-      if (error.message.includes("priceRange")) {
-        userMessage = "Event pricing information is missing. Please contact support.";
-      } else if (error.message.includes("Authentication")) {
+      if (error.message.includes("Authentication")) {
         userMessage = "Your session has expired. Please login again.";
       } else if (error.message.includes("User ID")) {
         userMessage = "User information is missing. Please refresh and login again.";

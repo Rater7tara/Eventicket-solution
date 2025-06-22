@@ -388,120 +388,6 @@ const MyTickets = () => {
     return 0;
   };
 
-  // Function to convert orders to individual seat tickets
-  // const convertOrdersToIndividualTickets = (orders) => {
-  //   const individualTickets = [];
-
-  //   orders.forEach((order) => {
-  //     // ENHANCED CANCELLED STATUS DETECTION
-  //     const isCancelled =
-  //       order.status === "cancelled" ||
-  //       order.status === "canceled" ||
-  //       order.status === "CANCELLED" ||
-  //       order.status === "CANCELED" ||
-  //       order.paymentStatus === "cancelled" ||
-  //       order.paymentStatus === "canceled" ||
-  //       order.paymentStatus === "CANCELLED" ||
-  //       order.paymentStatus === "CANCELED" ||
-  //       order.paymentStatus === "refunded" ||
-  //       order.paymentStatus === "REFUNDED" ||
-  //       order.paymentStatus === "failed" ||
-  //       order.paymentStatus === "FAILED" ||
-  //       order.orderStatus === "cancelled" ||
-  //       order.orderStatus === "canceled" ||
-  //       order.orderStatus === "CANCELLED" ||
-  //       order.orderStatus === "CANCELED" ||
-  //       order.bookingStatus === "cancelled" ||
-  //       order.bookingStatus === "canceled" ||
-  //       order.bookingStatus === "CANCELLED" ||
-  //       order.bookingStatus === "CANCELED" ||
-  //       order.cancellationDate ||
-  //       order.cancelledAt ||
-  //       order.cancelled_at ||
-  //       order.refundAmount > 0 ||
-  //       order.refund_amount > 0;
-
-  //     // If there are seats, create individual tickets for each seat
-  //     if (order.seats && order.seats.length > 0) {
-  //       order.seats.forEach((seat, seatIndex) => {
-  //         // Enhanced price calculation for individual seats
-  //         const seatPrice = seat.price || seat.seatPrice || seat.amount || 
-  //                          (order.totalAmount / order.seats.length) || 
-  //                          order.amount || order.price || 0;
-          
-  //         individualTickets.push({
-  //           _id: `${order._id}_seat_${seatIndex}`,
-  //           orderId: order._id,
-  //           bookingId: order.bookingId,
-  //           originalOrderId: order._id,
-  //           seatIndex: seatIndex,
-  //           event: null, // Will be populated later
-  //           seat: {
-  //             section: seat.section,
-  //             row: seat.row,
-  //             number: seat.seatNumber,
-  //             price: seatPrice,
-  //             name: `${seat.section} ${seat.row}${seat.seatNumber}`,
-  //           },
-  //           quantity: 1, // Each ticket is for one seat
-  //           totalPrice: seatPrice,
-  //           grandTotal: seatPrice,
-  //           purchaseDate: order.orderTime || order.createdAt,
-  //           createdAt: order.createdAt,
-  //           paymentStatus: order.paymentStatus || "Unknown",
-  //           isCancelled: isCancelled,
-  //           rawOrderData: order,
-  //           userInfo: {
-  //             name:
-  //               user?.name ||
-  //               user?.firstName + " " + user?.lastName ||
-  //               "Guest User",
-  //             email: user?.email || "No email provided",
-  //           },
-  //         });
-  //       });
-  //     } else {
-  //       // If no seats, create a general admission ticket
-  //       // Enhanced price calculation for general admission
-  //       const ticketPrice = order.totalAmount || order.amount || order.price || 
-  //                          order.grandTotal || order.total || order.cost || 0;
-        
-  //       individualTickets.push({
-  //         _id: order._id,
-  //         orderId: order._id,
-  //         bookingId: order.bookingId,
-  //         originalOrderId: order._id,
-  //         seatIndex: 0,
-  //         event: null, // Will be populated later
-  //         seat: {
-  //           name: "General Admission",
-  //           section: "GA",
-  //           row: "",
-  //           number: "",
-  //           price: ticketPrice,
-  //         },
-  //         quantity: order.quantity || 1,
-  //         totalPrice: ticketPrice,
-  //         grandTotal: ticketPrice,
-  //         purchaseDate: order.orderTime || order.createdAt,
-  //         createdAt: order.createdAt,
-  //         paymentStatus: order.paymentStatus || "Unknown",
-  //         isCancelled: isCancelled,
-  //         rawOrderData: order,
-  //         userInfo: {
-  //           name:
-  //             user?.name ||
-  //             user?.firstName + " " + user?.lastName ||
-  //             "Guest User",
-  //           email: user?.email || "No email provided",
-  //         },
-  //       });
-  //     }
-  //   });
-
-  //   return individualTickets;
-  // };
-
   // Load tickets when component mounts
   useEffect(() => {
     fetchTickets();
@@ -554,9 +440,26 @@ const MyTickets = () => {
         const uniqueEventIds = [...new Set(individualTickets.map(ticket => ticket.rawOrderData.eventId).filter(Boolean))];
         const eventDetailsMap = {};
 
+        console.log("Fetching event details for events:", uniqueEventIds);
+
         for (const eventId of uniqueEventIds) {
-          const eventDetails = await fetchEventDetails(eventId);
-          eventDetailsMap[eventId] = eventDetails;
+          try {
+            const eventDetails = await fetchEventDetails(eventId);
+            eventDetailsMap[eventId] = eventDetails;
+            console.log(`Event details loaded for ${eventId}:`, eventDetails?.title);
+          } catch (error) {
+            console.error(`Failed to fetch event details for ${eventId}:`, error);
+            // Set fallback event data
+            eventDetailsMap[eventId] = {
+              title: `Event ${eventId.substring(0, 8)}...`,
+              date: null,
+              time: "19:00", 
+              location: "Location TBA",
+              description: "Event details unavailable",
+              _id: eventId,
+              error: true
+            };
+          }
         }
 
         // Update tickets with event details
@@ -564,15 +467,36 @@ const MyTickets = () => {
           const eventId = ticket.rawOrderData.eventId;
           const eventDetails = eventDetailsMap[eventId];
 
+          // Enhanced fallback for missing event details
+          let finalEventDetails = eventDetails;
+          
+          if (!eventDetails || !eventDetails.title) {
+            finalEventDetails = {
+              title: ticket.rawOrderData.eventTitle || 
+                     ticket.rawOrderData.event?.title || 
+                     ticket.rawOrderData.event?.name ||
+                     `Event ${eventId ? eventId.substring(0, 8) : ticket.originalOrderId.substring(0, 8)}...`,
+              date: ticket.rawOrderData.eventDate || 
+                    ticket.rawOrderData.event?.date || 
+                    ticket.purchaseDate,
+              time: ticket.rawOrderData.eventTime || 
+                    ticket.rawOrderData.event?.time || 
+                    "19:00",
+              location: ticket.rawOrderData.eventLocation || 
+                       ticket.rawOrderData.event?.location || 
+                       ticket.rawOrderData.venue ||
+                       "Location TBA",
+              description: ticket.rawOrderData.eventDescription || 
+                          ticket.rawOrderData.event?.description ||
+                          "Event details unavailable",
+              _id: eventId,
+              fallback: true
+            };
+          }
+
           return {
             ...ticket,
-            event: eventDetails || {
-              title: `Order ${ticket.originalOrderId.substring(0, 8)}`,
-              date: ticket.purchaseDate,
-              time: "19:00",
-              location: "Venue details unavailable",
-              description: "Event details unavailable",
-            },
+            event: finalEventDetails,
           };
         });
 
@@ -627,7 +551,7 @@ const MyTickets = () => {
     }
   };
 
-// FIXED: Enhanced Cancel Ticket Function with better bookingId handling
+// UPDATED: Enhanced Cancel Ticket Function with new API body structure
 const cancelTicket = async (ticket) => {
   setCancelLoading(true);
   setError("");
@@ -635,14 +559,12 @@ const cancelTicket = async (ticket) => {
   try {
     // Check if ticket is already cancelled
     if (ticket.isCancelled) {
-      // Remove already cancelled tickets from the list
-      setTickets((prevTickets) =>
-        prevTickets.filter((t) => 
-          t._id !== ticket._id && 
-          t.orderId !== ticket.orderId && 
-          t.bookingId !== ticket.bookingId
-        )
-      );
+      // Refresh tickets to get the most accurate state
+      try {
+        await fetchTickets();
+      } catch (refreshError) {
+        console.error("Failed to refresh tickets:", refreshError);
+      }
       setShowCancelModal(false);
       setTicketToCancel(null);
       setCancelLoading(false);
@@ -661,88 +583,79 @@ const cancelTicket = async (ticket) => {
       throw new Error("Authentication token not found. Please log in again.");
     }
 
-    // ENHANCED: Multiple ways to find bookingId
-    let bookingIdToUse = null;
+    // UPDATED: Get orderId - try different sources
+    let orderId = null;
     
-    // Try different sources for bookingId
-    const possibleBookingIds = [
-      ticket.bookingId,
-      ticket.rawOrderData?.bookingId,
-      ticket.rawOrderData?._id,
+    const possibleOrderIds = [
       ticket.originalOrderId,
       ticket.orderId,
+      ticket.rawOrderData?._id,
+      ticket.rawOrderData?.orderId,
       ticket._id.includes('_seat_') ? ticket._id.split('_seat_')[0] : ticket._id
     ];
 
-    // Find the first valid booking ID
-    for (const id of possibleBookingIds) {
+    // Find the first valid order ID
+    for (const id of possibleOrderIds) {
       if (id && typeof id === 'string' && id.trim() !== '') {
-        bookingIdToUse = id;
+        orderId = id;
         break;
       }
     }
 
-    console.log("Available booking ID options:", possibleBookingIds);
-    console.log("Using booking ID:", bookingIdToUse);
+    console.log("Available order ID options:", possibleOrderIds);
+    console.log("Using order ID:", orderId);
 
-    // Validate that we have a booking ID
-    if (!bookingIdToUse) {
-      // Try to fetch the latest order data to get booking ID
-      try {
-        const orderIdToFetch = ticket.originalOrderId || ticket.orderId || ticket._id;
-        const orderResponse = await fetch(`${API_BASE_URL}orders/my-orders/${orderIdToFetch}`, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (orderResponse.ok) {
-          const orderData = await orderResponse.json();
-          if (orderData.success && orderData.data) {
-            bookingIdToUse = orderData.data.bookingId || orderData.data._id;
-            console.log("Found booking ID from order fetch:", bookingIdToUse);
-          }
-        }
-      } catch (fetchError) {
-        console.error("Failed to fetch order for booking ID:", fetchError);
-      }
-
-      // If still no booking ID, show detailed error
-      if (!bookingIdToUse) {
-        const debugInfo = {
-          ticketId: ticket._id,
-          orderId: ticket.orderId,
-          originalOrderId: ticket.originalOrderId,
-          rawOrderData: ticket.rawOrderData ? Object.keys(ticket.rawOrderData) : 'No rawOrderData',
-          allTicketKeys: Object.keys(ticket)
-        };
-        
-        console.error("No valid booking ID found. Debug info:", debugInfo);
-        throw new Error(
-          `Booking ID is missing. Cannot cancel this ticket. Please contact support with Order ID: ${ticket.originalOrderId || ticket.orderId || 'Unknown'}`
-        );
-      }
+    // Validate that we have an order ID
+    if (!orderId) {
+      throw new Error(
+        `Order ID is missing. Cannot cancel this ticket. Please contact support with Order ID: ${ticket.originalOrderId || ticket.orderId || 'Unknown'}`
+      );
     }
 
-    // Prepare request body with multiple possible formats
+    // UPDATED: Build seatToCancel object from ticket data
+    let seatToCancel = null;
+
+    if (ticket.seat && ticket.seat.section && ticket.seat.row && ticket.seat.number) {
+      // Try to get the seat _id from rawOrderData
+      let seatId = null;
+      
+      // If we have seat index, try to get the original seat data
+      if (ticket.seatIndex !== undefined && ticket.rawOrderData?.seats && ticket.rawOrderData.seats[ticket.seatIndex]) {
+        const originalSeat = ticket.rawOrderData.seats[ticket.seatIndex];
+        seatId = originalSeat._id || originalSeat.id;
+      }
+
+      seatToCancel = {
+        section: ticket.seat.section,
+        row: ticket.seat.row,
+        seatNumber: parseInt(ticket.seat.number),
+        price: ticket.seat.price || getTicketPrice(ticket)
+      };
+
+      // Add seat _id if available
+      if (seatId) {
+        seatToCancel._id = seatId;
+      }
+    } else {
+      // For general admission tickets, create a basic seat object
+      seatToCancel = {
+        section: ticket.seat?.section || "GA",
+        row: ticket.seat?.row || "",
+        seatNumber: ticket.seat?.number ? parseInt(ticket.seat.number) : 1,
+        price: getTicketPrice(ticket)
+      };
+    }
+
+    // UPDATED: Prepare request body with new structure
     const requestBody = {
-      bookingId: bookingIdToUse,
+      orderId: orderId,
+      seatToCancel: seatToCancel
     };
 
-    // Add alternative ID fields that the API might expect
-    if (ticket.originalOrderId && ticket.originalOrderId !== bookingIdToUse) {
-      requestBody.orderId = ticket.originalOrderId;
-    }
-    if (ticket.orderId && ticket.orderId !== bookingIdToUse) {
-      requestBody.orderId = ticket.orderId;
-    }
+    console.log("Cancelling ticket with new API structure:", requestBody);
 
-    console.log("Cancelling ticket with request body:", requestBody);
-
-    // Try the primary cancel endpoint
-    let response = await fetch(`${API_BASE_URL}payments/booking/cancel`, {
+    // Call the updated cancel API
+    const response = await fetch(`${API_BASE_URL}payments/booking/cancel`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -753,62 +666,6 @@ const cancelTicket = async (ticket) => {
 
     let data = await response.json();
     console.log("Cancel API response:", { status: response.status, data });
-
-    // If primary endpoint fails, try alternative endpoints
-    if (!response.ok) {
-      console.log("Primary cancel endpoint failed, trying alternatives...");
-      
-      // Try alternative endpoint 1: /orders/cancel
-      try {
-        response = await fetch(`${API_BASE_URL}orders/cancel`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(requestBody),
-        });
-        data = await response.json();
-        console.log("Alternative endpoint 1 response:", { status: response.status, data });
-      } catch (altError) {
-        console.log("Alternative endpoint 1 failed:", altError);
-      }
-
-      // Try alternative endpoint 2: /bookings/cancel
-      if (!response.ok) {
-        try {
-          response = await fetch(`${API_BASE_URL}bookings/cancel`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(requestBody),
-          });
-          data = await response.json();
-          console.log("Alternative endpoint 2 response:", { status: response.status, data });
-        } catch (altError) {
-          console.log("Alternative endpoint 2 failed:", altError);
-        }
-      }
-
-      // Try alternative endpoint 3: DELETE method
-      if (!response.ok) {
-        try {
-          response = await fetch(`${API_BASE_URL}payments/booking/${bookingIdToUse}`, {
-            method: "DELETE",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          });
-          data = await response.json();
-          console.log("DELETE endpoint response:", { status: response.status, data });
-        } catch (altError) {
-          console.log("DELETE endpoint failed:", altError);
-        }
-      }
-    }
 
     // Handle the response
     if (!response.ok) {
@@ -824,14 +681,12 @@ const cancelTicket = async (ticket) => {
           errorMessage.includes("not found") ||
           errorMessage.includes("does not exist")
         ) {
-          // If booking is already cancelled or not found, REMOVE the ticket from the list
-          setTickets((prevTickets) =>
-            prevTickets.filter((t) => 
-              t._id !== ticket._id && 
-              t.orderId !== ticket.orderId && 
-              t.bookingId !== ticket.bookingId
-            )
-          );
+          // If booking is already cancelled or not found, refresh tickets to get accurate state
+          try {
+            await fetchTickets();
+          } catch (refreshError) {
+            console.error("Failed to refresh tickets:", refreshError);
+          }
           setShowCancelModal(false);
           setTicketToCancel(null);
           return; // Exit the function early
@@ -842,29 +697,30 @@ const cancelTicket = async (ticket) => {
       const errorDetails = {
         status: response.status,
         message: data.message || 'Unknown error',
-        bookingIdUsed: bookingIdToUse,
+        orderIdUsed: orderId,
+        seatToCancel: seatToCancel,
         endpoint: `${API_BASE_URL}payments/booking/cancel`
       };
       
       throw new Error(
-        `Failed to cancel ticket: ${data.message || 'Unknown error'} (Status: ${response.status}). Booking ID used: ${bookingIdToUse}`
+        `Failed to cancel ticket: ${data.message || 'Unknown error'} (Status: ${response.status}). Order ID used: ${orderId}`
       );
     }
 
-    // If cancellation was successful, REMOVE the ticket from the list
-    setTickets((prevTickets) =>
-      prevTickets.filter((t) => 
-        t._id !== ticket._id && 
-        t.orderId !== ticket.orderId && 
-        t.bookingId !== ticket.bookingId
-      )
-    );
-
+    // If cancellation was successful, refresh the tickets list to get updated state
+    // This ensures we have the most accurate data from the server
+    console.log("Ticket cancelled successfully - refreshing tickets...");
+    try {
+      await fetchTickets();
+      console.log("Tickets refreshed successfully after cancellation");
+    } catch (refreshError) {
+      console.error("Failed to refresh tickets after cancellation:", refreshError);
+      // If refresh fails, still close the modal but show error
+      setError("Ticket cancelled but failed to refresh list. Please refresh the page manually.");
+    }
+    
     setShowCancelModal(false);
     setTicketToCancel(null);
-    
-    // Show success message
-    console.log("Ticket cancelled successfully");
     
   } catch (err) {
     console.error("Error cancelling ticket:", err);
@@ -874,28 +730,35 @@ const cancelTicket = async (ticket) => {
   }
 };
 
-// ENHANCED: Better bookingId validation for showing cancel confirmation
+// UPDATED: Better validation for showing cancel confirmation
 const showCancelConfirmation = (ticket) => {
   // Check if ticket is already cancelled
   if (ticket.isCancelled) {
     return;
   }
 
-  // Enhanced check for bookingId with multiple fallbacks
-  const possibleBookingIds = [
-    ticket.bookingId,
-    ticket.rawOrderData?.bookingId,
-    ticket.rawOrderData?._id,
+  // UPDATED: Check for orderId with multiple fallbacks
+  const possibleOrderIds = [
     ticket.originalOrderId,
     ticket.orderId,
+    ticket.rawOrderData?._id,
+    ticket.rawOrderData?.orderId,
     ticket._id.includes('_seat_') ? ticket._id.split('_seat_')[0] : ticket._id
   ];
 
-  const hasValidBookingId = possibleBookingIds.some(id => id && typeof id === 'string' && id.trim() !== '');
+  const hasValidOrderId = possibleOrderIds.some(id => id && typeof id === 'string' && id.trim() !== '');
 
-  if (!hasValidBookingId) {
+  if (!hasValidOrderId) {
     setError(
-      `Cannot cancel this ticket - no valid booking ID found. Please contact support with Order ID: ${ticket.originalOrderId || ticket.orderId || 'Unknown'}`
+      `Cannot cancel this ticket - no valid order ID found. Please contact support with Order ID: ${ticket.originalOrderId || ticket.orderId || 'Unknown'}`
+    );
+    return;
+  }
+
+  // Check if we have valid seat information
+  if (!ticket.seat || (!ticket.seat.section && !ticket.seat.name)) {
+    setError(
+      `Cannot cancel this ticket - seat information is missing. Please contact support with Order ID: ${ticket.originalOrderId || ticket.orderId || 'Unknown'}`
     );
     return;
   }
@@ -1027,33 +890,17 @@ const convertOrdersToIndividualTickets = (orders) => {
   });
 
   // Debug: Log the booking IDs for verification
-  console.log("Generated tickets with booking IDs:", 
+  console.log("Generated tickets with order IDs:", 
     individualTickets.map(t => ({ 
       ticketId: t._id, 
-      bookingId: t.bookingId, 
-      orderId: t.orderId 
+      orderId: t.orderId,
+      originalOrderId: t.originalOrderId,
+      seatIndex: t.seatIndex 
     }))
   );
 
   return individualTickets;
 };
-
-  // Function to show cancel confirmation modal
-  // const showCancelConfirmation = (ticket) => {
-  //   // Check if ticket is already cancelled
-  //   if (ticket.isCancelled) {
-  //     return;
-  //   }
-
-  //   // Check if bookingId exists
-  //   if (!ticket.bookingId) {
-  //     setError("Cannot cancel this ticket - booking ID is missing.");
-  //     return;
-  //   }
-
-  //   setTicketToCancel(ticket);
-  //   setShowCancelModal(true);
-  // };
 
   // Force refresh function to update cancelled status
   const forceRefreshTickets = async () => {
@@ -1221,7 +1068,11 @@ const convertOrdersToIndividualTickets = (orders) => {
       }
       
       // Event name in header
-      const title = ticket.event?.title || "Untitled Event";
+      const title = ticket.event?.title || 
+                   ticket.rawOrderData?.eventTitle ||
+                   ticket.rawOrderData?.event?.title ||
+                   ticket.rawOrderData?.event?.name ||
+                   "Event";
       let displayTitle = title.length > 40 ? title.substring(0, 37) + "..." : title;
       
       doc.setTextColor(...colors.white);
@@ -1676,7 +1527,11 @@ const convertOrdersToIndividualTickets = (orders) => {
                   } p-4 flex justify-between items-center`}
                 >
                   <div className="font-bold text-white text-lg truncate">
-                    {ticket.event?.title || "Event Title Loading..."}
+                    {ticket.event?.title || 
+                     ticket.rawOrderData?.eventTitle ||
+                     ticket.rawOrderData?.event?.title ||
+                     ticket.rawOrderData?.event?.name ||
+                     "Event Details Loading..."}
                   </div>
                   <div
                     className={`text-sm ${
@@ -1905,7 +1760,11 @@ const convertOrdersToIndividualTickets = (orders) => {
                 <div className="bg-gray-50 p-3 rounded-lg mb-4">
                   <p className="text-sm text-gray-600 mb-1">
                     <strong>Event:</strong>{" "}
-                    {ticketToCancel.event?.title || "Event Title"}
+                    {ticketToCancel.event?.title || 
+                     ticketToCancel.rawOrderData?.eventTitle ||
+                     ticketToCancel.rawOrderData?.event?.title ||
+                     ticketToCancel.rawOrderData?.event?.name ||
+                     "Event Details Loading..."}
                   </p>
                   <p className="text-sm text-gray-600 mb-1">
                     <strong>Date:</strong>{" "}
@@ -1976,6 +1835,14 @@ const convertOrdersToIndividualTickets = (orders) => {
             >
               <h3 className="text-xl font-bold text-white">
                 Individual Ticket Details {selectedTicket.isCancelled && "(Cancelled)"}
+                <br />
+                <span className="text-sm font-normal opacity-90">
+                  {selectedTicket.event?.title || 
+                   selectedTicket.rawOrderData?.eventTitle ||
+                   selectedTicket.rawOrderData?.event?.title ||
+                   selectedTicket.rawOrderData?.event?.name ||
+                   "Event Details Loading..."}
+                </span>
               </h3>
               <button
                 onClick={closeModal}
@@ -2016,7 +1883,11 @@ const convertOrdersToIndividualTickets = (orders) => {
               {/* Event info */}
               <div className="border-b border-gray-200 pb-4 mb-6">
                 <h4 className="text-2xl font-bold text-gray-800 mb-2">
-                  {selectedTicket.event?.title || "Event Title Loading..."}
+                  {selectedTicket.event?.title || 
+                   selectedTicket.rawOrderData?.eventTitle ||
+                   selectedTicket.rawOrderData?.event?.title ||
+                   selectedTicket.rawOrderData?.event?.name ||
+                   "Event Details Loading..."}
                 </h4>
                 <div className="flex flex-wrap gap-4 mb-3">
                   <div className="flex items-center gap-1 text-gray-600">
@@ -2178,7 +2049,11 @@ const convertOrdersToIndividualTickets = (orders) => {
                     }`}
                   >
                     <div className="font-bold text-white truncate">
-                      {selectedTicket.event?.title || "Event Title Loading..."}
+                      {selectedTicket.event?.title || 
+                       selectedTicket.rawOrderData?.eventTitle ||
+                       selectedTicket.rawOrderData?.event?.title ||
+                       selectedTicket.rawOrderData?.event?.name ||
+                       "Event Details Loading..."}
                     </div>
                     <div
                       className={`text-xs rounded px-2 py-1 text-white ${
@@ -2206,7 +2081,10 @@ const convertOrdersToIndividualTickets = (orders) => {
                           <div className="text-xs text-gray-500">Event</div>
                           <div className="font-medium">
                             {selectedTicket.event?.title ||
-                              "Event Title Loading..."}
+                             selectedTicket.rawOrderData?.eventTitle ||
+                             selectedTicket.rawOrderData?.event?.title ||
+                             selectedTicket.rawOrderData?.event?.name ||
+                             "Event Details Loading..."}
                           </div>
                         </div>
 
