@@ -43,7 +43,6 @@ const Reports = () => {
   
   // Enhanced states for search and filtering
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [eventsPerPage] = useState(10);
   const [filteredEvents, setFilteredEvents] = useState([]);
@@ -72,20 +71,37 @@ const Reports = () => {
         `${serverURL.url}admin/users`,
         getAuthHeaders()
       );
-      setAllUsers(response.data.users || response.data);
+      
+      // Handle different response structures and ensure it's always an array
+      let users = [];
+      if (response.data) {
+        if (Array.isArray(response.data)) {
+          users = response.data;
+        } else if (response.data.users && Array.isArray(response.data.users)) {
+          users = response.data.users;
+        } else if (response.data.data && Array.isArray(response.data.data)) {
+          users = response.data.data;
+        } else {
+          console.warn("Unexpected users API response structure:", response.data);
+          users = [];
+        }
+      }
+      
+      setAllUsers(users);
     } catch (err) {
       console.error("Error fetching users:", err);
+      setAllUsers([]); // Ensure allUsers is always an array
     }
   };
 
-  // Helper function to get user name by ID
+  // Helper function to get user name by ID - Fixed to handle non-array allUsers
   const getUserNameById = (userId) => {
-    if (!userId) return "N/A";
-    const user = allUsers.find(u => u._id === userId);
-    return user ? user.name : "N/A";
+    if (!userId || !Array.isArray(allUsers) || allUsers.length === 0) return "N/A";
+    const foundUser = allUsers.find(u => u._id === userId);
+    return foundUser ? foundUser.name : "N/A";
   };
 
-  // Group orders by event
+  // Group orders by event - Updated to handle new API response structure
   const groupOrdersByEvent = (orders) => {
     if (!orders || !Array.isArray(orders)) return [];
     
@@ -110,10 +126,11 @@ const Reports = () => {
         };
       }
       
+      // Updated to use the new API response structure
       eventGroups[eventId].orders.push({
         ...order,
-        sellerName: getUserNameById(order.sellerId?._id || order.sellerId),
-        buyerName: getUserNameById(order.userId?._id || order.userId)
+        sellerName: getUserNameById(order.sellerId),
+        buyerName: getUserNameById(order.buyerId) // Changed from userId to buyerId based on API response
       });
       eventGroups[eventId].totalRevenue += order.totalAmount || 0;
       eventGroups[eventId].totalOrders += 1;
@@ -169,9 +186,9 @@ const Reports = () => {
     }
   };
 
-  // Filter events based on search term and status
+  // Filter events based on search term - Removed status filter
   const filterEvents = () => {
-    if (!salesData?.orders) return [];
+    if (!salesData?.orders || !Array.isArray(allUsers)) return [];
 
     const eventGroups = groupOrdersByEvent(salesData.orders);
     let filtered = eventGroups;
@@ -184,30 +201,20 @@ const Reports = () => {
       );
     }
 
-    // Filter by status (based on majority of orders)
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(event => {
-        if (statusFilter === "success") return event.successfulOrders > 0;
-        if (statusFilter === "pending") return event.pendingOrders > 0;
-        if (statusFilter === "failed") return event.failedOrders > 0;
-        return true;
-      });
-    }
-
     return filtered;
   };
 
-  // Update filtered events when search term or status changes
+  // Update filtered events when search term changes
   useEffect(() => {
     const filtered = filterEvents();
     setFilteredEvents(filtered);
     setCurrentPage(1); // Reset to first page when filtering
-  }, [searchTerm, statusFilter, salesData, allUsers]);
+  }, [searchTerm, salesData, allUsers]);
 
   // Navigate to individual event report
   const navigateToEventReport = (eventId, eventTitle) => {
     // You can pass the event data through state or fetch it in the new component
-    navigate(`/admin/reports/event/${eventId}`, { 
+    navigate(`/dashboard/reports/event/${eventId}`, { 
       state: { 
         eventId, 
         eventTitle,
@@ -216,72 +223,143 @@ const Reports = () => {
     });
   };
 
-  // Download Excel report
+  // Download Excel report - Fixed SheetJS implementation
   const downloadExcelReport = async () => {
     try {
       setDownloadingExcel(true);
       
-      const authHeaders = getAuthHeaders();
-      if (!authHeaders) return;
-
-      // Send filtered data to backend for Excel generation
-      const requestData = {
-        events: filteredEvents,
-        searchTerm,
-        statusFilter,
-        totalRevenue: filteredEvents.reduce((sum, event) => sum + event.totalRevenue, 0),
-        totalEvents: filteredEvents.length,
-        totalOrders: filteredEvents.reduce((sum, event) => sum + event.totalOrders, 0)
-      };
-
-      const response = await axios.post(
-        `${serverURL.url}admin/sales-report/excel`,
-        requestData,
-        {
-          ...authHeaders,
-          responseType: 'blob',
-          headers: {
-            ...authHeaders.headers,
-            'Content-Type': 'application/json',
-          }
-        }
-      );
-
-      // Create blob from response
-      const blob = new Blob([response.data], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      // Create worksheet data
+      const worksheetData = [];
+      
+      // Add headers
+      worksheetData.push([
+        'Event Title',
+        'Total Revenue',
+        'Total Orders',
+        'Total Seats',
+        'Successful Orders',
+        'Pending Orders',
+        'Failed Orders',
+        'Success Rate (%)'
+      ]);
+      
+      // Add event data
+      filteredEvents.forEach(event => {
+        const successRate = event.totalOrders > 0 ? 
+          ((event.successfulOrders / event.totalOrders) * 100).toFixed(1) : 0;
+        
+        worksheetData.push([
+          event.eventTitle,
+          event.totalRevenue,
+          event.totalOrders,
+          event.totalSeats,
+          event.successfulOrders,
+          event.pendingOrders,
+          event.failedOrders,
+          successRate
+        ]);
       });
-      const url = window.URL.createObjectURL(blob);
       
-      // Create download link
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `events-report-${new Date().toISOString().split('T')[0]}.xlsx`;
-      document.body.appendChild(link);
-      link.click();
+      // Add summary row
+      const totalRevenue = filteredEvents.reduce((sum, event) => sum + event.totalRevenue, 0);
+      const totalOrders = filteredEvents.reduce((sum, event) => sum + event.totalOrders, 0);
+      const totalSeats = filteredEvents.reduce((sum, event) => sum + event.totalSeats, 0);
+      const totalSuccessful = filteredEvents.reduce((sum, event) => sum + event.successfulOrders, 0);
+      const totalPending = filteredEvents.reduce((sum, event) => sum + event.pendingOrders, 0);
+      const totalFailed = filteredEvents.reduce((sum, event) => sum + event.failedOrders, 0);
+      const overallSuccessRate = totalOrders > 0 ? ((totalSuccessful / totalOrders) * 100).toFixed(1) : 0;
       
-      // Cleanup
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      worksheetData.push([]);
+      worksheetData.push([
+        'TOTAL',
+        totalRevenue,
+        totalOrders,
+        totalSeats,
+        totalSuccessful,
+        totalPending,
+        totalFailed,
+        overallSuccessRate
+      ]);
       
-      toast.success('Excel report downloaded successfully!');
+      // Try to create Excel file using SheetJS, fallback to CSV
+      try {
+        // Load SheetJS from CDN
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        
+        await new Promise((resolve, reject) => {
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+        
+        if (window.XLSX) {
+          // Create Excel file
+          const workbook = window.XLSX.utils.book_new();
+          const worksheet = window.XLSX.utils.aoa_to_sheet(worksheetData);
+          
+          // Set column widths
+          const colWidths = [
+            { wch: 25 }, { wch: 15 }, { wch: 12 }, { wch: 12 },
+            { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 15 }
+          ];
+          worksheet['!cols'] = colWidths;
+          
+          window.XLSX.utils.book_append_sheet(workbook, worksheet, 'Events Report');
+          window.XLSX.writeFile(workbook, `events-report-${new Date().toISOString().split('T')[0]}.xlsx`);
+          
+          toast.success('Excel report downloaded successfully!');
+        } else {
+          throw new Error('XLSX not loaded');
+        }
+        
+        // Clean up script
+        document.head.removeChild(script);
+        
+      } catch (xlsxError) {
+        console.warn('Excel generation failed, falling back to CSV:', xlsxError);
+        
+        // Fallback to CSV
+        const csvContent = worksheetData.map(row => 
+          row.map(field => {
+            const stringField = String(field || '');
+            return stringField.includes(',') || stringField.includes('"') || stringField.includes('\n') 
+              ? `"${stringField.replace(/"/g, '""')}"` 
+              : stringField;
+          }).join(',')
+        ).join('\n');
+        
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `events-report-${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        toast.success('CSV report downloaded successfully!');
+      }
+      
     } catch (err) {
-      console.error('Error downloading Excel report:', err);
-      const errorMessage = err.response?.data?.message || 'Failed to download Excel report. Please try again.';
-      toast.error(errorMessage);
+      console.error('Error downloading report:', err);
+      toast.error('Failed to download report. Please try again.');
     } finally {
       setDownloadingExcel(false);
     }
   };
 
-  // Fetch all reports
+  // Fetch all reports - Modified to ensure proper order of operations
   const fetchAllReports = async (showToast = false) => {
     try {
       setLoading(true);
       setError(null);
 
+      // Fetch users first, then other reports to ensure allUsers is populated
+      await fetchAllUsers();
+      
       await Promise.all([
-        fetchAllUsers(),
         fetchSalesReport(),
         fetchUsersReport(),
         fetchTransactionsReport(),
@@ -440,21 +518,6 @@ const Reports = () => {
                     />
                     <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
                   </div>
-
-                  {/* Status Filter */}
-                  <div className="relative">
-                    <select
-                      className="appearance-none pl-10 pr-8 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                    >
-                      <option value="all">All Events</option>
-                      <option value="success">With Successful Orders</option>
-                      <option value="pending">With Pending Orders</option>
-                      <option value="failed">With Failed Orders</option>
-                    </select>
-                    <Filter className="absolute left-3 top-2.5 text-gray-400" size={18} />
-                  </div>
                 </div>
               </div>
             </div>
@@ -603,19 +666,16 @@ const Reports = () => {
               <Calendar className="mx-auto text-gray-400 mb-4" size={48} />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No Events Found</h3>
               <p className="text-gray-500">
-                {searchTerm || statusFilter !== "all"
-                  ? "No events match your current search criteria. Try adjusting your filters."
+                {searchTerm
+                  ? "No events match your current search criteria. Try adjusting your search."
                   : "No events with sales data have been recorded yet."}
               </p>
-              {(searchTerm || statusFilter !== "all") && (
+              {searchTerm && (
                 <button
-                  onClick={() => {
-                    setSearchTerm("");
-                    setStatusFilter("all");
-                  }}
+                  onClick={() => setSearchTerm("")}
                   className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200"
                 >
-                  Clear Filters
+                  Clear Search
                 </button>
               )}
             </div>
