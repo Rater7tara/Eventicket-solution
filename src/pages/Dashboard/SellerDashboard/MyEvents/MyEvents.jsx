@@ -197,7 +197,7 @@ const MyEvents = () => {
             location: event.location || '',
             image: event.image || '',
             price: event.price || 0,
-            ticketsAvailable: event.ticketsAvailable || 0
+            // ticketsAvailable: event.ticketsAvailable || 0
         });
         
         // Set current image preview if exists
@@ -471,10 +471,10 @@ const MyEvents = () => {
                                     <span>{event.location || 'Location not specified'}</span>
                                 </div>
                                 
-                                <div className="flex items-center gap-2 text-gray-700">
+                                {/* <div className="flex items-center gap-2 text-gray-700">
                                     <TicketIcon size={16} className="text-orange-500" />
                                     <span>{event.ticketsAvailable} tickets available</span>
-                                </div>
+                                </div> */}
                             </div>
                             
                             <div className="flex justify-between items-center mt-4">

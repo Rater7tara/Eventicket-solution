@@ -40,6 +40,7 @@ import AddBlogs from "../pages/Dashboard/AdminDashborad/AddBlog/AddBlog";
 import BlogPost from "../pages/Blog/BlogPost";
 import RoleBasedDashboard from "../pages/Dashboard/RoleBasedDashboard";
 import EventReport from "../pages/Dashboard/AdminDashborad/Reports/EventReport";
+import CancelTicket from "../pages/Dashboard/AdminDashborad/CancelTicket/CancelTicket";
 
 export const router = createBrowserRouter([
   {
@@ -152,6 +153,10 @@ export const router = createBrowserRouter([
       {
         path: "sold-tickets",
         element: <SoldTickets />,
+      },
+      {
+        path: "cancel-ticket",
+        element: <CancelTicket />,
       },
       {
         path: "admin-profile",

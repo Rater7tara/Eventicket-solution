@@ -130,6 +130,7 @@ const DashboardLayout = () => {
             { to: '/dashboard/my-events', label: 'My Events', icon: <Calendar size={20} /> },
             { to: '/dashboard/coupons', label: 'My Coupons', icon: <Ticket size={20} /> },
             { to: '/dashboard/my-tickets', label: 'My Tickets', icon: <Ticket size={20} /> },
+            { to: '/dashboard/cancel-ticket', label: 'Cancel Tickets', icon: <Ticket size={20} /> },
             { to: '/dashboard/sold-tickets', label: 'Sold Tickets', icon: <Ticket size={20} /> },
             { to: '/dashboard/manage-users', label: 'Manage Users', icon: <UserCircle size={20} /> },
             { to: '/dashboard/manage-sellers', label: 'Manage Seller', icon: <UserCircle size={20} /> },

@@ -186,105 +186,142 @@ const handleDenySeller = async (sellerId) => {
   };
 
   // Seller Details Modal
-  const SellerDetailsModal = () => {
-    if (!selectedSeller) return null;
-    
-    return (
-      <div className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity duration-300 ease-in-out">
-        <div className="bg-white rounded-lg p-6 w-full max-w-2xl shadow-2xl transform transition-all duration-300 ease-out animate-fade-in-up">
-          <h3 className="text-xl font-semibold mb-4 text-gray-800 flex items-center">
-            <span>Seller Request Details</span>
-            <span className="ml-auto text-sm bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full">
-              Pending Approval
-            </span>
-          </h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            {/* User Information */}
-            <div className="bg-gray-50 p-4 rounded-md">
-              <h4 className="font-medium text-gray-800 mb-3">User Information</h4>
-              <div className="space-y-2">
-                <div className="flex">
-                  <span className="text-gray-600 w-24">Name:</span>
-                  <span className="font-medium text-gray-800">{selectedSeller.name}</span>
-                </div>
-                <div className="flex">
-                  <span className="text-gray-600 w-24">Email:</span>
-                  <span className="font-medium text-gray-800">{selectedSeller.email}</span>
-                </div>
-                <div className="flex">
-                  <span className="text-gray-600 w-24">User ID:</span>
-                  <span className="font-medium text-gray-800">{selectedSeller._id}</span>
-                </div>
-                <div className="flex">
-                  <span className="text-gray-600 w-24">Joined:</span>
-                  <span className="font-medium text-gray-800">
-                    {new Date(selectedSeller.createdAt).toLocaleDateString()}
-                  </span>
-                </div>
+const SellerDetailsModal = () => {
+  if (!selectedSeller) return null;
+  
+  return (
+    <div className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity duration-300 ease-in-out">
+      <div className="bg-white rounded-lg p-6 w-full max-w-2xl shadow-2xl transform transition-all duration-300 ease-out animate-fade-in-up">
+        <h3 className="text-xl font-semibold mb-4 text-gray-800 flex items-center">
+          <span>Seller Request Details</span>
+          <span className="ml-auto text-sm bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full">
+            {selectedSeller.status?.charAt(0).toUpperCase() + selectedSeller.status?.slice(1) || 'Pending'}
+          </span>
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          {/* User Information */}
+          <div className="bg-gray-50 p-4 rounded-md">
+            <h4 className="font-medium text-gray-800 mb-3">User Information</h4>
+            <div className="space-y-2">
+              <div className="flex">
+                <span className="text-gray-600 w-24">Name:</span>
+                <span className="font-medium text-gray-800">{selectedSeller.name || 'Not provided'}</span>
               </div>
-            </div>
-            
-            {/* Shop Information */}
-            <div className="bg-gray-50 p-4 rounded-md">
-              <h4 className="font-medium text-gray-800 mb-3">Shop Information</h4>
-              <div className="space-y-2">
-                <div className="flex">
-                  <span className="text-gray-600 w-24">Shop Name:</span>
-                  <span className="font-medium text-gray-800">{selectedSeller.shopName}</span>
-                </div>
-                <div className="flex">
-                  <span className="text-gray-600 w-24">Location:</span>
-                  <span className="font-medium text-gray-800">{selectedSeller.location || 'Not provided'}</span>
-                </div>
-                <div className="flex">
-                  <span className="text-gray-600 w-24">Phone:</span>
-                  <span className="font-medium text-gray-800">{selectedSeller.phone || 'Not provided'}</span>
-                </div>
-                <div className="flex">
-                  <span className="text-gray-600 w-24">Category:</span>
-                  <span className="font-medium text-gray-800">{selectedSeller.category || 'Not specified'}</span>
-                </div>
+              <div className="flex">
+                <span className="text-gray-600 w-24">Email:</span>
+                <span className="font-medium text-gray-800">{selectedSeller.email || 'Not provided'}</span>
+              </div>
+              <div className="flex">
+                <span className="text-gray-600 w-24">User ID:</span>
+                <span className="font-medium text-gray-800 text-xs">{selectedSeller._id}</span>
+              </div>
+              <div className="flex">
+                <span className="text-gray-600 w-24">Applied:</span>
+                <span className="font-medium text-gray-800">
+                  {selectedSeller.createdAt ? new Date(selectedSeller.createdAt).toLocaleDateString() : 'Not available'}
+                </span>
               </div>
             </div>
           </div>
           
-          {/* Additional Information */}
-          <div className="bg-gray-50 p-4 rounded-md mb-6">
-            <h4 className="font-medium text-gray-800 mb-3">Additional Information</h4>
-            <p className="text-gray-700">
-              {selectedSeller.description || selectedSeller.bio || 'No additional information provided.'}
-            </p>
-          </div>
-          
-          {/* Actions */}
-          <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3">
-            <button
-              className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 text-gray-800 transition-colors duration-200 font-medium"
-              onClick={() => {
-                setIsViewModalOpen(false);
-                setSelectedSeller(null);
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200 shadow-md font-medium"
-              onClick={() => handleDenySeller(selectedSeller._id)}
-            >
-              Deny Request
-            </button>
-            <button
-              className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors duration-200 shadow-md font-medium"
-              onClick={() => handleApproveSeller(selectedSeller._id)}
-            >
-              Approve Request
-            </button>
+          {/* Shop Information */}
+          <div className="bg-gray-50 p-4 rounded-md">
+            <h4 className="font-medium text-gray-800 mb-3">Shop Information</h4>
+            <div className="space-y-2">
+              <div className="flex">
+                <span className="text-gray-600 w-24">Shop Name:</span>
+                <span className="font-medium text-gray-800">{selectedSeller.shopName || 'Not provided'}</span>
+              </div>
+              <div className="flex">
+                <span className="text-gray-600 w-24">Address:</span>
+                <span className="font-medium text-gray-800">{selectedSeller.address || 'Not provided'}</span>
+              </div>
+              <div className="flex">
+                <span className="text-gray-600 w-24">Phone:</span>
+                <span className="font-medium text-gray-800">{selectedSeller.contactNumber || 'Not provided'}</span>
+              </div>
+              <div className="flex">
+                <span className="text-gray-600 w-24">Website:</span>
+                <span className="font-medium text-gray-800">
+                  {selectedSeller.website ? (
+                    <a 
+                      href={selectedSeller.website} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 underline"
+                    >
+                      {selectedSeller.website}
+                    </a>
+                  ) : (
+                    'Not provided'
+                  )}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
+        
+        {/* Bio/Description */}
+        <div className="bg-gray-50 p-4 rounded-md mb-6">
+          <h4 className="font-medium text-gray-800 mb-3">Bio/Description</h4>
+          <p className="text-gray-700">
+            {selectedSeller.bio || 'No bio or description provided.'}
+          </p>
+        </div>
+        
+        {/* Request Status & Timestamps */}
+        <div className="bg-gray-50 p-4 rounded-md mb-6">
+          <h4 className="font-medium text-gray-800 mb-3">Request Information</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex">
+              <span className="text-gray-600 w-24">Status:</span>
+              <span className={`font-medium px-2 py-1 rounded text-xs ${
+                selectedSeller.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                selectedSeller.status === 'approved' ? 'bg-green-100 text-green-800' :
+                selectedSeller.status === 'denied' ? 'bg-red-100 text-red-800' :
+                'bg-gray-100 text-gray-800'
+              }`}>
+                {selectedSeller.status?.charAt(0).toUpperCase() + selectedSeller.status?.slice(1) || 'Unknown'}
+              </span>
+            </div>
+            <div className="flex">
+              <span className="text-gray-600 w-24">Last Updated:</span>
+              <span className="font-medium text-gray-800">
+                {selectedSeller.updatedAt ? new Date(selectedSeller.updatedAt).toLocaleDateString() : 'Not available'}
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        {/* Actions */}
+        <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3">
+          <button
+            className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 text-gray-800 transition-colors duration-200 font-medium"
+            onClick={() => {
+              setIsViewModalOpen(false);
+              setSelectedSeller(null);
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200 shadow-md font-medium"
+            onClick={() => handleDenySeller(selectedSeller._id)}
+          >
+            Deny Request
+          </button>
+          <button
+            className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors duration-200 shadow-md font-medium"
+            onClick={() => handleApproveSeller(selectedSeller._id)}
+          >
+            Approve Request
+          </button>
+        </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
   // Delete Confirmation Modal
   const DeleteConfirmationModal = () => {
@@ -401,94 +438,88 @@ const handleDenySeller = async (sellerId) => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {currentRequests.map((seller) => (
-                    <tr key={seller._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full overflow-hidden">
-                            {seller.avatar ? (
-                              <img src={seller.avatar} alt={seller.name} />
-                            ) : (
-                              <div className="h-full w-full flex items-center justify-center bg-blue-100 text-blue-500">
-                                {seller.name?.charAt(0).toUpperCase() || 'U'}
-                              </div>
-                            )}
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{seller.name}</div>
-                            <div className="text-sm text-gray-500">{seller.email}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{seller.shopName}</div>
-                        <div className="text-sm text-gray-500">{seller.category || 'General'}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                          Pending
-                        </span>
-                        {seller.isMonitored && (
-                          <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            Monitored
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(seller.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
-                        <div className="flex justify-center space-x-2">
-                          <button
-                            className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-md cursor-pointer"
-                            onClick={() => {
-                              setSelectedSeller(seller);
-                              setIsViewModalOpen(true);
-                            }}
-                            title="View Details"
-                          >
-                            <Eye size={18} />
-                          </button>
-                          {/* <button
-                            className={`p-1.5 rounded-md ${
-                              seller.isMonitored 
-                                ? 'text-purple-600 hover:bg-purple-100' 
-                                : 'text-gray-600 hover:bg-gray-100'
-                            }`}
-                            onClick={() => handleMonitorSeller(seller._id)}
-                            title={seller.isMonitored ? 'Stop Monitoring' : 'Monitor Seller'}
-                          >
-                            {seller.isMonitored ? <Eye size={18} /> : <Eye size={18} />}
-                          </button> */}
-                          <button
-                            className="p-1.5 text-green-600 hover:bg-green-100 rounded-md cursor-pointer"
-                            onClick={() => handleApproveSeller(seller._id)}
-                            title="Approve Request"
-                          >
-                            <CheckCircle size={18} />
-                          </button>
-                          <button
-                            className="p-1.5 text-red-600 hover:bg-red-100 rounded-md cursor-pointer"
-                            onClick={() => handleDenySeller(seller._id)}
-                            title="Deny Request"
-                          >
-                            <XCircle size={18} />
-                          </button>
-                          <button
-                            className="p-1.5 text-red-600 hover:bg-red-100 rounded-md cursor-pointer"
-                            onClick={() => {
-                              setSelectedSeller(seller);
-                              setIsDeleteModalOpen(true);
-                            }}
-                            title="Delete Request"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
+  {currentRequests.map((seller) => (
+    <tr key={seller._id} className="hover:bg-gray-50">
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="flex items-center">
+          <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full overflow-hidden">
+            {seller.avatar ? (
+              <img src={seller.avatar} alt={seller.name} className="h-full w-full object-cover" />
+            ) : (
+              <div className="h-full w-full flex items-center justify-center bg-blue-100 text-blue-500">
+                {seller.name?.charAt(0).toUpperCase() || 'U'}
+              </div>
+            )}
+          </div>
+          <div className="ml-4">
+            <div className="text-sm font-medium text-gray-900">{seller.name || 'Unknown'}</div>
+            <div className="text-sm text-gray-500">{seller.email || 'No email'}</div>
+          </div>
+        </div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="text-sm font-medium text-gray-900">{seller.shopName || 'No shop name'}</div>
+        <div className="text-sm text-gray-500">{seller.address || 'No address provided'}</div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+          seller.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+          seller.status === 'approved' ? 'bg-green-100 text-green-800' :
+          seller.status === 'denied' ? 'bg-red-100 text-red-800' :
+          'bg-gray-100 text-gray-800'
+        }`}>
+          {seller.status?.charAt(0).toUpperCase() + seller.status?.slice(1) || 'Unknown'}
+        </span>
+        {seller.isMonitored && (
+          <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+            Monitored
+          </span>
+        )}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {seller.createdAt ? new Date(seller.createdAt).toLocaleDateString() : 'Unknown'}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
+        <div className="flex justify-center space-x-2">
+          <button
+            className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-md cursor-pointer"
+            onClick={() => {
+              setSelectedSeller(seller);
+              setIsViewModalOpen(true);
+            }}
+            title="View Details"
+          >
+            <Eye size={18} />
+          </button>
+          <button
+            className="p-1.5 text-green-600 hover:bg-green-100 rounded-md cursor-pointer"
+            onClick={() => handleApproveSeller(seller._id)}
+            title="Approve Request"
+          >
+            <CheckCircle size={18} />
+          </button>
+          <button
+            className="p-1.5 text-red-600 hover:bg-red-100 rounded-md cursor-pointer"
+            onClick={() => handleDenySeller(seller._id)}
+            title="Deny Request"
+          >
+            <XCircle size={18} />
+          </button>
+          <button
+            className="p-1.5 text-red-600 hover:bg-red-100 rounded-md cursor-pointer"
+            onClick={() => {
+              setSelectedSeller(seller);
+              setIsDeleteModalOpen(true);
+            }}
+            title="Delete Request"
+          >
+            <Trash2 size={18} />
+          </button>
+        </div>
+      </td>
+    </tr>
+  ))}
+</tbody>
               </table>
             )}
           </div>

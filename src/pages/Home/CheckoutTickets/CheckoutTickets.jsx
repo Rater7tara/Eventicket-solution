@@ -8,6 +8,8 @@ import CheckoutForm from "./CheckoutForm";
 import { AuthContext } from "../../../providers/AuthProvider";
 import axios from "axios";
 import CountdownTimer from "../../Dashboard/UserDashboard/CountdownTimer/CountdownTimer";
+import visa from "../../../assets/payment/visa.png";
+import master from "../../../assets/payment/master.png";
 
 const stripePromise = loadStripe(
   "pk_test_51RMBsVPPhrKgTwpcPcorStmAPBALn5dtB3xrqJ5bn3xfHKRYM1BPXBLyO8HkVtkk7Hhq1HZs9UaJpjR4lqxgnCvu00MVzStYrv"
@@ -32,16 +34,33 @@ const CheckoutTickets = () => {
   const [discount, setDiscount] = useState(0);
   const [finalTotal, setFinalTotal] = useState(0);
 
+  // Optional note states (only for admin/seller)
+  const [optionalNote, setOptionalNote] = useState("");
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [noteLoading, setNoteLoading] = useState(false);
+  const [noteError, setNoteError] = useState("");
+  const [noteSuccess, setNoteSuccess] = useState("");
+
   const [timerActive, setTimerActive] = useState(true);
   const [showTimeoutModal, setShowTimeoutModal] = useState(false);
-  
 
   const { event, selectedSeats, totalPrice, userData } = location.state || {};
+
+  // Check if user is admin or seller
+  const isAdminOrSeller = () => {
+    const user = authContext.user;
+    const tempUserData = JSON.parse(
+      sessionStorage.getItem("tempUserData") || "{}"
+    );
+    const currentUser = user || tempUserData;
+
+    return currentUser?.role === "admin" || currentUser?.role === "seller";
+  };
 
   // FIXED: Calculate final total properly - This is the key fix
   useEffect(() => {
     let calculatedTotal = totalPrice || 0;
-    
+
     if (appliedCoupon) {
       // Use finalPrice from backend if available (this should be 0 for 100% coupons)
       if (appliedCoupon.finalPrice !== undefined) {
@@ -52,12 +71,17 @@ const CheckoutTickets = () => {
         calculatedTotal = Math.max(0, calculatedTotal - discountAmount);
       }
     }
-    
+
     // Ensure the total is never negative
     calculatedTotal = Math.max(0, calculatedTotal);
-    
+
     setFinalTotal(calculatedTotal);
-    console.log("Final total calculated:", calculatedTotal, "Applied coupon:", appliedCoupon);
+    console.log(
+      "Final total calculated:",
+      calculatedTotal,
+      "Applied coupon:",
+      appliedCoupon
+    );
   }, [totalPrice, appliedCoupon, discount]);
 
   // Handle timer expiration
@@ -69,6 +93,11 @@ const CheckoutTickets = () => {
     setCouponCode("");
     setCouponError("");
     setCouponSuccess("");
+    // Clear note fields on timeout
+    setOptionalNote("");
+    setRecipientEmail("");
+    setNoteError("");
+    setNoteSuccess("");
   };
 
   // Handle timeout modal actions
@@ -91,6 +120,123 @@ const CheckoutTickets = () => {
         "Content-Type": "application/json",
       },
     };
+  };
+
+  // Send optional note after successful payment
+  const sendOptionalNote = async (bookingId) => {
+    console.log("🔍 sendOptionalNote called with:", {
+      bookingId,
+      optionalNote: optionalNote.trim(),
+      recipientEmail: recipientEmail.trim(),
+      isAdminOrSeller: isAdminOrSeller(),
+    });
+
+    if (!optionalNote.trim() || !recipientEmail.trim() || !bookingId) {
+      console.log("❌ Skipping note send - missing required fields:", {
+        hasNote: !!optionalNote.trim(),
+        hasEmail: !!recipientEmail.trim(),
+        hasBookingId: !!bookingId,
+      });
+      return; // Skip if no note, email, or booking ID
+    }
+
+    setNoteLoading(true);
+    setNoteError("");
+
+    try {
+      const token = localStorage.getItem("auth-token");
+
+      console.log("🔐 Auth token check:", {
+        tokenExists: !!token,
+        tokenLength: token?.length,
+        tokenStart: token?.substring(0, 20),
+      });
+
+      if (!token) {
+        throw new Error("Authentication required to send note");
+      }
+
+      // Prepare request data
+      const noteData = {
+        bookingId: bookingId,
+        recipientEmail: recipientEmail.trim(),
+        note: optionalNote.trim(),
+      };
+
+      console.log("📤 Sending optional note request:", {
+        url: `${serverURL.url}bookings/optional-info`,
+        data: noteData,
+        headers: {
+          Authorization: `Bearer ${token.substring(0, 20)}...`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      const response = await axios.post(
+        `${serverURL.url}bookings/optional-info`,
+        noteData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          timeout: 15000, // Increase timeout
+        }
+      );
+
+      console.log("✅ Note API response:", {
+        status: response.status,
+        data: response.data,
+        headers: response.headers,
+      });
+
+      if (response.data.success) {
+        setNoteSuccess("Note sent successfully!");
+        console.log(
+          "🎉 Optional note sent successfully to:",
+          recipientEmail.trim()
+        );
+
+        // Clear the note fields after successful send
+        setOptionalNote("");
+        setRecipientEmail("");
+      } else {
+        const errorMsg = response.data.message || "Failed to send note";
+        setNoteError(errorMsg);
+        console.error("❌ Note send failed:", errorMsg);
+      }
+    } catch (error) {
+      console.error("❌ Note sending error details:", {
+        message: error.message,
+        responseStatus: error.response?.status,
+        responseData: error.response?.data,
+        responseHeaders: error.response?.headers,
+        requestUrl: error.config?.url,
+        requestData: error.config?.data,
+        fullError: error,
+      });
+
+      let errorMessage = "Failed to send note. Please try again.";
+
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.status === 400) {
+        errorMessage =
+          "Invalid request. Please check the booking ID and try again.";
+      } else if (error.response?.status === 401) {
+        errorMessage = "Authentication failed. Please log in again.";
+      } else if (error.response?.status === 404) {
+        errorMessage = "Booking not found. Please contact support.";
+      } else if (error.code === "ECONNABORTED") {
+        errorMessage = "Request timeout. Please try again.";
+      } else if (!error.response) {
+        errorMessage = "Network error. Please check your connection.";
+      }
+
+      setNoteError(errorMessage);
+    } finally {
+      setNoteLoading(false);
+    }
   };
 
   // Fixed applyCoupon function
@@ -117,7 +263,7 @@ const CheckoutTickets = () => {
         eventObject: event,
         totalPrice,
         couponCode: couponCode.trim(),
-        timerActive
+        timerActive,
       });
 
       if (!eventId) {
@@ -130,11 +276,11 @@ const CheckoutTickets = () => {
       }
 
       // Get auth token
-      const token = localStorage.getItem('auth-token');
+      const token = localStorage.getItem("auth-token");
       console.log("🔐 Auth check:", {
         tokenExists: !!token,
         tokenLength: token?.length,
-        tokenStart: token?.substring(0, 20)
+        tokenStart: token?.substring(0, 20),
       });
 
       if (!token) {
@@ -145,26 +291,29 @@ const CheckoutTickets = () => {
       const requestData = {
         eventId: eventId,
         code: couponCode.toUpperCase().trim(),
-        totalAmount: parseFloat(totalPrice)
+        totalAmount: parseFloat(totalPrice),
       };
-      
-      console.log("🎟️ Coupon request data:", JSON.stringify(requestData, null, 2));
+
+      console.log(
+        "🎟️ Coupon request data:",
+        JSON.stringify(requestData, null, 2)
+      );
       console.log("📍 API Endpoint:", `${serverURL.url}coupons/apply-coupon`);
 
       // Make the API request with detailed headers
       const config = {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-        timeout: 15000
+        timeout: 15000,
       };
 
       console.log("📤 Request config:", {
         url: `${serverURL.url}coupons/apply-coupon`,
-        method: 'POST',
+        method: "POST",
         headers: config.headers,
-        data: requestData
+        data: requestData,
       });
 
       const response = await axios.post(
@@ -179,23 +328,25 @@ const CheckoutTickets = () => {
         const discountAmount = parseFloat(response.data.discountAmount) || 0;
         const finalPrice = parseFloat(response.data.finalPrice) || 0; // Changed: ensure it defaults to 0, not totalPrice
         const couponId = response.data.couponId;
-        
+
         // Validate the response data
         if (finalPrice < 0) {
           throw new Error("Invalid discount amount. Coupon cannot be applied.");
         }
-        
+
         const appliedCouponData = {
           id: couponId,
           code: couponCode.toUpperCase().trim(),
           discountAmount: discountAmount,
           finalPrice: finalPrice, // This should be 0 for 100% coupons
-          originalPrice: totalPrice
+          originalPrice: totalPrice,
         };
-        
+
         setAppliedCoupon(appliedCouponData);
         setDiscount(discountAmount);
-        setCouponSuccess(`Coupon applied! You saved $${discountAmount.toFixed(2)}`);
+        setCouponSuccess(
+          `Coupon applied! You saved $${discountAmount.toFixed(2)}`
+        );
         setCouponCode("");
       } else {
         setCouponError(response.data.message || "Failed to apply coupon");
@@ -211,36 +362,40 @@ const CheckoutTickets = () => {
         requestMethod: error.config?.method,
         requestData: error.config?.data,
         requestHeaders: error.config?.headers,
-        fullError: error
+        fullError: error,
       });
-      
+
       // Log the exact response body if available
       if (error.response?.data) {
         console.error("🚨 Backend Error Response:", error.response.data);
       }
-      
+
       // Handle specific error cases - prioritize backend message
       let errorMessage = "Failed to apply coupon. Please try again.";
-      
+
       if (error.response?.data?.message) {
         // Use the exact message from your backend
         errorMessage = error.response.data.message;
       } else if (error.response?.data?.error) {
         errorMessage = error.response.data.error;
       } else if (error.response?.status === 400) {
-        errorMessage = "Invalid coupon code or request. Please check your input.";
+        errorMessage =
+          "Invalid coupon code or request. Please check your input.";
       } else if (error.response?.status === 401) {
         errorMessage = "Authentication failed. Please log in again.";
       } else if (error.response?.status === 404) {
         errorMessage = "Coupon code not found or has expired.";
       } else if (error.response?.status === 409) {
-        errorMessage = "Coupon has already been used or is not applicable to this event.";
-      } else if (error.code === 'ECONNABORTED') {
-        errorMessage = "Request timeout. Please check your connection and try again.";
+        errorMessage =
+          "Coupon has already been used or is not applicable to this event.";
+      } else if (error.code === "ECONNABORTED") {
+        errorMessage =
+          "Request timeout. Please check your connection and try again.";
       } else if (!error.response) {
-        errorMessage = "Network error. Please check your connection and try again.";
+        errorMessage =
+          "Network error. Please check your connection and try again.";
       }
-      
+
       setCouponError(errorMessage);
     } finally {
       setCouponLoading(false);
@@ -263,28 +418,45 @@ const CheckoutTickets = () => {
     setCouponSuccess("");
   };
 
-  // Handle Enter key press in coupon input
+  // Handle coupon input keypress
   const handleCouponKeyPress = (e) => {
     if (e.key === "Enter") {
       applyCoupon();
     }
   };
 
+  // Handle note input changes
+  const handleNoteChange = (e) => {
+    setOptionalNote(e.target.value);
+    setNoteError("");
+    setNoteSuccess("");
+  };
+
+  const handleEmailChange = (e) => {
+    setRecipientEmail(e.target.value);
+    setNoteError("");
+    setNoteSuccess("");
+  };
+
   // Handle free checkout (when final total is $0)
   const handleFreeCheckout = async () => {
     console.log("Processing free checkout...");
-    
+
     // Generate order ID
-    const freeOrderId = `free_order_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
-    
+    const freeOrderId = `free_order_${Date.now()}_${Math.random()
+      .toString(36)
+      .substring(2, 15)}`;
+
+    console.log("Generated free order ID:", freeOrderId);
+
     // Mark payment as complete
     setPaymentComplete(true);
-    setOrderData({ 
+    setOrderData({
       orderId: freeOrderId,
       paymentIntentId: "free_checkout",
       appliedCoupon,
       discount,
-      finalAmount: 0
+      finalAmount: 0,
     });
 
     // Stop the timer
@@ -292,9 +464,33 @@ const CheckoutTickets = () => {
 
     // Store booking data
     const tempBookingId = sessionStorage.getItem("tempBookingId");
+    console.log("Free checkout - temp booking ID:", tempBookingId);
+
     if (tempBookingId) {
       setFinalBookingId(tempBookingId);
+
+      // Send optional note if provided (for admin/seller only)
+      if (isAdminOrSeller()) {
+        console.log("Free checkout - User is admin/seller, sending note...");
+
+        // Add a small delay to ensure all state updates are complete
+        setTimeout(async () => {
+          try {
+            await sendOptionalNote(tempBookingId);
+          } catch (error) {
+            console.error(
+              "Free checkout - Failed to send optional note:",
+              error
+            );
+          }
+        }, 1000);
+      } else {
+        console.log("Free checkout - User is not admin/seller, skipping note");
+      }
+
       sessionStorage.removeItem("tempBookingId");
+    } else {
+      console.warn("Free checkout - No temp booking ID found!");
     }
 
     // Store completed order
@@ -302,7 +498,9 @@ const CheckoutTickets = () => {
 
     // Scroll to confirmation
     setTimeout(() => {
-      document.getElementById("confirmation")?.scrollIntoView({ behavior: "smooth" });
+      document
+        .getElementById("confirmation")
+        ?.scrollIntoView({ behavior: "smooth" });
     }, 500);
 
     console.log("Free checkout completed with order ID:", freeOrderId);
@@ -417,18 +615,81 @@ const CheckoutTickets = () => {
 
   const handlePaymentComplete = async (orderId, paymentData) => {
     console.log("Payment completed, processing order:", orderId);
+    console.log("Payment data received:", paymentData);
+
+    // Handle undefined orderId - extract from paymentData or generate fallback
+    if (!orderId || orderId === "undefined" || orderId === undefined) {
+      console.error("Order ID is undefined! Payment data:", paymentData);
+
+      let fallbackOrderId = null;
+
+      // Try to extract orderId from paymentData first
+      if (paymentData?.orderId) {
+        fallbackOrderId = paymentData.orderId;
+        console.log("Found orderId in paymentData:", fallbackOrderId);
+      }
+
+      // Try localStorage
+      if (!fallbackOrderId) {
+        fallbackOrderId = localStorage.getItem("completedOrderId");
+        console.log("Found orderId in localStorage:", fallbackOrderId);
+      }
+
+      // Generate from payment intent if available
+      if (!fallbackOrderId && paymentData?.paymentIntentId) {
+        fallbackOrderId = `order_${paymentData.paymentIntentId.replace(
+          "pi_",
+          "pmt_"
+        )}`;
+        console.log("Generated orderId from payment intent:", fallbackOrderId);
+      }
+
+      // Last resort - generate a unique orderId
+      if (!fallbackOrderId) {
+        const timestamp = Date.now();
+        const randomStr = Math.random().toString(36).substring(2, 15);
+        fallbackOrderId = `order_${timestamp}_${randomStr}`;
+        console.log("Generated unique fallback orderId:", fallbackOrderId);
+      }
+
+      // Ensure we actually have a valid orderId
+      if (!fallbackOrderId || fallbackOrderId === "undefined") {
+        // Force generate a new one
+        fallbackOrderId = `emergency_order_${Date.now()}_${Math.floor(
+          Math.random() * 10000
+        )}`;
+        console.log("Emergency fallback orderId:", fallbackOrderId);
+      }
+
+      orderId = fallbackOrderId;
+      console.log("Final fallback order ID:", orderId);
+
+      // Store the orderId for future reference
+      localStorage.setItem("completedOrderId", orderId);
+    }
 
     // Prevent duplicate processing by checking if already completed
     const processedOrders = JSON.parse(
       sessionStorage.getItem("processedOrders") || "[]"
     );
-    if (processedOrders.includes(orderId)) {
+
+    // Don't check for duplicates if orderId is still undefined
+    if (
+      orderId &&
+      orderId !== "undefined" &&
+      processedOrders.includes(orderId)
+    ) {
       console.log("Order already processed:", orderId);
       return;
     }
 
     // Check if this payment has already been processed using state
-    if (orderData?.orderId === orderId && paymentComplete) {
+    if (
+      orderData?.orderId === orderId &&
+      paymentComplete &&
+      orderId &&
+      orderId !== "undefined"
+    ) {
       console.log("Payment already processed for this order:", orderId);
       return;
     }
@@ -438,28 +699,58 @@ const CheckoutTickets = () => {
     setPaymentComplete(true);
     setOrderData({ orderId, ...paymentData });
 
-    // Mark order as processed
-    processedOrders.push(orderId);
-    sessionStorage.setItem("processedOrders", JSON.stringify(processedOrders));
+    // Mark order as processed (only if we have a valid orderId)
+    if (orderId && orderId !== "undefined") {
+      processedOrders.push(orderId);
+      sessionStorage.setItem(
+        "processedOrders",
+        JSON.stringify(processedOrders)
+      );
+    }
 
     // NOW store the booking data permanently after successful payment
     const tempBookingId = sessionStorage.getItem("tempBookingId");
     const tempUserData = sessionStorage.getItem("tempUserData");
 
+    console.log("Temp booking ID found:", tempBookingId);
+    console.log("Final orderId being used:", orderId);
+
     if (tempBookingId) {
       setFinalBookingId(tempBookingId);
+
+      // Send optional note if provided (for admin/seller only)
+      if (isAdminOrSeller()) {
+        console.log("User is admin/seller, attempting to send note...");
+        console.log("Note details:", {
+          note: optionalNote.trim(),
+          email: recipientEmail.trim(),
+          bookingId: tempBookingId,
+          orderId: orderId,
+        });
+
+        // Add a small delay to ensure all payment processing is complete
+        setTimeout(async () => {
+          try {
+            await sendOptionalNote(tempBookingId);
+          } catch (error) {
+            console.error("Failed to send optional note:", error);
+          }
+        }, 1000);
+      } else {
+        console.log("User is not admin/seller, skipping note sending");
+      }
+
+      // Remove temp booking ID after processing
       sessionStorage.removeItem("tempBookingId");
+    } else {
+      console.warn("No temp booking ID found!");
     }
 
     if (tempUserData) {
       sessionStorage.removeItem("tempUserData");
     }
 
-    console.log("Order ID processed:", orderId);
-
-    // REMOVED: Duplicate confirm-payment API call
-    // The CheckoutForm component already handles the confirm-payment call
-    // This prevents duplicate API calls and potential conflicts
+    console.log("Order ID processed successfully:", orderId);
 
     // Scroll to the confirmation section
     setTimeout(() => {
@@ -496,11 +787,26 @@ const CheckoutTickets = () => {
 
   // FIXED: Only navigate to tickets AFTER payment is complete
   const handleViewTickets = () => {
-    const savedOrderId =
+    let savedOrderId =
       localStorage.getItem("completedOrderId") || orderData?.orderId;
+
+    // Generate orderId if still missing
+    if (!savedOrderId || savedOrderId === "undefined") {
+      savedOrderId = `ticket_order_${Date.now()}_${Math.floor(
+        Math.random() * 10000
+      )}`;
+      localStorage.setItem("completedOrderId", savedOrderId);
+      console.log("Generated orderId for ticket view:", savedOrderId);
+    }
 
     // Ensure we have the final booking ID from successful payment
     const bookingIdToUse = finalBookingId || localStorage.getItem("bookingId");
+
+    console.log("Navigating to tickets with:", {
+      orderId: savedOrderId,
+      bookingId: bookingIdToUse,
+      finalTotal: finalTotal,
+    });
 
     navigate("/dashboard/my-tickets", {
       state: {
@@ -542,7 +848,7 @@ const CheckoutTickets = () => {
       {/* Timer Component - Only show if payment is not complete */}
       {!paymentComplete && (
         <CountdownTimer
-          initialMinutes={5}
+          initialMinutes={10}
           onExpire={handleTimerExpire}
           isActive={timerActive}
           showWarning={true}
@@ -959,6 +1265,105 @@ const CheckoutTickets = () => {
               </div>
             )}
 
+            {/* Optional Note Section - Only for Admin/Seller and before payment */}
+            {!paymentComplete && isAdminOrSeller() && (
+              <div className="bg-gray-900 rounded-lg p-4 border border-gray-700 mb-6">
+                <h3 className="text-md font-bold text-blue-300 mb-4 flex items-center">
+                  <svg
+                    className="w-5 h-5 mr-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                    />
+                  </svg>
+                  Send Optional Note
+                </h3>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Recipient Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={recipientEmail}
+                      onChange={handleEmailChange}
+                      placeholder="Enter email address to send note"
+                      className="w-full px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      disabled={noteLoading}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Note Message
+                    </label>
+                    <textarea
+                      value={optionalNote}
+                      onChange={handleNoteChange}
+                      placeholder="Enter your note here (e.g., pickup instructions, special messages)"
+                      rows="3"
+                      className="w-full px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                      disabled={noteLoading}
+                    />
+                  </div>
+
+                  {/* Note Messages */}
+                  {noteError && (
+                    <div className="flex items-center text-red-400 text-sm">
+                      <svg
+                        className="w-4 h-4 mr-2"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      {noteError}
+                    </div>
+                  )}
+
+                  {noteSuccess && (
+                    <div className="flex items-center text-green-400 text-sm">
+                      <svg
+                        className="w-4 h-4 mr-2"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                      {noteSuccess}
+                    </div>
+                  )}
+
+                  <div className="text-xs text-gray-400">
+                    <p>
+                      <strong>Note:</strong> The note will be sent automatically
+                      after successful payment. Both email and note fields are
+                      optional - leave empty if you don't want to send a note.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Price Summary - FIXED: Now uses finalTotal for the total display */}
             <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
               <div className="flex justify-between items-center mb-2">
@@ -969,36 +1374,40 @@ const CheckoutTickets = () => {
                 <span>${totalPrice?.toFixed(2) || "0.00"}</span>
               </div>
 
-              {appliedCoupon && (appliedCoupon.discountAmount > 0 || discount > 0) && (
-                <div className="flex justify-between items-center mb-2 text-green-400">
-                  <span className="flex items-center">
-                    <svg
-                      className="w-4 h-4 mr-1"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a1 1 0 001 1h1a1 1 0 001-1V7a2 2 0 00-2-2H5zM5 19a2 2 0 01-2-2v-3a1 1 0 011-1h1a1 1 0 011 1v3a2 2 0 01-2 2H5z"
-                      />
-                    </svg>
-                    Coupon Discount
-                  </span>
-                  <span>-${(appliedCoupon.discountAmount || discount).toFixed(2)}</span>
-                </div>
-              )}
+              {appliedCoupon &&
+                (appliedCoupon.discountAmount > 0 || discount > 0) && (
+                  <div className="flex justify-between items-center mb-2 text-green-400">
+                    <span className="flex items-center">
+                      <svg
+                        className="w-4 h-4 mr-1"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a1 1 0 001 1h1a1 1 0 001-1V7a2 2 0 00-2-2H5zM5 19a2 2 0 01-2-2v-3a1 1 0 011-1h1a1 1 0 011 1v3a2 2 0 01-2 2H5z"
+                        />
+                      </svg>
+                      Coupon Discount
+                    </span>
+                    <span>
+                      -${(appliedCoupon.discountAmount || discount).toFixed(2)}
+                    </span>
+                  </div>
+                )}
 
               <div className="border-t border-gray-700 my-2 pt-2 flex justify-between items-center font-bold text-orange-300">
                 <span>Total</span>
                 <span className="flex flex-col items-end">
-                  {appliedCoupon && (appliedCoupon.discountAmount > 0 || discount > 0) && (
-                    <span className="text-sm text-gray-400 line-through">
-                      ${totalPrice?.toFixed(2) || "0.00"}
-                    </span>
-                  )}
+                  {appliedCoupon &&
+                    (appliedCoupon.discountAmount > 0 || discount > 0) && (
+                      <span className="text-sm text-gray-400 line-through">
+                        ${totalPrice?.toFixed(2) || "0.00"}
+                      </span>
+                    )}
                   <span>${finalTotal.toFixed(2)}</span>
                 </span>
               </div>
@@ -1029,79 +1438,15 @@ const CheckoutTickets = () => {
 
                   <div className="mt-4 text-xs text-center text-gray-400">
                     <p>
-                      Your payment is secure and encrypted. By proceeding, you agree
-                      to our Terms of Service and Privacy Policy.
+                      Your payment is secure and encrypted. By proceeding, you
+                      agree to our Terms of Service and Privacy Policy.
                     </p>
-                    <div className="flex justify-center items-center mt-2 space-x-3">
-                      <svg
-                        className="h-8 w-auto opacity-70"
-                        viewBox="0 0 60 40"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <rect width="60" height="40" rx="4" fill="#E6E6E6" />
-                        <path d="M22 28H38V12H22V28Z" fill="#FF5F00" />
-                        <path
-                          d="M23 20C23 16.7 24.4 13.9 26.5 12C25.2 11 23.7 10.5 22 10.5C17.9 10.5 14.5 14.9 14.5 20C14.5 25.1 17.9 29.5 22 29.5C23.7 29.5 25.2 29 26.5 28C24.4 26.1 23 23.3 23 20Z"
-                          fill="#EB001B"
-                        />
-                        <path
-                          d="M45.5 20C45.5 25.1 42.1 29.5 38 29.5C36.3 29.5 34.8 29 33.5 28C35.6 26.1 37 23.3 37 20C37 16.7 35.6 13.9 33.5 12C34.8 11 36.3 10.5 38 10.5C42.1 10.5 45.5 14.9 45.5 20Z"
-                          fill="#F79E1B"
-                        />
-                      </svg>
-                      <svg
-                        className="h-8 w-auto opacity-70"
-                        viewBox="0 0 60 40"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <rect width="60" height="40" rx="4" fill="#E6E6E6" />
-                        <path
-                          d="M17 28.5H25.5L27 11.5H18.5L17 28.5Z"
-                          fill="#00579F"
-                        />
-                        <path
-                          d="M43 11.7C41.8 11.2 39.9 10.5 37.5 10.5C32.5 10.5 29 13.2 29 17C29 19.9 31.5 21.4 33.4 22.3C35.3 23.2 36 23.8 36 24.5C36 25.7 34.5 26.2 33.1 26.2C31 26.2 29.9 25.9 28.3 25.2L27.7 24.9L27 29.2C28.4 29.8 30.8 30.3 33.3 30.3C38.6 30.3 42 27.6 42 23.5C42 21.2 40.6 19.4 37.7 18C35.9 17.1 34.8 16.5 34.8 15.6C34.8 14.8 35.7 14 37.6 14C39.2 14 40.3 14.3 41.1 14.6L41.5 14.8L42.2 10.9L43 11.7Z"
-                          fill="#00579F"
-                        />
-                        <path
-                          d="M48 11.5H42.5C41.5 11.5 40.7 11.8 40.3 12.9L34 28.5H39.3L40.2 25.9H46.2L46.7 28.5H51.5L48 11.5ZM41.7 21.9C41.7 21.9 43.5 17 43.9 15.9C43.9 15.9 44.2 15.1 44.4 14.6L44.6 15.8C44.6 15.8 45.6 21 45.7 21.9H41.7Z"
-                          fill="#00579F"
-                        />
-                      </svg>
-                      <svg
-                        className="h-8 w-auto opacity-70"
-                        viewBox="0 0 60 40"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <rect width="60" height="40" rx="4" fill="#E6E6E6" />
-                        <path
-                          d="M22.2 20.7C22.2 24.9 25.6 28.2 29.8 28.2C34 28.2 37.4 24.9 37.4 20.7C37.4 16.5 34 13.2 29.8 13.2C25.6 13.2 22.2 16.5 22.2 20.7Z"
-                          fill="#FFB600"
-                        />
-                        <path
-                          d="M22.2 20.7C22.2 24.9 25.6 28.2 29.8 28.2C34 28.2 37.4 24.9 37.4 20.7H22.2Z"
-                          fill="#F7981D"
-                        />
-                        <path
-                          d="M29.8 28.2C34 28.2 37.4 24.9 37.4 20.7H22.2C22.2 24.9 25.6 28.2 29.8 28.2Z"
-                          fill="#FF8500"
-                        />
-                        <path
-                          d="M26.8 10H32.8L30.8 31H24.8L26.8 10Z"
-                          fill="#FF5050"
-                        />
-                        <path
-                          d="M40.3 10C38.8 10 37.5 10.8 37 12.1C37 12.1 37.8 10 39.9 10H47.3L45.8 31H39.8L40.8 17C40.8 15.3 40.6 14.3 39.8 13.5C39.1 12.8 38.1 12.5 36.8 12.5H34.2L32.3 31H26.3L28.3 10H40.3Z"
-                          fill="#FF5050"
-                        />
-                        <path
-                          d="M13.5 23.8L14.8 16.5L15.8 16.3H21.8L21.3 19.5H17.3L16.8 23.5H21.8L21.3 26.5H16.3L15.8 31H9.8L10.8 26.8C10.8 25.1 11.8 24.1 13.5 23.8Z"
-                          fill="#FF5050"
-                        />
-                      </svg>
+                    <div className="flex justify-center items-center mt-2 space-x-4">
+                      {/* Visa Card Logo */}
+
+                      <img className="w-14" src={visa} alt="" />
+                      {/* Mastercard Logo */}
+                      <img className="w-14" src={master} alt="" />
                     </div>
                   </div>
                 </>
@@ -1124,10 +1469,11 @@ const CheckoutTickets = () => {
                     </svg>
                     Free Ticket - No Payment Required!
                   </h2>
-                  
+
                   <div className="bg-green-900 border border-green-600 rounded-lg p-4 mb-4">
                     <p className="text-green-100 text-center mb-4">
-                      Great news! Your coupon covers the full amount. No payment is required to complete your booking.
+                      Great news! Your coupon covers the full amount. No payment
+                      is required to complete your booking.
                     </p>
                   </div>
 
@@ -1137,10 +1483,11 @@ const CheckoutTickets = () => {
                   >
                     Complete Free Booking
                   </button>
-                  
+
                   <div className="mt-4 text-xs text-center text-gray-400">
                     <p>
-                      By proceeding, you agree to our Terms of Service and Privacy Policy.
+                      By proceeding, you agree to our Terms of Service and
+                      Privacy Policy.
                     </p>
                   </div>
                 </div>
@@ -1166,10 +1513,13 @@ const CheckoutTickets = () => {
                   </svg>
                 </div>
                 <h2 className="text-xl font-bold text-green-400 mb-2">
-                  {finalTotal === 0 ? "Free Booking Confirmed!" : "Purchase Successful!"}
+                  {finalTotal === 0
+                    ? "Free Booking Confirmed!"
+                    : "Purchase Successful!"}
                 </h2>
                 <p className="text-gray-300 mb-4">
-                  Thank you for your {finalTotal === 0 ? "booking" : "purchase"}. Your tickets are confirmed.
+                  Thank you for your {finalTotal === 0 ? "booking" : "purchase"}
+                  . Your tickets are confirmed.
                 </p>
                 <div className="bg-gray-900 rounded-lg p-4 max-w-md mx-auto border border-gray-700 mb-4">
                   <div className="flex justify-between mb-2">
@@ -1177,7 +1527,9 @@ const CheckoutTickets = () => {
                     <span className="font-mono">{confirmationNumber}</span>
                   </div>
                   <div className="flex justify-between mb-2">
-                    <span className="text-gray-400">{finalTotal === 0 ? "Booking" : "Purchase"} Date:</span>
+                    <span className="text-gray-400">
+                      {finalTotal === 0 ? "Booking" : "Purchase"} Date:
+                    </span>
                     <span>{new Date().toLocaleDateString()}</span>
                   </div>
                   <div className="flex justify-between mb-2">
@@ -1196,12 +1548,89 @@ const CheckoutTickets = () => {
                     </div>
                   )}
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Amount {finalTotal === 0 ? "Due" : "Paid"}:</span>
-                    <span className={`font-bold ${finalTotal === 0 ? "text-green-300" : "text-orange-300"}`}>
+                    <span className="text-gray-400">
+                      Amount {finalTotal === 0 ? "Due" : "Paid"}:
+                    </span>
+                    <span
+                      className={`font-bold ${
+                        finalTotal === 0 ? "text-green-300" : "text-orange-300"
+                      }`}
+                    >
                       ${finalTotal.toFixed(2)}
                     </span>
                   </div>
                 </div>
+
+                {/* Show note status for admin/seller */}
+                {isAdminOrSeller() &&
+                  (optionalNote.trim() || recipientEmail.trim()) && (
+                    <div className="bg-blue-900 border border-blue-600 rounded-lg p-3 max-w-md mx-auto mb-4">
+                      <div className="text-blue-100 text-sm">
+                        {noteLoading && (
+                          <div className="flex items-center justify-center">
+                            <svg
+                              className="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-300"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                className="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                              ></circle>
+                              <path
+                                className="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                              ></path>
+                            </svg>
+                            Sending note...
+                          </div>
+                        )}
+                        {noteSuccess && (
+                          <div className="flex items-center text-green-300">
+                            <svg
+                              className="w-4 h-4 mr-2"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                            {noteSuccess}
+                          </div>
+                        )}
+                        {noteError && (
+                          <div className="flex items-center text-red-300">
+                            <svg
+                              className="w-4 h-4 mr-2"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
+                            </svg>
+                            {noteError}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                 <p className="text-sm text-gray-400 mb-6">
                   A confirmation email has been sent to your registered email
                   address.

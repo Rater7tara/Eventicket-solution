@@ -237,7 +237,7 @@ const EditEventModal = ({
               />
             </div>
 
-            <div>
+            <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Price
               </label>
@@ -249,20 +249,6 @@ const EditEventModal = ({
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 min="0"
                 step="0.01"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Available Tickets
-              </label>
-              <input
-                type="number"
-                name="ticketsAvailable"
-                value={editFormData.ticketsAvailable}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                min="0"
               />
             </div>
           </div>
@@ -320,8 +306,7 @@ const ManageEvents = () => {
     date: "",
     time: "",
     location: "",
-    price: "",
-    ticketsAvailable: ""
+    price: ""
   });
 
   // Get auth token from localStorage
@@ -378,8 +363,7 @@ const ManageEvents = () => {
       date: event.date ? new Date(event.date).toISOString().split('T')[0] : "",
       time: event.time || "",
       location: event.location || "",
-      price: event.price || "",
-      ticketsAvailable: event.ticketsAvailable || ""
+      price: event.price || ""
     });
     setIsEditModalOpen(true);
   };
@@ -669,18 +653,6 @@ const handleEditSubmit = async (e, formData = null) => {
                   </p>
                 </div>
               </div>
-
-              <div className="flex items-start space-x-3">
-                <Users className="text-gray-500 mt-1 shrink-0" size={18} />
-                <div>
-                  <p className="text-sm font-medium text-gray-500">
-                    Available Tickets
-                  </p>
-                  <p className="text-gray-900">
-                    {selectedEvent.ticketsAvailable || 0}
-                  </p>
-                </div>
-              </div>
             </div>
 
             <div className="mb-6">
@@ -909,17 +881,10 @@ const handleEditSubmit = async (e, formData = null) => {
                         </div>
                       </div>
 
-                      <div className="flex items-center text-gray-500 text-sm mb-3">
+                      <div className="flex items-center text-gray-500 text-sm mb-4">
                         <MapPin className="mr-1" size={14} />
                         <span className="truncate">
                           {event.location || "Not specified"}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center text-gray-500 text-sm mb-4">
-                        <Users className="mr-1" size={14} />
-                        <span>
-                          {event.ticketsAvailable || 0} tickets available
                         </span>
                       </div>
 
@@ -988,12 +953,10 @@ const handleEditSubmit = async (e, formData = null) => {
                           {event.isPublished ? (
                             <>
                               <Lock size={16} />
-                              {/* <span>Private</span> */}
                             </>
                           ) : (
                             <>
                               <Globe size={16} />
-                              {/* <span>Publish</span> */}
                             </>
                           )}
                         </button>

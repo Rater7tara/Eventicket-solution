@@ -317,8 +317,8 @@ const SeatPlanView = ({
     </div>
   );
 
-  // Special Gamma Gallery Section
-  const GammaGallerySection = () => (
+  // Special Gamma College Zone Section
+  const GammaCollegeZoneSection = () => (
     <div className="mb-4">
       <h3
         className="text-center mb-3 inline-block px-3 py-1 rounded-full text-white mx-auto text-sm"
@@ -337,9 +337,9 @@ const SeatPlanView = ({
                 <div key={`gamma-row-${rowIndex}-col-${colIndex}`} className="flex space-x-1 mr-4">
                   {Array.from({ length: column.end - column.start + 1 }).map((_, seatIndex) => {
                     const seatNumber = column.start + seatIndex;
-                    const seatId = `gamma-gallery_${rowIndex}_${colIndex}_${seatIndex}`;
+                    const seatId = `gamma-college-zone_${rowIndex}_${colIndex}_${seatIndex}`;
                     
-                    const isBooked = isSeatBooked("gamma-gallery", rowLetters[rowIndex], seatNumber);
+                    const isBooked = isSeatBooked("gamma-college-zone", rowLetters[rowIndex], seatNumber);
                     const isSelected = selectedSeats.some((s) => s.id === seatId);
 
                     return (
@@ -350,9 +350,9 @@ const SeatPlanView = ({
                           !isBooked &&
                           toggleSeat({
                             id: seatId,
-                            name: `Gamma Gallery ${rowLetters[rowIndex]}${seatNumber}`,
+                            name: `Gamma College Zone ${rowLetters[rowIndex]}${seatNumber}`,
                             price: sections[5].price,
-                            section: "gamma-gallery",
+                            section: "gamma-college-zone",
                             row: rowLetters[rowIndex],
                             number: seatNumber,
                           })
@@ -685,11 +685,11 @@ const SeatPlanView = ({
 
               {/* Seating Layout Container */}
               <div className="w-full max-w-6xl mx-auto pb-4 overflow-x-auto">
-                {/* VIP Section */}
-                {(!activeSection || activeSection === "vip") && <VIPSection />}
+                {/* Greenfield VIP Zone */}
+                {(!activeSection || activeSection === "greenfield-vip-zone") && <VIPSection />}
 
-                {/* Energon Enclave - Rows C-E */}
-                {(!activeSection || activeSection === "energon-enclave") && (
+                {/* Alfa College Zone - Rows C-E */}
+                {(!activeSection || activeSection === "alfa-college-zone") && (
                   <SectionComponent section={sections[1]} startRowIndex={2} />
                 )}
 
@@ -702,18 +702,18 @@ const SeatPlanView = ({
                   </div>
                 </div>
 
-                {/* HDB House */}
-                {(!activeSection || activeSection === "hdb-house") && (
+                {/* Luminedge Zone */}
+                {(!activeSection || activeSection === "luminedge-zone") && (
                   <SectionComponent section={sections[2]} startRowIndex={0} />
                 )}
 
-                {/* AusDream Arena */}
-                {(!activeSection || activeSection === "ausdream-arena") && (
+                {/* Ample Accounting Zone */}
+                {(!activeSection || activeSection === "ample-accounting-zone") && (
                   <SectionComponent section={sections[3]} startRowIndex={0} />
                 )}
 
-                {/* Century Circle */}
-                {(!activeSection || activeSection === "century-circle") && (
+                {/* BetaWatt Zone */}
+                {(!activeSection || activeSection === "betawatt-zone") && (
                   <div className="mb-8 relative pl-6">
                     <EntranceDoor />
                     <SectionComponent section={sections[4]} startRowIndex={0} />
@@ -725,8 +725,8 @@ const SeatPlanView = ({
                   <JudgesTable />
                 </div>
 
-                {/* Gamma Gallery Section */}
-                {(!activeSection || activeSection === "gamma-gallery") && <GammaGallerySection />}
+                {/* Gamma College Zone Section */}
+                {(!activeSection || activeSection === "gamma-college-zone") && <GammaCollegeZoneSection />}
               </div>
 
               {/* Legend */}

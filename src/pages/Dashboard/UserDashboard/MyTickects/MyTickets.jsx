@@ -1702,7 +1702,7 @@ const convertOrdersToIndividualTickets = (orders) => {
                             Download
                           </button>
 
-                          <button
+                          {/* <button
                             onClick={() => showCancelConfirmation(ticket)}
                             className="inline-flex items-center gap-1 bg-red-50 text-red-600 px-3 py-2 rounded-lg hover:bg-red-100 transition-colors cursor-pointer"
                             disabled={cancelLoading}
@@ -1713,7 +1713,7 @@ const convertOrdersToIndividualTickets = (orders) => {
                               <X size={18} />
                             )}
                             Cancel Ticket
-                          </button>
+                          </button> */}
                         </>
                       )}
 
@@ -2202,7 +2202,7 @@ const convertOrdersToIndividualTickets = (orders) => {
                       Download Ticket
                     </button>
 
-                    <button
+                    {/* <button
                       onClick={() => showCancelConfirmation(selectedTicket)}
                       className={`inline-flex items-center gap-2 px-4 py-2 ${
                         cancelLoading
@@ -2217,7 +2217,7 @@ const convertOrdersToIndividualTickets = (orders) => {
                         <X size={18} />
                       )}
                       Cancel Ticket
-                    </button>
+                    </button> */}
                   </>
                 )}
               </div>
