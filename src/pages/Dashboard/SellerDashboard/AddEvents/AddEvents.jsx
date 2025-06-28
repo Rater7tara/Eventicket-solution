@@ -1,10 +1,12 @@
 import React, { useState, useContext, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom'; // Add this import
 import { Calendar, Clock, MapPin, DollarSign, Upload, FileText, CalendarIcon, Phone, Mail } from 'lucide-react';
 import { AuthContext } from '../../../../providers/AuthProvider';
 import serverURL from "../../../../ServerConfig";
 
 const AddEvents = () => {
     const { user } = useContext(AuthContext);
+    const navigate = useNavigate(); // Add navigation hook
     const [eventData, setEventData] = useState({
         title: '',
         description: '',
@@ -183,7 +185,7 @@ const AddEvents = () => {
             const result = await response.json();
             console.log('Event created:', result);
             
-            setSuccessMessage('Event added successfully!');
+            setSuccessMessage('Event added successfully! Redirecting to My Events...');
             
             // Reset form
             setEventData({
@@ -194,12 +196,18 @@ const AddEvents = () => {
                 location: '',
                 image: '',
                 price: '',
-                priceRange: '',
+                priceRange: { min: '', max: '' },
                 contactNumber: '',
                 email: ''
             });
             setSelectedDate(null);
             setUploadedImage(null);
+
+            // Navigate to my-events page after a short delay to show success message
+            setTimeout(() => {
+                navigate('/dashboard/my-events');
+            }, 1500);
+
         } catch (error) {
             console.error('Error creating event:', error);
             setErrorMessage(error.message || 'Failed to save event. Please try again.');
@@ -539,49 +547,49 @@ const AddEvents = () => {
                     
                     {/* Price Range */}
                     <div className="space-y-2">
-    <label className="flex items-center gap-2 text-gray-700 font-medium">
-        <DollarSign size={18} className="text-orange-500" />
-        Price Range *
-    </label>
-    <div className="flex gap-4">
-        <input
-            type="number"
-            name="min"
-            value={eventData.priceRange.min}
-            onChange={(e) =>
-                setEventData({
-                    ...eventData,
-                    priceRange: {
-                        ...eventData.priceRange,
-                        min: parseInt(e.target.value) || ''
-                    }
-                })
-            }
-            className="w-1/2 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-            placeholder="Min"
-            min="0"
-            required
-        />
-        <input
-            type="number"
-            name="max"
-            value={eventData.priceRange.max}
-            onChange={(e) =>
-                setEventData({
-                    ...eventData,
-                    priceRange: {
-                        ...eventData.priceRange,
-                        max: parseInt(e.target.value) || ''
-                    }
-                })
-            }
-            className="w-1/2 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-            placeholder="Max"
-            min="0"
-            required
-        />
-    </div>
-</div>
+                        <label className="flex items-center gap-2 text-gray-700 font-medium">
+                            <DollarSign size={18} className="text-orange-500" />
+                            Price Range *
+                        </label>
+                        <div className="flex gap-4">
+                            <input
+                                type="number"
+                                name="min"
+                                value={eventData.priceRange.min}
+                                onChange={(e) =>
+                                    setEventData({
+                                        ...eventData,
+                                        priceRange: {
+                                            ...eventData.priceRange,
+                                            min: parseInt(e.target.value) || ''
+                                        }
+                                    })
+                                }
+                                className="w-1/2 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                placeholder="Min"
+                                min="0"
+                                required
+                            />
+                            <input
+                                type="number"
+                                name="max"
+                                value={eventData.priceRange.max}
+                                onChange={(e) =>
+                                    setEventData({
+                                        ...eventData,
+                                        priceRange: {
+                                            ...eventData.priceRange,
+                                            max: parseInt(e.target.value) || ''
+                                        }
+                                    })
+                                }
+                                className="w-1/2 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                placeholder="Max"
+                                min="0"
+                                required
+                            />
+                        </div>
+                    </div>
                 </div>
                 
                 {/* Contact Information - 2 column layout */}

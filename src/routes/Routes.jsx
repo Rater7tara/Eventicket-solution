@@ -41,6 +41,7 @@ import BlogPost from "../pages/Blog/BlogPost";
 import RoleBasedDashboard from "../pages/Dashboard/RoleBasedDashboard";
 import EventReport from "../pages/Dashboard/AdminDashborad/Reports/EventReport";
 import CancelTicket from "../pages/Dashboard/AdminDashborad/CancelTicket/CancelTicket";
+import SellerSoldTickets from "../pages/Dashboard/SellerDashboard/SellerSoldTickets/SellerSoldTickets";
 
 export const router = createBrowserRouter([
   {
@@ -191,6 +192,10 @@ export const router = createBrowserRouter([
       {
         path: "sales-report",
         element: <TicketSellReport />,
+      },
+      {
+        path: "seller-sold-tickets",
+        element: <SellerSoldTickets />,
       },
       {
         path: "seller-profile",
