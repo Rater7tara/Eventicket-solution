@@ -42,6 +42,7 @@ import RoleBasedDashboard from "../pages/Dashboard/RoleBasedDashboard";
 import EventReport from "../pages/Dashboard/AdminDashborad/Reports/EventReport";
 import CancelTicket from "../pages/Dashboard/AdminDashborad/CancelTicket/CancelTicket";
 import SellerSoldTickets from "../pages/Dashboard/SellerDashboard/SellerSoldTickets/SellerSoldTickets";
+import AdminCancelTickets from "../pages/Dashboard/AdminDashborad/AdminCancelTickets/AdminCancelTickets";
 
 export const router = createBrowserRouter([
   {
@@ -158,6 +159,10 @@ export const router = createBrowserRouter([
       {
         path: "cancel-ticket",
         element: <CancelTicket />,
+      },
+      {
+        path: "admin-cancel-ticket",
+        element: <AdminCancelTickets />,
       },
       {
         path: "admin-profile",
