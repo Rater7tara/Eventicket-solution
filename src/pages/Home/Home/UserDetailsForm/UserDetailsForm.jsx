@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AuthContext } from "../../../../providers/AuthProvider";
+import { X } from "lucide-react";
 import serverURL from "../../../../ServerConfig";
 
 // Base URL for API calls
@@ -29,16 +30,18 @@ const UserDetailsForm = () => {
   // Function to convert time to 12-hour format
   const formatTo12Hour = (timeString) => {
     if (!timeString) return timeString;
-    
+
     // Check if the time string contains date information
     const dateTimeRegex = /(\d{4}-\d{2}-\d{2})\s+(\d{1,2}):(\d{2})/;
     const timeOnlyRegex = /^(\d{1,2}):(\d{2})$/;
-    
-    let hours, minutes, datePort = '';
-    
+
+    let hours,
+      minutes,
+      datePort = "";
+
     if (dateTimeRegex.test(timeString)) {
       const match = timeString.match(dateTimeRegex);
-      datePort = match[1] + ' ';
+      datePort = match[1] + " ";
       hours = parseInt(match[2]);
       minutes = match[3];
     } else if (timeOnlyRegex.test(timeString)) {
@@ -49,10 +52,10 @@ const UserDetailsForm = () => {
       // If format doesn't match expected patterns, return as is
       return timeString;
     }
-    
-    const period = hours >= 12 ? 'PM' : 'AM';
+
+    const period = hours >= 12 ? "PM" : "AM";
     const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-    
+
     return `${datePort}${displayHours}:${minutes} ${period}`;
   };
 
@@ -111,6 +114,14 @@ const UserDetailsForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formSubmitError, setFormSubmitError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+
+  // OTP related states
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpError, setOtpError] = useState("");
+  const [pendingUserData, setPendingUserData] = useState(null);
+  const [isNewUser, setIsNewUser] = useState(false);
 
   // Handle input changes
   const handleChange = (e) => {
@@ -193,39 +204,158 @@ const UserDetailsForm = () => {
 
       return { success: true, data: userData, isNewUser: false };
     } catch (loginError) {
-      console.log("Login failed, trying to register:", loginError.message);
+      console.log("Login failed, will need to register:", loginError.message);
+      // Return that we need to register
+      return { success: false, needsRegistration: true };
+    }
+  };
 
-      // If login fails, try to register
+  // Handle OTP verification
+  const handleOtpVerification = async (e) => {
+    e.preventDefault();
+    setOtpError("");
+
+    if (!otp.trim()) {
+      setOtpError("Please enter the OTP code");
+      return;
+    }
+
+    if (!pendingUserData || !pendingUserData.userId) {
+      setOtpError("User data not found. Please try again.");
+      return;
+    }
+
+    try {
+      setOtpLoading(true);
+
+      // Step 1: Verify OTP to activate the account
+      const verifyResponse = await fetch(`${API_BASE_URL}auth/verify-account`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: pendingUserData.userId,
+          otp: otp.trim(),
+        }),
+      });
+
+      const verifyData = await verifyResponse.json();
+
+      if (!verifyResponse.ok) {
+        throw new Error(verifyData.message || "Invalid OTP code");
+      }
+
+      console.log("Account verified successfully", verifyData);
+
+      // Step 2: Now login to get auth token
       try {
-        console.log(
-          "Registering new user with:",
-          formData.name,
-          formData.email
+        console.log("Automatically logging in to get auth token...");
+        const loginResult = await signIn(
+          pendingUserData.email,
+          pendingUserData.password
         );
-        const userData = await createUser(
-          formData.name,
-          formData.email,
-          formData.phone,
-          formData.password
-        );
-        console.log("Registration successful:", userData);
+        console.log("Auto-login successful:", loginResult);
 
         // Store the complete user data
         localStorage.setItem(
           "userData",
           JSON.stringify({
             ...formData,
-            ...userData,
+            ...loginResult,
           })
         );
 
-        return { success: true, data: userData, isNewUser: true };
-      } catch (registerError) {
-        console.error("Registration failed:", registerError.message);
-        throw new Error(
-          registerError.message || "Failed to register. Please try again."
+        // Clear pending data
+        setPendingUserData(null);
+
+        // Close modal and continue to next step
+        setShowOtpModal(false);
+
+        // Navigate to appropriate page
+        proceedAfterAuth();
+      } catch (loginErr) {
+        console.error("Auto-login failed:", loginErr);
+        setOtpError(
+          "Account verified but automatic login failed. Please try logging in manually."
         );
+        // Still close modal since account was verified
+        setShowOtpModal(false);
+        setPendingUserData(null);
+        setIsSubmitting(false);
       }
+    } catch (error) {
+      console.error("OTP verification error:", error);
+      setOtpError(error.message || "Invalid OTP code. Please try again.");
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  // Handle resend OTP
+  const handleResendOtp = async () => {
+    try {
+      setOtpError("");
+      if (!pendingUserData || !pendingUserData.userId) {
+        setOtpError("User data not found. Please try again.");
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}auth/send-verify-otp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: pendingUserData.userId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to resend OTP");
+      }
+
+      console.log("OTP resent successfully");
+    } catch (error) {
+      console.error("Error resending OTP:", error);
+      setOtpError("Failed to resend OTP. Please try again.");
+    }
+  };
+
+  // Close OTP modal
+  const closeOtpModal = () => {
+    setShowOtpModal(false);
+    setOtp("");
+    setOtpError("");
+    setPendingUserData(null);
+    setIsSubmitting(false);
+  };
+
+  // Proceed after successful authentication
+  const proceedAfterAuth = () => {
+    // Determine where to navigate next based on whether we came from SeatPlan or EventDetails
+    if (selectedSeats && selectedSeats.length > 0) {
+      // If we have seat data, we came from SeatPlan, go to checkout
+      navigate("/checkout", {
+        state: {
+          event: eventData,
+          selectedSeats,
+          totalPrice,
+          serviceFee,
+          grandTotal,
+          userData: formData,
+        },
+      });
+    } else {
+      // Go to seat selection
+      navigate("/SeatPlan", {
+        state: {
+          event: eventData,
+          quantity: ticketQuantity,
+          ticketType: singleTicketType,
+          userData: formData,
+        },
+      });
     }
   };
 
@@ -244,42 +374,55 @@ const UserDetailsForm = () => {
           role: "buyer", // Force role to be 'buyer'
         };
 
-        // Attempt authentication
+        // First, try to authenticate existing user
         const authResult = await authenticateUser();
-        console.log("Authentication result:", authResult);
 
-        // Store additional data in localStorage that might not be in the auth response
-        localStorage.setItem(
-          "userData",
-          JSON.stringify({
-            ...finalData,
-            ...authResult.data,
-          })
-        );
+        if (authResult.success) {
+          // User exists and login successful
+          console.log("Authentication result:", authResult);
 
-        // Determine where to navigate next based on whether we came from SeatPlan or EventDetails
-        if (selectedSeats && selectedSeats.length > 0) {
-          // If we have seat data, we came from SeatPlan, go to checkout
-          navigate("/checkout", {
-            state: {
-              event: eventData,
-              selectedSeats,
-              totalPrice,
-              serviceFee,
-              grandTotal,
-              userData: finalData, // Pass data with role: 'buyer'
-            },
-          });
-        } else {
-          // MODIFIED: Changed from "/SeatBook" to "/SeatPlan" to match your component name
-          navigate("/SeatPlan", {
-            state: {
-              event: eventData,
-              quantity: ticketQuantity,
-              ticketType: singleTicketType,
-              userData: finalData, // Pass data with role: 'buyer'
-            },
-          });
+          // Store additional data in localStorage
+          localStorage.setItem(
+            "userData",
+            JSON.stringify({
+              ...finalData,
+              ...authResult.data,
+            })
+          );
+
+          // Proceed to next step
+          proceedAfterAuth();
+        } else if (authResult.needsRegistration) {
+          // User doesn't exist, need to register and verify OTP
+          console.log("User doesn't exist, creating new account...");
+
+          try {
+            // Create new user (this will send OTP automatically)
+            const userData = await createUser(
+              finalData.name,
+              finalData.email,
+              finalData.phone,
+              finalData.password
+            );
+            console.log("Registration successful:", userData);
+
+            // Store user data for OTP verification
+            setPendingUserData({
+              ...finalData,
+              userId: userData.userId,
+              ...userData,
+            });
+
+            // Show OTP modal
+            setShowOtpModal(true);
+            setIsNewUser(true);
+          } catch (registerError) {
+            console.error("Registration failed:", registerError.message);
+            setFormSubmitError(
+              registerError.message || "Failed to register. Please try again."
+            );
+            setIsSubmitting(false);
+          }
         }
       } catch (error) {
         console.error("Authentication error:", error);
@@ -288,7 +431,6 @@ const UserDetailsForm = () => {
             error.message || "Please check your credentials and try again."
           }`
         );
-      } finally {
         setIsSubmitting(false);
       }
     }
@@ -299,70 +441,68 @@ const UserDetailsForm = () => {
     setShowPassword(!showPassword);
   };
 
-// Replace the getSummaryContent function with this simplified version:
-
-const getSummaryContent = () => {
-  if (selectedSeats && selectedSeats.length > 0) {
-    // We came from SeatPlan - keep full details
-    return (
-      <div className="space-y-3">
-        <div className="flex justify-between items-center">
-          <span className="text-gray-300">Event:</span>
-          <span className="font-medium text-white">{eventData.title}</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-gray-300">Date & Time:</span>
-          <span className="font-medium text-white">{formatTo12Hour(eventData.time)}</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-gray-300">Location:</span>
-          <span className="font-medium text-white">{eventData.location}</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-gray-300">Selected Seats:</span>
-          <span className="font-medium text-white">
-            {selectedSeats.length}
-          </span>
-        </div>
-        <div className="border-t border-gray-700 pt-3 mt-3">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-gray-300">Subtotal:</span>
-            <span className="font-medium text-white">${totalPrice}</span>
+  // Replace the getSummaryContent function with this simplified version:
+  const getSummaryContent = () => {
+    if (selectedSeats && selectedSeats.length > 0) {
+      // We came from SeatPlan - keep full details
+      return (
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <span className="text-gray-300">Event:</span>
+            <span className="font-medium text-white">{eventData.title}</span>
           </div>
-          {/* <div className="flex justify-between items-center mb-2">
-            <span className="text-gray-300">Service Fee:</span>
-            <span className="font-medium text-white">{serviceFee} BDT</span>
-          </div> */}
-          <div className="flex justify-between items-center pt-2 border-t border-gray-700">
-            <span className="text-lg text-gray-300">Total:</span>
-            <span className="text-lg font-bold text-orange-500">
-              ${grandTotal}
+          <div className="flex justify-between items-center">
+            <span className="text-gray-300">Date & Time:</span>
+            <span className="font-medium text-white">
+              {formatTo12Hour(eventData.time)}
             </span>
           </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-300">Location:</span>
+            <span className="font-medium text-white">{eventData.location}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-300">Selected Seats:</span>
+            <span className="font-medium text-white">
+              {selectedSeats.length}
+            </span>
+          </div>
+          <div className="border-t border-gray-700 pt-3 mt-3">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-gray-300">Subtotal:</span>
+              <span className="font-medium text-white">${totalPrice}</span>
+            </div>
+            <div className="flex justify-between items-center pt-2 border-t border-gray-700">
+              <span className="text-lg text-gray-300">Total:</span>
+              <span className="text-lg font-bold text-orange-500">
+                ${grandTotal}
+              </span>
+            </div>
+          </div>
         </div>
-      </div>
-    );
-  } else {
-    // We came from EventDetails - REMOVED ticket type, quantity, and total
-    return (
-      <div className="space-y-3">
-        <div className="flex justify-between items-center">
-          <span className="text-gray-300">Event:</span>
-          <span className="font-medium text-white">{eventData.title}</span>
+      );
+    } else {
+      // We came from EventDetails - simplified view
+      return (
+        <div className="space-y-3">
+          <div className="flex justify-between items-center">
+            <span className="text-gray-300">Event:</span>
+            <span className="font-medium text-white">{eventData.title}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-300">Date & Time:</span>
+            <span className="font-medium text-white">
+              {formatTo12Hour(eventData.time)}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-300">Location:</span>
+            <span className="font-medium text-white">{eventData.location}</span>
+          </div>
         </div>
-        <div className="flex justify-between items-center">
-          <span className="text-gray-300">Date & Time:</span>
-          <span className="font-medium text-white">{formatTo12Hour(eventData.time)}</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-gray-300">Location:</span>
-          <span className="font-medium text-white">{eventData.location}</span>
-        </div>
-        {/* Removed Ticket Type, Quantity, and Total sections */}
-      </div>
-    );
-  }
-};
+      );
+    }
+  };
 
   // If user is already logged in or page is loading, show loading spinner
   if (loading) {
@@ -700,6 +840,77 @@ const getSummaryContent = () => {
           </form>
         </div>
       </div>
+
+      {/* OTP Verification Modal */}
+      {showOtpModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+          <div className="bg-gray-800/95 backdrop-blur-xl border border-gray-600 shadow-2xl rounded-3xl p-8 w-full max-w-md mx-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold text-white">
+                Verify Your Email
+              </h3>
+              <button
+                onClick={closeOtpModal}
+                className="text-white hover:text-red-300 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <p className="text-gray-300 text-sm mb-6 text-center">
+              We've sent a verification code to{" "}
+              <span className="font-semibold text-orange-400">
+                {pendingUserData?.email}
+              </span>
+            </p>
+
+            {otpError && (
+              <div className="bg-red-500/20 border border-red-400 text-red-300 p-3 rounded-lg mb-4">
+                {otpError}
+              </div>
+            )}
+
+            <form onSubmit={handleOtpVerification} className="space-y-4">
+              <div className="form-control">
+                <label
+                  className="block text-white font-medium mb-2"
+                  htmlFor="otp"
+                >
+                  Enter OTP Code
+                </label>
+                <input
+                  id="otp"
+                  type="text"
+                  placeholder="Enter 6-digit code"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  className="w-full py-3 px-4 rounded-lg bg-gray-700 border border-gray-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition duration-300 text-center text-lg tracking-widest text-white"
+                  maxLength="6"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={otpLoading}
+                className="w-full py-3 rounded-lg bg-gradient-to-r from-orange-500 to-red-600 text-white font-medium shadow-lg hover:shadow-orange-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {otpLoading ? "Verifying..." : "Verify Account"}
+              </button>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  className="text-orange-400 hover:text-orange-300 underline text-sm"
+                >
+                  Didn't receive the code? Resend
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

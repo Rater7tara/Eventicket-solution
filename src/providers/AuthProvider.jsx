@@ -94,28 +94,18 @@ const AuthProvider = ({ children }) => {
         throw new Error(data.message || "Registration failed");
       }
 
-      // Get the user data - in this API, it's in data.data
-      const userData = data.data;
+      // For registration, we don't need to store user data immediately
+      // since the account needs to be verified first
+      // Just return the response data including userId
+      console.log("Registration successful, returning data:", data);
 
-      if (!userData) {
-        throw new Error("No user data received from server");
-      }
-
-      // Store user information
-      localStorage.setItem("user-info", JSON.stringify(userData));
-      setUser(userData);
-      console.log("User data stored:", userData);
-
-      // Since registration doesn't return a token, immediately login to get a token
-      try {
-        await signIn(email, password);
-        console.log("Auto-login after registration successful");
-      } catch (loginError) {
-        console.error("Auto-login after registration failed:", loginError);
-        // Continue anyway since registration was successful
-      }
-
-      return userData;
+      return {
+        success: true,
+        message: data.message,
+        userId: data.userId,
+        email: email, // Include email for OTP verification
+        name: name   // Include name for reference
+      };
     } catch (error) {
       console.error("Registration error details:", error);
       throw error;

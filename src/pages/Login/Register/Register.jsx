@@ -1,11 +1,13 @@
 import React, { useContext, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { AuthContext } from "../../../providers/AuthProvider";
-import { Mail, Lock, User, Phone } from "lucide-react";
+import { Mail, Lock, User, Phone, X } from "lucide-react";
 import logo from "../../../assets/logo.png";
+import serverURL from "../../../ServerConfig";
+
 
 const Register = () => {
-  const { createUser, signIn } = useContext(AuthContext);
+  const { createUser } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || "/";
@@ -18,6 +20,13 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  
+  // OTP related states
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpError, setOtpError] = useState("");
+  const [pendingUserData, setPendingUserData] = useState(null); // Store user data temporarily
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -38,26 +47,22 @@ const Register = () => {
       console.log("Form validation passed, attempting registration...");
       setLoading(true);
 
-      // Step 1: Create the user account
+      // Create user account (backend sends OTP automatically)
       const result = await createUser(name, email, phone, password);
       console.log("Registration successful:", result);
 
-      // Step 2: Now login to get a token
-      try {
-        console.log("Automatically logging in to get auth token...");
-        const loginResult = await signIn(email, password);
-        console.log("Auto-login successful:", loginResult);
+      // Store user data for OTP verification
+      setPendingUserData({
+        name,
+        email,
+        phone,
+        password,
+        userId: result.userId // Store userId from registration response
+      });
+      
+      // Show OTP modal
+      setShowOtpModal(true);
 
-        // Navigate to the destination page
-        navigate(from, { replace: true });
-      } catch (loginErr) {
-        console.error("Auto-login failed:", loginErr);
-        setError(
-          "Account created but automatic login failed. Please try logging in manually."
-        );
-        // Still navigate to login page since account was created
-        navigate("/login", { replace: true });
-      }
     } catch (err) {
       console.error("Registration error:", err);
       if (err.code === "auth/email-already-in-use") {
@@ -68,6 +73,115 @@ const Register = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const sendOtpVerification = async (email) => {
+    try {
+      const response = await fetch(`${serverURL.url}auth/send-verify-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send OTP');
+      }
+
+      console.log("OTP sent successfully");
+    } catch (error) {
+      console.error("Error sending OTP:", error);
+      throw new Error("Failed to send verification code. Please try again.");
+    }
+  };
+
+  const handleOtpVerification = async (e) => {
+    e.preventDefault();
+    setOtpError("");
+
+    if (!otp.trim()) {
+      setOtpError("Please enter the OTP code");
+      return;
+    }
+
+    if (!pendingUserData || !pendingUserData.userId) {
+      setOtpError("User data not found. Please try registering again.");
+      return;
+    }
+
+    try {
+      setOtpLoading(true);
+
+      // Verify OTP to activate the account
+      const verifyResponse = await fetch(`${serverURL.url}auth/verify-account`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          userId: pendingUserData.userId,
+          otp: otp.trim()
+        })
+      });
+
+      const verifyData = await verifyResponse.json();
+
+      if (!verifyResponse.ok) {
+        throw new Error(verifyData.message || 'Invalid OTP code');
+      }
+
+      console.log("Account verified successfully", verifyData);
+      
+      // Clear pending data
+      setPendingUserData(null);
+      
+      // Close modal and redirect to login page
+      setShowOtpModal(false);
+      navigate("/login", { replace: true });
+
+    } catch (error) {
+      console.error("OTP verification error:", error);
+      setOtpError(error.message || "Invalid OTP code. Please try again.");
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    try {
+      setOtpError("");
+      if (!pendingUserData || !pendingUserData.userId) {
+        setOtpError("User data not found. Please try registering again.");
+        return;
+      }
+
+      const response = await fetch(`${serverURL.url}auth/send-verify-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          userId: pendingUserData.userId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to resend OTP');
+      }
+
+      console.log("OTP resent successfully");
+    } catch (error) {
+      console.error("Error resending OTP:", error);
+      setOtpError("Failed to resend OTP. Please try again.");
+    }
+  };
+
+  const closeOtpModal = () => {
+    setShowOtpModal(false);
+    setOtp("");
+    setOtpError("");
+    setPendingUserData(null); // Clear pending data when modal is closed
   };
 
   return (
@@ -252,7 +366,7 @@ const Register = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium shadow-lg hover:shadow-orange-500/50 transition-all duration-300 mt-6"
+            className="w-full py-3 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium shadow-lg hover:shadow-orange-500/50 transition-all duration-300 mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Creating Account..." : "Create Account"}
           </button>
@@ -268,6 +382,70 @@ const Register = () => {
           </div>
         </form>
       </div>
+
+      {/* OTP Verification Modal */}
+      {showOtpModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+          <div className="bg-white/20 backdrop-blur-xl border border-white/30 shadow-2xl rounded-3xl p-8 w-full max-w-md mx-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold text-white">Verify Your Email</h3>
+              <button
+                onClick={closeOtpModal}
+                className="text-white hover:text-red-300 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <p className="text-orange-50 text-sm mb-6 text-center">
+              We've sent a verification code to{" "}
+              <span className="font-semibold">{pendingUserData?.email}</span>
+            </p>
+
+            {otpError && (
+              <div className="bg-red-500/30 backdrop-blur-sm border border-red-400 text-white p-3 rounded-lg mb-4">
+                {otpError}
+              </div>
+            )}
+
+            <form onSubmit={handleOtpVerification} className="space-y-4">
+              <div className="form-control">
+                <label className="block text-white font-medium mb-2" htmlFor="otp">
+                  Enter OTP Code
+                </label>
+                <input
+                  id="otp"
+                  type="text"
+                  placeholder="Enter 6-digit code"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  className="w-full py-3 px-4 rounded-lg bg-white/90 border border-orange-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition duration-300 text-center text-lg tracking-widest"
+                  maxLength="6"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={otpLoading}
+                className="w-full py-3 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium shadow-lg hover:shadow-orange-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {otpLoading ? "Verifying..." : "Verify Account"}
+              </button>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  className="text-yellow-300 hover:text-yellow-200 underline text-sm"
+                >
+                  Didn't receive the code? Resend
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* <div className="absolute bottom-4 text-center text-xs text-white/60 w-full">
         © 2025 Event n Ticket. All rights reserved.
