@@ -27,6 +27,7 @@ const AdminCancelTickets = () => {
   const { user, refreshToken } = useContext(AuthContext);
   const [bookings, setBookings] = useState([]);
   const [filteredBookings, setFilteredBookings] = useState([]);
+  const [groupedBookings, setGroupedBookings] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -35,7 +36,9 @@ const AdminCancelTickets = () => {
   const [cancelLoading, setCancelLoading] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [bookingToCancel, setBookingToCancel] = useState(null);
-  const [successMessage, setSuccessMessage] = useState("");
+  const [seatToCancel, setSeatToCancel] = useState(null);
+  const [expandedEvents, setExpandedEvents] = useState(new Set());
+  const [cancellingIds, setCancellingIds] = useState(new Set());
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -102,20 +105,17 @@ const AdminCancelTickets = () => {
     fetchBookings();
   }, [user]);
 
+  // Group bookings when they change
+  useEffect(() => {
+    if (bookings.length > 0) {
+      groupBookingsByEvent();
+    }
+  }, [bookings]);
+
   // Filter bookings when search term or filter changes
   useEffect(() => {
     filterBookings();
-  }, [bookings, searchTerm, statusFilter]);
-
-  // Clear success message after 5 seconds
-  useEffect(() => {
-    if (successMessage) {
-      const timer = setTimeout(() => {
-        setSuccessMessage("");
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [successMessage]);
+  }, [groupedBookings, searchTerm, statusFilter]);
 
   // Function to fetch all bookings from admin API
   const fetchBookings = async () => {
@@ -195,50 +195,120 @@ const AdminCancelTickets = () => {
     }
   };
 
+  // Group bookings by event
+  const groupBookingsByEvent = () => {
+    const grouped = {};
+
+    bookings.forEach((booking) => {
+      const eventId = booking.eventId?._id || booking.eventId;
+      const eventTitle =
+        booking.eventId?.title || `Event ${String(eventId).slice(-8)}`;
+      const eventDate = booking.eventId?.date;
+
+      if (!grouped[eventId]) {
+        grouped[eventId] = {
+          eventId: eventId,
+          eventTitle: eventTitle,
+          eventDate: eventDate,
+          bookings: [],
+          totalSeats: 0,
+          totalAmount: 0,
+        };
+      }
+
+      grouped[eventId].bookings.push(booking);
+      grouped[eventId].totalSeats += booking.seats?.length || 0;
+      grouped[eventId].totalAmount += booking.totalAmount || 0;
+    });
+
+    setGroupedBookings(grouped);
+
+    // Auto-expand if only one event
+    if (Object.keys(grouped).length === 1) {
+      setExpandedEvents(new Set([Object.keys(grouped)[0]]));
+    }
+  };
+
   // Function to filter bookings based on search and status
   const filterBookings = () => {
-    let filtered = [...bookings];
+    let filtered = { ...groupedBookings };
 
-    // Enhanced Search filter - includes buyer name, booking ID, order ID, event name, and payment ID
+    // Apply search filter
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (booking) =>
-          // Order ID (top-level _id)
-          booking._id.toLowerCase().includes(searchLower) ||
-          // Booking ID
-          booking.bookingId?.toLowerCase().includes(searchLower) ||
-          // Event name/title
-          booking.eventId?.title?.toLowerCase().includes(searchLower) ||
-          // Payment Intent ID
-          booking.paymentIntentId?.toLowerCase().includes(searchLower) ||
-          // Buyer name (check if buyerId is populated and has name)
-          booking.buyerId?.name?.toLowerCase().includes(searchLower) ||
-          // Buyer email (additional search option)
-          booking.buyerId?.email?.toLowerCase().includes(searchLower) ||
-          // Seat details (section and row)
-          booking.seats?.some(
-            (seat) =>
-              seat.section?.toLowerCase().includes(searchLower) ||
-              seat.row?.toLowerCase().includes(searchLower)
-          )
-      );
+      Object.keys(filtered).forEach((eventId) => {
+        const eventGroup = filtered[eventId];
+        eventGroup.bookings = eventGroup.bookings.filter(
+          (booking) =>
+            // Order ID (top-level _id)
+            booking._id.toLowerCase().includes(searchLower) ||
+            // Booking ID
+            booking.bookingId?.toLowerCase().includes(searchLower) ||
+            // Event name/title
+            eventGroup.eventTitle.toLowerCase().includes(searchLower) ||
+            // Payment Intent ID
+            booking.paymentIntentId?.toLowerCase().includes(searchLower) ||
+            // Buyer name (check if buyerId is populated and has name)
+            booking.buyerId?.name?.toLowerCase().includes(searchLower) ||
+            // Buyer email (additional search option)
+            booking.buyerId?.email?.toLowerCase().includes(searchLower) ||
+            // Seat details (section and row)
+            booking.seats?.some(
+              (seat) =>
+                seat.section?.toLowerCase().includes(searchLower) ||
+                seat.row?.toLowerCase().includes(searchLower)
+            )
+        );
+
+        // Remove events with no matching bookings
+        if (eventGroup.bookings.length === 0) {
+          delete filtered[eventId];
+        } else {
+          // Recalculate totals for filtered bookings
+          eventGroup.totalSeats = eventGroup.bookings.reduce(
+            (sum, booking) => sum + (booking.seats?.length || 0),
+            0
+          );
+          eventGroup.totalAmount = eventGroup.bookings.reduce(
+            (sum, booking) => sum + (booking.totalAmount || 0),
+            0
+          );
+        }
+      });
     }
 
-    // Status filter
+    // Apply status filter
     if (statusFilter !== "all") {
-      filtered = filtered.filter((booking) => {
-        switch (statusFilter) {
-          case "paid":
-            return booking.paymentStatus === "success";
-          case "unpaid":
-            return booking.paymentStatus !== "success";
-          case "success":
-            return booking.status === "success";
-          case "pending":
-            return booking.status === "pending";
-          default:
-            return true;
+      Object.keys(filtered).forEach((eventId) => {
+        const eventGroup = filtered[eventId];
+        eventGroup.bookings = eventGroup.bookings.filter((booking) => {
+          switch (statusFilter) {
+            case "paid":
+              return booking.paymentStatus === "success";
+            case "unpaid":
+              return booking.paymentStatus !== "success";
+            case "success":
+              return booking.status === "success";
+            case "pending":
+              return booking.status === "pending";
+            default:
+              return true;
+          }
+        });
+
+        // Remove events with no matching bookings
+        if (eventGroup.bookings.length === 0) {
+          delete filtered[eventId];
+        } else {
+          // Recalculate totals for filtered bookings
+          eventGroup.totalSeats = eventGroup.bookings.reduce(
+            (sum, booking) => sum + (booking.seats?.length || 0),
+            0
+          );
+          eventGroup.totalAmount = eventGroup.bookings.reduce(
+            (sum, booking) => sum + (booking.totalAmount || 0),
+            0
+          );
         }
       });
     }
@@ -247,11 +317,11 @@ const AdminCancelTickets = () => {
     setCurrentPage(1); // Reset to first page when filtering
   };
 
-  // Function to cancel a booking using the refund API
-  const cancelBooking = async (booking) => {
-    setCancelLoading(true);
+  // Function to cancel a single seat/ticket using the refund API
+  const cancelSingleTicket = async (booking, seat) => {
+    const cancelId = `${booking._id}-${seat._id || seat.seatNumber}`;
+    setCancellingIds((prev) => new Set(prev).add(cancelId));
     setError("");
-    setSuccessMessage("");
 
     try {
       // Check if refreshToken function is available
@@ -266,11 +336,10 @@ const AdminCancelTickets = () => {
         throw new Error("Authentication token not found. Please log in again.");
       }
 
-      console.log("=== DEBUGGING CANCEL BOOKING ===");
+      console.log("=== DEBUGGING CANCEL SINGLE TICKET ===");
       console.log("Full booking object:", booking);
+      console.log("Seat to cancel:", seat);
       console.log("Order ID (booking._id):", booking._id);
-      console.log("Booking ID (booking.bookingId):", booking.bookingId);
-      console.log("Seats:", booking.seats);
 
       // Validate that we have required data
       if (!booking._id) {
@@ -279,29 +348,27 @@ const AdminCancelTickets = () => {
         );
       }
 
-      if (!booking.seats || booking.seats.length === 0) {
+      if (!seat) {
         throw new Error(
-          "Seat information is missing. Cannot process cancellation for this booking."
+          "Seat information is missing. Cannot process cancellation for this ticket."
         );
       }
 
-      // Prepare request body with orderId and seat details (using the correct structure)
+      // Prepare request body with orderId and seat details
       const requestBody = {
-        orderId: String(booking._id), // Use the top-level _id as orderId
+        orderId: String(booking._id),
         seatToCancel: {
-          section: String(booking.seats[0].section),
-          row: String(booking.seats[0].row),
-          seatNumber: Number(booking.seats[0].seatNumber),
-          price: Number(booking.seats[0].price || booking.totalAmount || 0),
+          section: String(seat.section),
+          row: String(seat.row),
+          seatNumber: Number(seat.seatNumber),
+          price: Number(seat.price || 0),
         },
       };
 
       console.log("=== REQUEST BODY DETAILS ===");
-      console.log("orderId:", requestBody.orderId, "type:", typeof requestBody.orderId);
       console.log("Full request body:", requestBody);
-      console.log("Stringified body:", JSON.stringify(requestBody));
 
-      // Call the refund API with the correct endpoint
+      // Call the refund API
       const response = await fetch(`${API_BASE_URL}payments/refund`, {
         method: "POST",
         headers: {
@@ -327,7 +394,6 @@ const AdminCancelTickets = () => {
 
       // Handle the response
       if (!response.ok) {
-        // More detailed error handling
         let errorMessage = "Unknown error";
 
         if (data.error) {
@@ -336,947 +402,754 @@ const AdminCancelTickets = () => {
           errorMessage = data.message;
         }
 
-        // Log the full error details
-        console.error("=== API ERROR DETAILS ===");
-        console.error("Status:", response.status);
-        console.error("Error message:", errorMessage);
-        console.error("Full response data:", data);
-
         // Provide more user-friendly error messages
-        if (errorMessage.includes("does not have a successful charge to refund")) {
+        if (
+          errorMessage.includes("does not have a successful charge to refund")
+        ) {
           throw new Error(
-            "This payment cannot be refunded. The payment may not have been completed successfully, or it may have already been refunded. Please check the payment status in your Stripe dashboard."
+            "This payment cannot be refunded. The payment may not have been completed successfully, or it may have already been refunded."
           );
         } else if (errorMessage.includes("PaymentIntent")) {
           throw new Error(
-            "Payment processing error: " + errorMessage + ". Please check the payment details in Stripe."
+            "Payment processing error: " +
+              errorMessage +
+              ". Please check the payment details in Stripe."
           );
         } else {
           throw new Error(
-            `Failed to cancel booking: ${errorMessage} (Status: ${response.status})`
+            `Failed to cancel ticket: ${errorMessage} (Status: ${response.status})`
           );
         }
       }
 
       // If cancellation was successful
-      console.log("Booking cancelled successfully - removing from state...");
+      console.log("Ticket cancelled successfully - updating booking state...");
 
-      // Remove the cancelled booking from state
-      setBookings((prevBookings) =>
-        prevBookings.filter((b) => b._id !== booking._id)
+      // Update the booking state to remove the cancelled seat
+      setBookings(
+        (prevBookings) =>
+          prevBookings
+            .map((b) => {
+              if (b._id === booking._id) {
+                const updatedSeats = b.seats.filter(
+                  (s) =>
+                    !(
+                      s.section === seat.section &&
+                      s.row === seat.row &&
+                      s.seatNumber === seat.seatNumber
+                    )
+                );
+
+                // If no seats left, remove the entire booking
+                if (updatedSeats.length === 0) {
+                  return null;
+                }
+
+                // Otherwise, update the booking with remaining seats and recalculate total
+                const newTotalAmount = updatedSeats.reduce(
+                  (sum, s) => sum + (s.price || 0),
+                  0
+                );
+                return {
+                  ...b,
+                  seats: updatedSeats,
+                  totalAmount: newTotalAmount,
+                  quantity: updatedSeats.length,
+                };
+              }
+              return b;
+            })
+            .filter(Boolean) // Remove null entries (fully cancelled bookings)
       );
 
       setShowCancelModal(false);
       setBookingToCancel(null);
-      setSuccessMessage(
-        `Order ${booking._id} has been successfully cancelled and refunded.`
-      );
+      setSeatToCancel(null);
 
       // Refresh bookings to get most up-to-date data
-      try {
-        await fetchBookings();
-        console.log("Bookings refreshed successfully after cancellation");
-      } catch (refreshError) {
-        console.error(
-          "Failed to refresh bookings after cancellation:",
-          refreshError
-        );
-      }
+      setTimeout(() => {
+        fetchBookings();
+      }, 500);
     } catch (err) {
-      console.error("=== CANCEL BOOKING ERROR ===");
+      console.error("=== CANCEL TICKET ERROR ===");
       console.error("Error details:", err);
-      console.error("Error message:", err.message);
-      console.error("Error stack:", err.stack);
-      setError(`Failed to cancel booking: ${err.message}`);
+      setError(`Failed to cancel ticket: ${err.message}`);
     } finally {
-      setCancelLoading(false);
+      setCancellingIds((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(cancelId);
+        return newSet;
+      });
     }
   };
 
-  // Show cancel confirmation with validation
-  const showCancelConfirmation = (booking) => {
+  // Show cancel confirmation for individual seat
+  const showCancelConfirmation = (booking, seat) => {
     console.log("=== SHOWING CANCEL CONFIRMATION ===");
     console.log("Booking to cancel:", booking);
-    
+    console.log("Seat to cancel:", seat);
+
     // Validate if booking can be cancelled
     if (booking.paymentStatus !== "success") {
-      setError(`Cannot cancel this order: Payment status is "${booking.paymentStatus}". Only successfully paid orders can be cancelled.`);
+      setError(
+        `Cannot cancel this ticket: Payment status is "${booking.paymentStatus}". Only successfully paid tickets can be cancelled.`
+      );
       return;
     }
-    
+
     if (booking.status !== "success") {
-      setError(`Cannot cancel this order: Order status is "${booking.status}". Only successful orders can be cancelled.`);
+      setError(
+        `Cannot cancel this ticket: Order status is "${booking.status}". Only successful orders can be cancelled.`
+      );
       return;
     }
-    
+
     if (booking.ticketStatus === "used") {
-      setError(`Cannot cancel this order: Ticket has already been used. Used tickets cannot be refunded.`);
+      setError(
+        `Cannot cancel this ticket: Ticket has already been used. Used tickets cannot be refunded.`
+      );
       return;
     }
-    
+
     if (!booking.paymentIntentId) {
-      setError(`Cannot cancel this order: No payment information found. This order may not have been processed through Stripe.`);
+      setError(
+        `Cannot cancel this ticket: No payment information found. This order may not have been processed through Stripe.`
+      );
       return;
     }
-    
+
     setBookingToCancel(booking);
+    setSeatToCancel(seat);
     setShowCancelModal(true);
-    console.log("Modal state set to true");
   };
 
   // Function to close cancel modal
   const closeCancelModal = () => {
     setShowCancelModal(false);
     setBookingToCancel(null);
+    setSeatToCancel(null);
   };
 
-  // Pagination calculations
-  const totalPages = Math.ceil(filteredBookings.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentBookings = filteredBookings.slice(startIndex, endIndex);
-
-  // Function to view booking details
-  const viewBookingDetails = (booking) => {
-    setSelectedBooking(booking);
+  // Toggle event expansion
+  const toggleEventExpansion = (eventId) => {
+    setExpandedEvents((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(eventId)) {
+        newSet.delete(eventId);
+      } else {
+        newSet.add(eventId);
+      }
+      return newSet;
+    });
   };
 
-  // Function to close details modal
-  const closeDetailsModal = () => {
-    setSelectedBooking(null);
+  // Get total stats
+  const getTotalStats = () => {
+    const events = Object.keys(filteredBookings).length;
+    const totalSeats = Object.values(filteredBookings).reduce(
+      (sum, event) => sum + event.totalSeats,
+      0
+    );
+    const totalAmount = Object.values(filteredBookings).reduce(
+      (sum, event) => sum + event.totalAmount,
+      0
+    );
+    return { events, totalSeats, totalAmount };
+  };
+
+  // Format section name
+  const formatSectionName = (sectionId) => {
+    return String(sectionId)
+      .split("-")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
   };
 
   // Render loading spinner
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500"></div>
-          <p className="text-gray-600">Loading bookings...</p>
+      <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 text-white p-4">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex justify-center items-center py-16">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+            <span className="ml-3 text-lg text-gray-400">
+              Loading bookings...
+            </span>
+          </div>
         </div>
       </div>
     );
   }
 
+  const stats = getTotalStats();
+
   return (
-    <div className="max-w-7xl mx-auto p-6 bg-gray-50 min-h-screen">
-      {/* Header */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-800 mb-2">
+    <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 text-white p-4 rounded-xl">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="bg-gray-800 bg-opacity-80 backdrop-blur-lg rounded-xl shadow-2xl overflow-hidden border border-orange-500 border-opacity-30 mb-6">
+          <div className="bg-gradient-to-r from-orange-800 to-orange-600 p-6">
+            <h1 className="text-2xl md:text-3xl font-bold text-center">
               Admin - Cancel Tickets
-            </h2>
-            <p className="text-gray-600">
-              Manage and cancel active bookings with automatic refunds
+            </h1>
+            <p className="text-center text-orange-200 mt-2">
+              Manage and cancel individual tickets with automatic refunds
             </p>
           </div>
-          <button
-            onClick={fetchBookings}
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-red-500 to-red-600 text-white px-6 py-3 rounded-lg hover:shadow-lg transition-all cursor-pointer"
-            disabled={loading}
-          >
-            {loading ? (
-              <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
-            ) : (
-              <RefreshCw size={20} />
-            )}
-            Refresh Bookings
-          </button>
         </div>
-      </div>
 
-      {/* Success Message */}
-      {successMessage && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4 flex items-center gap-2">
-          <CheckCircle size={20} className="text-green-500" />
-          {successMessage}
-        </div>
-      )}
-
-      {/* Error Messages */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 flex items-center gap-2">
-          <XCircle size={20} className="text-red-500" />
-          {error}
-        </div>
-      )}
-
-      {/* Search and Filter Controls */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-        <div className="flex flex-col md:flex-row gap-4">
-          {/* Search */}
-          <div className="flex-1">
-            <div className="relative">
-              <Search
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                size={20}
-              />
-              <input
-                type="text"
-                placeholder="Search by buyer name, order ID, booking ID, event name, payment ID, or seat details..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm"
-              />
+        {/* Error Messages */}
+        {error && (
+          <div className="bg-red-900 bg-opacity-50 border border-red-500 text-red-200 p-4 rounded-lg mb-6">
+            <div className="flex items-center">
+              <XCircle size={20} className="mr-2" />
+              {error}
             </div>
           </div>
+        )}
 
-          {/* Status Filter */}
-          <div className="relative">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-3 pr-8 focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm"
-            >
-              <option value="all">All Status</option>
-              <option value="paid">Paid Only</option>
-              <option value="unpaid">Unpaid Only</option>
-              <option value="success">Success Status</option>
-              <option value="pending">Pending Status</option>
-            </select>
-            <ChevronDown
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400"
-              size={16}
-            />
-          </div>
-        </div>
+        {/* Search and Filter Controls */}
+        <div className="bg-gray-800 bg-opacity-80 backdrop-blur-lg rounded-lg p-6 mb-6 border border-gray-700">
+          <div className="flex flex-col md:flex-row gap-4 mb-4">
+            {/* Search */}
+            <div className="flex-1">
+              <div className="relative">
+                <Search
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                  size={20}
+                />
+                <input
+                  type="text"
+                  placeholder="Search by buyer name, order ID, event name, payment ID..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-white placeholder-gray-400"
+                />
+              </div>
+            </div>
 
-        {/* Results count and sorting info */}
-        <div className="mt-4 text-sm text-gray-600 flex justify-between items-center">
-          <span className="font-medium">
-            Showing {currentBookings.length} of {filteredBookings.length} active
-            bookings
-          </span>
-          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-            Sorted by most recent orders first
-          </span>
-        </div>
-      </div>
+            {/* Status Filter */}
+            <div className="relative">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="appearance-none bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 pr-8 focus:ring-2 focus:ring-orange-500 focus:border-transparent text-white"
+              >
+                <option value="all">All Status</option>
+                <option value="paid">Paid Only</option>
+                <option value="unpaid">Unpaid Only</option>
+                <option value="success">Success Status</option>
+                <option value="pending">Pending Status</option>
+              </select>
+              <ChevronDown
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400"
+                size={16}
+              />
+            </div>
 
-      {/* No bookings message */}
-      {!loading && filteredBookings.length === 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
-          <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Ticket size={48} className="text-red-500" />
-          </div>
-          <h3 className="text-xl font-semibold text-gray-700 mb-2">
-            No Active Bookings Found
-          </h3>
-          <p className="text-gray-600 mb-6">
-            {searchTerm || statusFilter !== "all"
-              ? "Try adjusting your search or filter criteria to find more bookings."
-              : "There are no active bookings that can be cancelled at the moment."}
-          </p>
-          {(searchTerm || statusFilter !== "all") && (
+            {/* Refresh Button */}
             <button
-              onClick={() => {
-                setSearchTerm("");
-                setStatusFilter("all");
-              }}
-              className="inline-flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors cursor-pointer"
+              onClick={fetchBookings}
+              className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-3 rounded-lg transition-colors flex items-center"
+              disabled={loading}
             >
-              <RefreshCw size={16} />
-              Clear Filters
+              {loading ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+              ) : (
+                <RefreshCw size={20} />
+              )}
+              <span className="ml-2">Refresh</span>
             </button>
-          )}
-        </div>
-      )}
-
-      {/* Bookings Table */}
-      {filteredBookings.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Order Details
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Event Information
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Seats & Pricing
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {currentBookings.map((booking) => (
-                  <tr
-                    key={booking._id}
-                    className="hover:bg-gray-50 transition-colors"
-                  >
-                    {/* Order Details */}
-                    <td className="px-6 py-4">
-                      <div className="text-sm">
-                        <div className="font-semibold text-gray-900 mb-1">
-                          Buyer: {booking.buyerId?.name || "Unknown"}
-                        </div>
-                        <div className="text-gray-500 text-xs">
-                          Order: ...{booking._id?.slice(-8)}
-                        </div>
-                        {booking.paymentIntentId && (
-                          <div className="text-gray-500 text-xs">
-                            Payment: ...{booking.paymentIntentId.slice(-8)}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Event */}
-                    <td className="px-6 py-4">
-                      <div className="text-sm">
-                        <div className="font-semibold text-gray-900 mb-1">
-                          {booking.eventId?.title || "Unknown Event"}
-                        </div>
-                        <div className="text-gray-500 text-xs flex items-center gap-1">
-                          <Calendar size={12} />
-                          {formatDate(booking.eventId?.date)}
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Seats */}
-                    <td className="px-6 py-4">
-                      <div className="text-sm">
-                        <div className="font-semibold text-gray-900 mb-1">
-                          {booking.seats?.length || 0} seat(s)
-                        </div>
-                        <div className="text-lg font-bold text-green-600 mb-1">
-                          ${booking.totalAmount?.toFixed(2) || "0.00"}
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Status */}
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col gap-2">
-                        <span
-                          className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
-                            booking.status === "success"
-                              ? "bg-green-100 text-green-800"
-                              : booking.status === "pending"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-gray-100 text-gray-800"
-                          }`}
-                        >
-                          {booking.status || "Unknown"}
-                        </span>
-                        <span
-                          className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
-                            booking.paymentStatus === "success"
-                              ? "bg-blue-100 text-blue-800"
-                              : "bg-red-100 text-red-800"
-                          }`}
-                        >
-                          {booking.paymentStatus === "success" ? "Paid" : "Unpaid"}
-                        </span>
-                        <span
-                          className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
-                            booking.ticketStatus === "unused"
-                              ? "bg-green-100 text-green-800"
-                              : booking.ticketStatus === "used"
-                              ? "bg-gray-100 text-gray-800"
-                              : "bg-yellow-100 text-yellow-800"
-                          }`}
-                        >
-                          {booking.ticketStatus || "Unknown"}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Actions */}
-                    <td className="px-6 py-4 text-center">
-                      <div className="flex justify-center gap-2">
-                        <button
-                          onClick={() => viewBookingDetails(booking)}
-                          className="inline-flex items-center gap-1 bg-blue-50 text-blue-600 px-3 py-2 rounded-lg text-xs hover:bg-blue-100 transition-colors cursor-pointer"
-                        >
-                          <Eye size={14} />
-                        </button>
-                        {/* Only show cancel button for refundable bookings */}
-                        {booking.paymentStatus === "success" && 
-                         booking.status === "success" && 
-                         booking.ticketStatus === "unused" && 
-                         booking.paymentIntentId ? (
-                          <button
-                            onClick={() => {
-                              console.log("=== CANCEL BUTTON CLICKED ===");
-                              console.log("Booking:", booking);
-                              showCancelConfirmation(booking);
-                            }}
-                            className="inline-flex items-center gap-1 bg-red-50 text-red-600 px-3 py-2 rounded-lg text-xs hover:bg-red-100 transition-colors cursor-pointer"
-                            disabled={cancelLoading}
-                          >
-                            <X size={14} />
-                            Cancel
-                          </button>
-                        ) : (
-                          <button
-                            className="inline-flex items-center gap-1 bg-gray-50 text-gray-400 px-3 py-2 rounded-lg text-xs cursor-not-allowed"
-                            disabled={true}
-                            title={`Cannot cancel: ${
-                              booking.paymentStatus !== "success" ? "Payment not successful" :
-                              booking.status !== "success" ? "Order not successful" :
-                              booking.ticketStatus !== "unused" ? "Ticket already used" :
-                              !booking.paymentIntentId ? "No payment information" :
-                              "Not refundable"
-                            }`}
-                          >
-                            <X size={14} />
-                            Cannot Cancel
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
+        </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-700">
-                  Showing <span className="font-medium">{startIndex + 1}</span>{" "}
-                  to{" "}
-                  <span className="font-medium">
-                    {Math.min(endIndex, filteredBookings.length)}
-                  </span>{" "}
-                  of{" "}
-                  <span className="font-medium">{filteredBookings.length}</span>{" "}
-                  results
+        {/* Stats Bar */}
+        {Object.keys(filteredBookings).length > 0 && (
+          <div className="bg-gray-800 bg-opacity-80 backdrop-blur-lg rounded-lg p-4 mb-6 border border-gray-700">
+            <div className="flex flex-wrap justify-between items-center">
+              <div className="flex items-center space-x-6">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-orange-400">
+                    {stats.events}
+                  </div>
+                  <div className="text-sm text-gray-400">Events</div>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() =>
-                      setCurrentPage((prev) => Math.max(prev - 1, 1))
-                    }
-                    disabled={currentPage === 1}
-                    className="px-4 py-2 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
-                  >
-                    Previous
-                  </button>
-
-                  {/* Page numbers */}
-                  {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`px-4 py-2 border rounded-lg text-sm transition-colors ${
-                          currentPage === pageNum
-                            ? "bg-red-500 text-white border-red-500"
-                            : "border-gray-300 hover:bg-gray-50"
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
-
-                  <button
-                    onClick={() =>
-                      setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-                    }
-                    disabled={currentPage === totalPages}
-                    className="px-4 py-2 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
-                  >
-                    Next
-                  </button>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-400">
+                    {stats.totalSeats}
+                  </div>
+                  <div className="text-sm text-gray-400">Total Tickets</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-400">
+                    ${stats.totalAmount.toFixed(2)}
+                  </div>
+                  <div className="text-sm text-gray-400">Total Value</div>
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Main Content */}
+        <div className="space-y-6">
+          {Object.keys(filteredBookings).length === 0 ? (
+            <div className="bg-gray-800 bg-opacity-80 backdrop-blur-lg rounded-xl shadow-2xl overflow-hidden border border-gray-700">
+              <div className="text-center py-16">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-700 text-gray-400 mb-4">
+                  <Ticket className="w-8 h-8" />
+                </div>
+                <h3 className="text-xl font-semibold mb-2">
+                  No Active Bookings Found
+                </h3>
+                <p className="text-gray-400 mb-6">
+                  {searchTerm || statusFilter !== "all"
+                    ? "Try adjusting your search or filter criteria to find more bookings."
+                    : "There are no active bookings that can be cancelled at the moment."}
+                </p>
+                {(searchTerm || statusFilter !== "all") && (
+                  <button
+                    onClick={() => {
+                      setSearchTerm("");
+                      setStatusFilter("all");
+                    }}
+                    className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors"
+                  >
+                    <RefreshCw size={16} />
+                    Clear Filters
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            // Event-wise Bookings
+            Object.entries(filteredBookings).map(([eventId, eventData]) => (
+              <div
+                key={eventId}
+                className="bg-gray-800 bg-opacity-80 backdrop-blur-lg rounded-xl shadow-2xl overflow-hidden border border-gray-700"
+              >
+                {/* Event Header */}
+                <div
+                  className="bg-gradient-to-r from-purple-800 to-purple-600 p-4 cursor-pointer hover:from-purple-700 hover:to-purple-500 transition-all"
+                  onClick={() => toggleEventExpansion(eventId)}
+                >
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="text-xl font-bold text-white">
+                        {eventData.eventTitle}
+                      </h3>
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-purple-200 text-sm">
+                          {eventData.totalSeats} ticket
+                          {eventData.totalSeats !== 1 ? "s" : ""} •{" "}
+                          {eventData.bookings.length} order
+                          {eventData.bookings.length !== 1 ? "s" : ""} • $
+                          {eventData.totalAmount.toFixed(2)}
+                        </p>
+                        {eventData.eventDate && (
+                          <p className="text-purple-300 text-xs">
+                            📅 {formatDate(eventData.eventDate)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="text-purple-200 text-sm mr-2">
+                        {expandedEvents.has(eventId) ? "Collapse" : "Expand"}
+                      </span>
+                      <svg
+                        className={`w-6 h-6 text-purple-200 transform transition-transform ${
+                          expandedEvents.has(eventId) ? "rotate-180" : ""
+                        }`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Event Content */}
+                {expandedEvents.has(eventId) && (
+                  <div className="p-6">
+                    {/* Desktop Table */}
+                    <div className="hidden md:block overflow-x-auto">
+                      <table className="min-w-full table-auto">
+                        <thead>
+                          <tr className="bg-gray-700">
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                              Order Details
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                              Buyer
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                              Seat Details
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                              Price
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                              Status
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-gray-800 divide-y divide-gray-700">
+                          {eventData.bookings.map((booking) =>
+                            booking.seats?.map((seat, seatIndex) => {
+                              const cancelId = `${booking._id}-${
+                                seat._id || seat.seatNumber
+                              }`;
+                              const isCancelling = cancellingIds.has(cancelId);
+
+                              return (
+                                <tr
+                                  key={`${booking._id}-${
+                                    seat._id || seatIndex
+                                  }`}
+                                  className="hover:bg-gray-700 transition-colors"
+                                >
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                                    <div className="font-mono text-xs bg-gray-700 px-2 py-1 rounded">
+                                      {booking._id.slice(-8)}
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                                    <div className="font-medium">
+                                      {booking.buyerId?.name || "Unknown"}
+                                    </div>
+                                    <div className="text-xs text-gray-400">
+                                      {booking.buyerId?.email || "No email"}
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                                    <div className="flex items-center">
+                                      <div className="bg-orange-600 text-white px-2 py-1 rounded text-xs font-bold mr-2">
+                                        {seat.row}
+                                        {seat.seatNumber}
+                                      </div>
+                                      <div>
+                                        <div className="font-medium">
+                                          {formatSectionName(seat.section)}
+                                        </div>
+                                        <div className="text-xs text-gray-400">
+                                          Row {seat.row}, Seat {seat.seatNumber}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                                    <div className="font-bold text-green-400 text-lg">
+                                      ${seat.price?.toFixed(2) || "0.00"}
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-900 text-green-200">
+                                      <CheckCircle className="w-3 h-3 mr-1" />
+                                      Active
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    <button
+                                      onClick={() =>
+                                        showCancelConfirmation(booking, seat)
+                                      }
+                                      disabled={isCancelling}
+                                      className={`${
+                                        isCancelling
+                                          ? "bg-gray-600 cursor-not-allowed"
+                                          : "bg-red-600 hover:bg-red-700"
+                                      } text-white px-3 py-1 rounded text-xs transition-colors`}
+                                    >
+                                      {isCancelling ? (
+                                        <div className="flex items-center">
+                                          <div className="animate-spin rounded-full h-3 w-3 border-b border-white mr-1"></div>
+                                          Cancelling...
+                                        </div>
+                                      ) : (
+                                        "Cancel Ticket"
+                                      )}
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobile Cards */}
+                    <div className="md:hidden space-y-4">
+                      {eventData.bookings.map((booking) =>
+                        booking.seats?.map((seat, seatIndex) => {
+                          const cancelId = `${booking._id}-${
+                            seat._id || seat.seatNumber
+                          }`;
+                          const isCancelling = cancellingIds.has(cancelId);
+
+                          return (
+                            <div
+                              key={`${booking._id}-${seat._id || seatIndex}`}
+                              className="bg-gray-700 rounded-lg p-4 border border-gray-600"
+                            >
+                              <div className="flex justify-between items-start mb-3">
+                                <div>
+                                  <div className="text-sm text-gray-400">
+                                    Order ID
+                                  </div>
+                                  <div className="font-mono text-xs bg-gray-600 px-2 py-1 rounded inline-block">
+                                    {booking._id.slice(-8)}
+                                  </div>
+                                </div>
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900 text-green-200">
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  Active
+                                </span>
+                              </div>
+
+                              <div className="mb-3">
+                                <div className="text-sm text-gray-400">
+                                  Buyer
+                                </div>
+                                <div className="font-medium">
+                                  {booking.buyerId?.name || "Unknown"}
+                                </div>
+                                <div className="text-xs text-gray-400">
+                                  {booking.buyerId?.email || "No email"}
+                                </div>
+                              </div>
+
+                              <div className="mb-3">
+                                <div className="text-sm text-gray-400">
+                                  Seat Details
+                                </div>
+                                <div className="flex items-center">
+                                  <div className="bg-orange-600 text-white px-2 py-1 rounded text-xs font-bold mr-2">
+                                    {seat.row}
+                                    {seat.seatNumber}
+                                  </div>
+                                  <div>
+                                    <div className="font-medium">
+                                      {formatSectionName(seat.section)}
+                                    </div>
+                                    <div className="text-xs text-gray-400">
+                                      Row {seat.row}, Seat {seat.seatNumber}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="mb-4">
+                                <div className="text-sm text-gray-400">
+                                  Price
+                                </div>
+                                <div className="font-bold text-green-400 text-lg">
+                                  ${seat.price?.toFixed(2) || "0.00"}
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={() =>
+                                  showCancelConfirmation(booking, seat)
+                                }
+                                disabled={isCancelling}
+                                className={`w-full ${
+                                  isCancelling
+                                    ? "bg-gray-600 cursor-not-allowed"
+                                    : "bg-red-600 hover:bg-red-700"
+                                } text-white py-2 rounded transition-colors`}
+                              >
+                                {isCancelling ? (
+                                  <div className="flex items-center justify-center">
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b border-white mr-2"></div>
+                                    Cancelling...
+                                  </div>
+                                ) : (
+                                  "Cancel Ticket"
+                                )}
+                              </button>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))
           )}
         </div>
-      )}
 
-      {/* Cancel Confirmation Modal */}
-      {showCancelModal && bookingToCancel && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
-            {/* Modal header */}
-            <div className="bg-gradient-to-r from-red-500 to-red-600 p-6 flex justify-between items-center rounded-t-xl">
-              <h3 className="text-xl font-bold text-white flex items-center gap-3">
-                <AlertTriangle size={24} />
-                Cancel Order & Process Refund
-              </h3>
-              <button
-                onClick={closeCancelModal}
-                className="text-white hover:text-red-200 cursor-pointer transition-colors"
-                disabled={cancelLoading}
-              >
-                <X size={24} />
-              </button>
-            </div>
+        {/* Cancel Confirmation Modal */}
+        {showCancelModal && bookingToCancel && seatToCancel && (
+          <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-gray-800 rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-hidden border border-gray-700">
+              {/* Modal header */}
+              <div className="bg-gradient-to-r from-red-800 to-red-600 p-4 flex justify-between items-center">
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <AlertTriangle size={20} />
+                  Cancel Ticket
+                </h3>
+                <button
+                  onClick={closeCancelModal}
+                  className="text-white hover:text-red-200 cursor-pointer transition-colors"
+                  disabled={cancelLoading}
+                >
+                  <X size={20} />
+                </button>
+              </div>
 
-            {/* Modal content */}
-            <div className="p-6">
-              <div className="mb-6">
-                <h4 className="text-lg font-semibold text-gray-800 mb-4">
-                  Are you sure you want to cancel this order and process a refund?
-                </h4>
+              {/* Modal content */}
+              <div className="p-4 text-white overflow-y-auto max-h-[calc(90vh-120px)]">
+                <p className="text-sm text-gray-300 mb-4">
+                  Are you sure you want to cancel this ticket and process a
+                  refund?
+                </p>
 
-                <div className="bg-gray-50 p-4 rounded-lg mb-4 space-y-3">
+                <div className="bg-gray-700 p-3 rounded-lg mb-4 space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Order ID:</span>
-                    <span className="text-sm font-medium text-gray-800">
+                    <span className="text-xs text-gray-400">Order ID:</span>
+                    <span className="text-xs font-medium text-white">
                       ...{bookingToCancel._id?.slice(-8)}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Booking ID:</span>
-                    <span className="text-sm font-medium text-gray-800">
-                      ...{bookingToCancel.bookingId?.slice(-8) || "N/A"}
+                    <span className="text-xs text-gray-400">Buyer:</span>
+                    <span className="text-xs font-medium text-white">
+                      {bookingToCancel.buyerId?.name || "Unknown"}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Event:</span>
-                    <span className="text-sm font-medium text-gray-800">
+                    <span className="text-xs text-gray-400">Event:</span>
+                    <span className="text-xs font-medium text-white">
                       {bookingToCancel.eventId?.title || "Unknown Event"}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Event Date:</span>
-                    <span className="text-sm font-medium text-gray-800">
-                      {formatDate(bookingToCancel.eventId?.date)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Seats:</span>
-                    <span className="text-sm font-medium text-gray-800">
-                      {bookingToCancel.seats?.length || 0} seat(s)
-                    </span>
-                  </div>
-                  <div className="flex justify-between border-t pt-3">
-                    <span className="text-sm font-semibold text-gray-800">
-                      Total Amount:
-                    </span>
-                    <span className="text-lg font-bold text-green-600">
-                      ${bookingToCancel.totalAmount?.toFixed(2) || "0.00"}
-                    </span>
-                  </div>
-
-                  {bookingToCancel.seats &&
-                    bookingToCancel.seats.length > 0 && (
-                      <div className="mt-4 pt-3 border-t">
-                        <span className="text-sm font-medium text-gray-600">
-                          Seat Details:
-                        </span>
-                        <div className="mt-2 space-y-1">
-                          {bookingToCancel.seats.map((seat, index) => (
-                            <div
-                              key={seat._id || index}
-                              className="text-xs text-gray-500 bg-white p-2 rounded"
-                            >
-                              Section {seat.section}, Row {seat.row}, Seat{" "}
-                              {seat.seatNumber} - ${seat.price}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                 </div>
 
-                <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
-                  <div className="flex gap-3">
+                {/* Specific ticket details */}
+                <div className="bg-gray-600 p-3 rounded-lg mb-3">
+                  <div className="text-sm font-medium text-white mb-2">
+                    Ticket Details:
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-gray-400">Section:</span>
+                      <div className="font-semibold text-white">
+                        {formatSectionName(seatToCancel.section)}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Row:</span>
+                      <div className="font-semibold text-white">
+                        {seatToCancel.row}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Seat:</span>
+                      <div className="font-semibold text-white">
+                        {seatToCancel.seatNumber}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Price:</span>
+                      <div className="font-bold text-green-400">
+                        ${seatToCancel.price?.toFixed(2) || "0.00"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-green-900 bg-opacity-30 p-3 rounded-lg mb-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-semibold text-white">
+                      Refund Amount:
+                    </span>
+                    <span className="text-lg font-bold text-green-400">
+                      ${seatToCancel.price?.toFixed(2) || "0.00"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Show remaining tickets info */}
+                {bookingToCancel.seats && bookingToCancel.seats.length > 1 && (
+                  <div className="bg-blue-900 bg-opacity-30 p-3 rounded-lg mb-3">
+                    <div className="text-xs text-blue-200">
+                      <strong>Note:</strong> This order has{" "}
+                      {bookingToCancel.seats.length} tickets. After cancelling,{" "}
+                      {bookingToCancel.seats.length - 1} ticket(s) will remain
+                      active.
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-yellow-900 bg-opacity-30 border border-yellow-600 p-3 rounded-lg mb-4">
+                  <div className="flex gap-2">
                     <AlertTriangle
-                      size={20}
-                      className="text-yellow-600 mt-0.5"
+                      size={16}
+                      className="text-yellow-400 mt-0.5 flex-shrink-0"
                     />
                     <div>
-                      <p className="text-sm font-medium text-yellow-800 mb-1">
+                      <p className="text-xs font-medium text-yellow-300 mb-1">
                         Important Notice
                       </p>
-                      <p className="text-sm text-yellow-700">
-                        This will cancel the entire order and automatically
-                        process a full refund to the original payment method.
-                        This action cannot be undone.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={closeCancelModal}
-                  className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors"
-                  disabled={cancelLoading}
-                >
-                  Keep Order
-                </button>
-                <button
-                  onClick={() => cancelBooking(bookingToCancel)}
-                  className={`inline-flex items-center gap-2 px-6 py-3 ${
-                    cancelLoading
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-gradient-to-r from-red-500 to-red-600 hover:shadow-lg cursor-pointer"
-                  } text-white rounded-lg transition-all`}
-                  disabled={cancelLoading}
-                >
-                  {cancelLoading ? (
-                    <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
-                  ) : (
-                    <X size={18} />
-                  )}
-                  {cancelLoading
-                    ? "Processing Refund..."
-                    : "Yes, Cancel & Refund"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Booking Details Modal */}
-      {selectedBooking && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            {/* Modal header */}
-            <div className="bg-gradient-to-r from-red-700 to-red-500 p-6 flex justify-between items-center sticky top-0 z-10">
-              <div>
-                <h3 className="text-xl font-bold text-white">
-                  Order Details
-                </h3>
-                <p className="text-sm text-red-100 mt-1">
-                  {selectedBooking.eventId?.title || "Unknown Event"}
-                </p>
-              </div>
-              <button
-                onClick={closeDetailsModal}
-                className="text-white hover:text-red-200 cursor-pointer transition-colors"
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            {/* Modal content */}
-            <div className="p-6">
-              {/* Quick Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-                <div className="bg-blue-50 p-4 rounded-lg text-center">
-                  <div className="text-2xl font-bold text-blue-600">
-                    ${selectedBooking.totalAmount?.toFixed(2) || "0.00"}
-                  </div>
-                  <div className="text-sm text-blue-600">Total Amount</div>
-                </div>
-                <div className="bg-green-50 p-4 rounded-lg text-center">
-                  <div className="text-2xl font-bold text-green-600">
-                    {selectedBooking.seats?.length || 0}
-                  </div>
-                  <div className="text-sm text-green-600">Seats Booked</div>
-                </div>
-                <div className="bg-purple-50 p-4 rounded-lg text-center">
-                  <div className="text-2xl font-bold text-purple-600">
-                    {selectedBooking.paymentStatus === "success" ? "Paid" : "Unpaid"}
-                  </div>
-                  <div className="text-sm text-purple-600">Payment Status</div>
-                </div>
-                <div className="bg-orange-50 p-4 rounded-lg text-center">
-                  <div className="text-2xl font-bold text-orange-600 capitalize">
-                    {selectedBooking.ticketStatus || "Unknown"}
-                  </div>
-                  <div className="text-sm text-orange-600">Ticket Status</div>
-                </div>
-              </div>
-
-              {/* Detailed Info */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-                {/* Basic Info */}
-                <div>
-                  <h4 className="font-bold text-gray-700 mb-4 text-lg border-b pb-2">
-                    Order Information
-                  </h4>
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Order ID</p>
-                      <p className="font-medium text-gray-800 break-all bg-gray-50 p-2 rounded text-sm">
-                        {selectedBooking._id}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Booking ID</p>
-                      <p className="font-medium text-gray-800 break-all bg-gray-50 p-2 rounded text-sm">
-                        {selectedBooking.bookingId || "N/A"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">
-                        Payment Intent ID
-                      </p>
-                      <p className="font-medium text-gray-800 break-all bg-gray-50 p-2 rounded text-sm">
-                        {selectedBooking.paymentIntentId || "N/A"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Order Time</p>
-                      <p className="font-medium text-gray-800">
-                        {formatDateTime(selectedBooking.orderTime || selectedBooking.createdAt)}
+                      <p className="text-xs text-yellow-200">
+                        This will process a partial refund to the original
+                        payment method. This action cannot be undone.
                       </p>
                     </div>
                   </div>
                 </div>
 
-                {/* Buyer Info */}
-                <div>
-                  <h4 className="font-bold text-gray-700 mb-4 text-lg border-b pb-2">
-                    Buyer Information
-                  </h4>
-                  <div className="space-y-4">
-                    {selectedBooking.buyerId ? (
-                      <>
-                        <div>
-                          <p className="text-sm text-gray-500 mb-1">
-                            Buyer Name
-                          </p>
-                          <p className="font-medium text-gray-800 flex items-center gap-2">
-                            <User size={16} className="text-gray-400" />
-                            {selectedBooking.buyerId.name || "Unknown"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-500 mb-1">
-                            Buyer Email
-                          </p>
-                          <p className="font-medium text-gray-800 bg-gray-50 p-2 rounded text-sm">
-                            {selectedBooking.buyerId.email ||
-                              "No email provided"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-500 mb-1">Buyer ID</p>
-                          <p className="font-medium text-gray-800 break-all bg-gray-50 p-2 rounded text-sm">
-                            {selectedBooking.buyerId._id}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-500 mb-1">Seller ID</p>
-                          <p className="font-medium text-gray-800 break-all bg-gray-50 p-2 rounded text-sm">
-                            {selectedBooking.sellerId || "N/A"}
-                          </p>
-                        </div>
-                      </>
+                {/* Action buttons */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={closeCancelModal}
+                    className="flex-1 px-4 py-2 border border-gray-600 rounded-lg text-gray-300 hover:bg-gray-700 cursor-pointer transition-colors text-sm"
+                    disabled={cancelLoading}
+                  >
+                    Keep Ticket
+                  </button>
+                  <button
+                    onClick={() => {
+                      setCancelLoading(true);
+                      cancelSingleTicket(bookingToCancel, seatToCancel).finally(
+                        () => {
+                          setCancelLoading(false);
+                        }
+                      );
+                    }}
+                    className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 ${
+                      cancelLoading
+                        ? "bg-gray-600 cursor-not-allowed"
+                        : "bg-gradient-to-r from-red-600 to-red-700 hover:shadow-lg cursor-pointer"
+                    } text-white rounded-lg transition-all text-sm`}
+                    disabled={cancelLoading}
+                  >
+                    {cancelLoading ? (
+                      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
                     ) : (
-                      <div className="bg-yellow-50 p-4 rounded-lg">
-                        <div className="flex items-center gap-2 mb-2">
-                          <AlertTriangle
-                            size={16}
-                            className="text-yellow-600"
-                          />
-                          <p className="text-sm font-medium text-yellow-800">
-                            Guest Purchase
-                          </p>
-                        </div>
-                        <p className="text-sm text-yellow-700 mt-2">
-                          This order was made without a registered account.
-                        </p>
-                      </div>
+                      <X size={16} />
                     )}
-                  </div>
+                    {cancelLoading ? "Processing..." : "Cancel & Refund"}
+                  </button>
                 </div>
-
-                {/* Event Info */}
-                <div>
-                  <h4 className="font-bold text-gray-700 mb-4 text-lg border-b pb-2">
-                    Event Information
-                  </h4>
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Event Title</p>
-                      <p className="font-medium text-gray-800">
-                        {selectedBooking.eventId?.title || "Unknown Event"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Event Date</p>
-                      <p className="font-medium text-gray-800 flex items-center gap-2">
-                        <Calendar size={16} className="text-gray-400" />
-                        {formatDate(selectedBooking.eventId?.date)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Event ID</p>
-                      <p className="font-medium text-gray-800 break-all bg-gray-50 p-2 rounded text-sm">
-                        {selectedBooking.eventId?._id || "N/A"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Quantity</p>
-                      <p className="font-medium text-gray-800">
-                        {selectedBooking.quantity || 1} ticket(s)
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Seats Information */}
-              <div className="mb-8">
-                <h4 className="font-bold text-gray-700 mb-4 text-lg border-b pb-2">
-                  Seat Details
-                </h4>
-                <div className="bg-gray-50 rounded-xl p-6">
-                  {selectedBooking.seats && selectedBooking.seats.length > 0 ? (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {selectedBooking.seats.map((seat, index) => (
-                          <div
-                            key={seat._id || index}
-                            className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm"
-                          >
-                            <div className="grid grid-cols-2 gap-3">
-                              <div>
-                                <p className="text-xs text-gray-500 mb-1">
-                                  Section
-                                </p>
-                                <p className="font-semibold text-gray-800">
-                                  {seat.section}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-500 mb-1">
-                                  Row
-                                </p>
-                                <p className="font-semibold text-gray-800">
-                                  {seat.row}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-500 mb-1">
-                                  Seat Number
-                                </p>
-                                <p className="font-semibold text-gray-800">
-                                  {seat.seatNumber}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-500 mb-1">
-                                  Price
-                                </p>
-                                <p className="font-bold text-green-600">
-                                  ${seat.price?.toFixed(2)}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="border-t pt-4 mt-6">
-                        <div className="flex justify-between items-center bg-white p-4 rounded-lg">
-                          <span className="text-lg font-semibold text-gray-800">
-                            Total Amount:
-                          </span>
-                          <span className="text-2xl font-bold text-green-600">
-                            ${selectedBooking.totalAmount?.toFixed(2) || "0.00"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <Ticket
-                        size={48}
-                        className="mx-auto text-gray-400 mb-3"
-                      />
-                      <p className="text-gray-500">
-                        No seat information available
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Additional Information */}
-              <div className="mb-8">
-                <h4 className="font-bold text-gray-700 mb-4 text-lg border-b pb-2">
-                  Additional Information
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                    <Eye
-                      size={20}
-                      className={
-                        selectedBooking.isUserVisible
-                          ? "text-green-500"
-                          : "text-red-500"
-                      }
-                    />
-                    <div>
-                      <p className="text-sm text-gray-500">User Visible</p>
-                      <p className="font-medium text-gray-800">
-                        {selectedBooking.isUserVisible ? "Yes" : "No"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                    <DollarSign size={20} className="text-blue-500" />
-                    <div>
-                      <p className="text-sm text-gray-500">Payment Status</p>
-                      <p className="font-medium text-gray-800 capitalize">
-                        {selectedBooking.paymentStatus || "Unknown"}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                    <Ticket size={20} className="text-purple-500" />
-                    <div>
-                      <p className="text-sm text-gray-500">Ticket Status</p>
-                      <p className="font-medium text-gray-800 capitalize">
-                        {selectedBooking.ticketStatus || "Unknown"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex justify-end gap-4 pt-6 border-t">
-                <button
-                  onClick={closeDetailsModal}
-                  className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors"
-                >
-                  Close Details
-                </button>
-
-                <button
-                  onClick={() => {
-                    closeDetailsModal();
-                    showCancelConfirmation(selectedBooking);
-                  }}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:shadow-lg cursor-pointer text-white rounded-lg transition-all"
-                  disabled={cancelLoading}
-                >
-                  <X size={18} />
-                  Cancel This Order & Refund
-                </button>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

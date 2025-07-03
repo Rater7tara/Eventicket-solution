@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import CountdownTimer from "../Dashboard/UserDashboard/CountdownTimer/CountdownTimer";
 
 const SeatPlanView = ({
@@ -16,7 +16,7 @@ const SeatPlanView = ({
   isLoadingSeats,
   userData,
   timerStartTime,
-  
+
   // Event and config props
   eventDetails,
   ticketType,
@@ -26,7 +26,7 @@ const SeatPlanView = ({
   sections,
   rowLetters,
   totalPrice,
-  
+
   // Handler functions
   handleTimerExpire,
   handleTimeoutOk,
@@ -43,9 +43,8 @@ const SeatPlanView = ({
   isSeatReserved,
   isSellerOrAdmin,
   setSelectedSeats,
-  navigate
+  navigate,
 }) => {
-
   // Judges table component
   const JudgesTable = () => (
     <div className="flex flex-col items-center my-4">
@@ -111,8 +110,8 @@ const SeatPlanView = ({
             Reservation Successful!
           </h3>
           <p className="text-gray-300 mb-6">
-            You have successfully reserved {selectedSeats.length} seats for free.
-            These seats are now locked and reserved for you.
+            You have successfully reserved {selectedSeats.length} seats for
+            free. These seats are now locked and reserved for you.
           </p>
           <p className="text-sm text-gray-400">
             Redirecting to your tickets...
@@ -157,8 +156,8 @@ const SeatPlanView = ({
             Session Expired
           </h3>
           <p className="text-gray-300 mb-6">
-            Your seat selection session has expired. Your selected seats
-            have been released.
+            Your seat selection session has expired. Your selected seats have
+            been released.
           </p>
           <div className="flex space-x-3 justify-center">
             <button
@@ -201,9 +200,7 @@ const SeatPlanView = ({
             </svg>
           </div>
           <div>
-            <h4 className="font-bold text-red-300">
-              Premium VIP Section
-            </h4>
+            <h4 className="font-bold text-red-300">Premium VIP Section</h4>
             <p className="text-sm text-gray-300">
               Rows A-B require direct booking with the event organizer.
             </p>
@@ -224,23 +221,31 @@ const SeatPlanView = ({
               <div className="mr-2 w-6 flex items-center justify-center text-xs font-bold text-red-400">
                 {rowLetters[rowIndex]}
               </div>
-              {Array.from({ length: sections[0].columns }).map((_, colIndex) => (
-                <div key={`vip-row-${rowIndex}-col-${colIndex}`} className="flex space-x-1 mr-4">
-                  {Array.from({ length: sections[0].seatsPerRow }).map((_, seatIndex) => {
-                    const seatNumber = colIndex * sections[0].seatsPerRow + seatIndex + 1;
-                    return (
-                      <button
-                        key={`vip-${rowIndex}-${colIndex}-${seatIndex}`}
-                        disabled={true}
-                        className="w-6 h-6 rounded flex items-center justify-center text-xs font-medium bg-red-900 opacity-60 cursor-not-allowed"
-                        style={{ fontSize: "0.65rem" }}
-                      >
-                        {seatNumber}
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
+              {Array.from({ length: sections[0].columns }).map(
+                (_, colIndex) => (
+                  <div
+                    key={`vip-row-${rowIndex}-col-${colIndex}`}
+                    className="flex space-x-1 mr-4"
+                  >
+                    {Array.from({ length: sections[0].seatsPerRow }).map(
+                      (_, seatIndex) => {
+                        const seatNumber =
+                          colIndex * sections[0].seatsPerRow + seatIndex + 1;
+                        return (
+                          <button
+                            key={`vip-${rowIndex}-${colIndex}-${seatIndex}`}
+                            disabled={true}
+                            className="w-6 h-6 rounded flex items-center justify-center text-xs font-medium bg-red-900 opacity-60 cursor-not-allowed"
+                            style={{ fontSize: "0.65rem" }}
+                          >
+                            {seatNumber}
+                          </button>
+                        );
+                      }
+                    )}
+                  </div>
+                )
+              )}
             </div>
           ))}
         </div>
@@ -268,65 +273,81 @@ const SeatPlanView = ({
                   {rowLetters[rowIndex]}
                 </div>
                 {Array.from({ length: section.columns }).map((_, colIndex) => (
-                  <div key={`${section.id}-row-${idx}-col-${colIndex}`} className="flex space-x-1 mr-4">
-                    {Array.from({ length: section.seatsPerRow }).map((_, seatIndex) => {
-                      const seatNumber = colIndex * section.seatsPerRow + seatIndex + 1;
-                      const seatId = `${section.id}_${idx}_${colIndex}_${seatIndex}`;
-                      
-                      const isBooked = isSeatBooked(section.id, rowLetters[rowIndex], seatNumber);
-                      const isReserved = isSeatReserved(section.id, rowLetters[rowIndex], seatNumber);
-                      const isSelected = selectedSeats.some((s) => s.id === seatId);
-                      const isUnavailable = isBooked || isReserved;
+                  <div
+                    key={`${section.id}-row-${idx}-col-${colIndex}`}
+                    className="flex space-x-1 mr-4"
+                  >
+                    {Array.from({ length: section.seatsPerRow }).map(
+                      (_, seatIndex) => {
+                        const seatNumber =
+                          colIndex * section.seatsPerRow + seatIndex + 1;
+                        const seatId = `${section.id}_${idx}_${colIndex}_${seatIndex}`;
 
-                      return (
-                        <button
-                          key={seatId}
-                          disabled={isUnavailable}
-                          onClick={() =>
-                            !isUnavailable &&
-                            toggleSeat({
-                              id: seatId,
-                              name: `${section.name} ${rowLetters[rowIndex]}${seatNumber}`,
-                              price: section.price,
-                              section: section.id,
-                              row: rowLetters[rowIndex],
-                              number: seatNumber,
-                            })
-                          }
-                          className={`w-6 h-6 rounded flex items-center justify-center text-xs font-medium transition-all cursor-pointer relative ${
-                            isUnavailable
-                              ? "bg-gray-700 opacity-50 cursor-not-allowed"
-                              : isSelected
-                              ? "bg-yellow-400 text-gray-900 shadow-md transform scale-110"
-                              : `hover:bg-opacity-80 hover:transform hover:scale-105`
-                          }`}
-                          style={{
-                            backgroundColor: isSelected
-                              ? "#FBBF24"
-                              : isUnavailable
-                              ? "#374151"
-                              : section.color,
-                            fontSize: "0.65rem",
-                          }}
-                        >
-                          {isReserved ? (
-                            <svg
-                              className="w-3 h-3 text-gray-400"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          ) : (
-                            seatNumber
-                          )}
-                        </button>
-                      );
-                    })}
+                        const isBooked = isSeatBooked(
+                          section.id,
+                          rowLetters[rowIndex],
+                          seatNumber
+                        );
+                        const isReserved = isSeatReserved(
+                          section.id,
+                          rowLetters[rowIndex],
+                          seatNumber
+                        );
+                        const isSelected = selectedSeats.some(
+                          (s) => s.id === seatId
+                        );
+                        const isUnavailable = isBooked || isReserved;
+
+                        return (
+                          <button
+                            key={seatId}
+                            disabled={isUnavailable}
+                            onClick={() =>
+                              !isUnavailable &&
+                              toggleSeat({
+                                id: seatId,
+                                name: `${section.name} ${rowLetters[rowIndex]}${seatNumber}`,
+                                price: section.price,
+                                section: section.id,
+                                row: rowLetters[rowIndex],
+                                number: seatNumber,
+                              })
+                            }
+                            className={`w-6 h-6 rounded flex items-center justify-center text-xs font-medium transition-all cursor-pointer relative ${
+                              isUnavailable
+                                ? "bg-gray-700 opacity-50 cursor-not-allowed"
+                                : isSelected
+                                ? "bg-yellow-400 text-gray-900 shadow-md transform scale-110"
+                                : `hover:bg-opacity-80 hover:transform hover:scale-105`
+                            }`}
+                            style={{
+                              backgroundColor: isSelected
+                                ? "#FBBF24"
+                                : isUnavailable
+                                ? "#374151"
+                                : section.color,
+                              fontSize: "0.65rem",
+                            }}
+                          >
+                            {isReserved ? (
+                              <svg
+                                className="w-3 h-3 text-gray-400"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                            ) : (
+                              seatNumber
+                            )}
+                          </button>
+                        );
+                      }
+                    )}
                   </div>
                 ))}
               </div>
@@ -354,65 +375,80 @@ const SeatPlanView = ({
                 {rowLetters[rowIndex]}
               </div>
               {sections[5].columnSeats.map((column, colIndex) => (
-                <div key={`gamma-row-${rowIndex}-col-${colIndex}`} className="flex space-x-1 mr-4">
-                  {Array.from({ length: column.end - column.start + 1 }).map((_, seatIndex) => {
-                    const seatNumber = column.start + seatIndex;
-                    const seatId = `gamma-college-zone_${rowIndex}_${colIndex}_${seatIndex}`;
-                    
-                    const isBooked = isSeatBooked("gamma-college-zone", rowLetters[rowIndex], seatNumber);
-                    const isReserved = isSeatReserved("gamma-college-zone", rowLetters[rowIndex], seatNumber);
-                    const isSelected = selectedSeats.some((s) => s.id === seatId);
-                    const isUnavailable = isBooked || isReserved;
+                <div
+                  key={`gamma-row-${rowIndex}-col-${colIndex}`}
+                  className="flex space-x-1 mr-4"
+                >
+                  {Array.from({ length: column.end - column.start + 1 }).map(
+                    (_, seatIndex) => {
+                      const seatNumber = column.start + seatIndex;
+                      const seatId = `gamma-college-zone_${rowIndex}_${colIndex}_${seatIndex}`;
 
-                    return (
-                      <button
-                        key={seatId}
-                        disabled={isUnavailable}
-                        onClick={() =>
-                          !isUnavailable &&
-                          toggleSeat({
-                            id: seatId,
-                            name: `Gamma College Zone ${rowLetters[rowIndex]}${seatNumber}`,
-                            price: sections[5].price,
-                            section: "gamma-college-zone",
-                            row: rowLetters[rowIndex],
-                            number: seatNumber,
-                          })
-                        }
-                        className={`w-5 h-5 rounded flex items-center justify-center text-xs font-medium transition-all cursor-pointer ${
-                          isUnavailable
-                            ? "bg-gray-700 opacity-50 cursor-not-allowed"
-                            : isSelected
-                            ? "bg-yellow-400 text-gray-900 shadow-md transform scale-110"
-                            : `hover:bg-opacity-80 hover:transform hover:scale-105`
-                        }`}
-                        style={{
-                          backgroundColor: isSelected
-                            ? "#FBBF24"
-                            : isUnavailable
-                            ? "#374151"
-                            : sections[5].color,
-                          fontSize: "0.6rem",
-                        }}
-                      >
-                        {isReserved ? (
-                          <svg
-                            className="w-2.5 h-2.5 text-gray-400"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        ) : (
-                          seatNumber
-                        )}
-                      </button>
-                    );
-                  })}
+                      const isBooked = isSeatBooked(
+                        "gamma-college-zone",
+                        rowLetters[rowIndex],
+                        seatNumber
+                      );
+                      const isReserved = isSeatReserved(
+                        "gamma-college-zone",
+                        rowLetters[rowIndex],
+                        seatNumber
+                      );
+                      const isSelected = selectedSeats.some(
+                        (s) => s.id === seatId
+                      );
+                      const isUnavailable = isBooked || isReserved;
+
+                      return (
+                        <button
+                          key={seatId}
+                          disabled={isUnavailable}
+                          onClick={() =>
+                            !isUnavailable &&
+                            toggleSeat({
+                              id: seatId,
+                              name: `Gamma College Zone ${rowLetters[rowIndex]}${seatNumber}`,
+                              price: sections[5].price,
+                              section: "gamma-college-zone",
+                              row: rowLetters[rowIndex],
+                              number: seatNumber,
+                            })
+                          }
+                          className={`w-5 h-5 rounded flex items-center justify-center text-xs font-medium transition-all cursor-pointer ${
+                            isUnavailable
+                              ? "bg-gray-700 opacity-50 cursor-not-allowed"
+                              : isSelected
+                              ? "bg-yellow-400 text-gray-900 shadow-md transform scale-110"
+                              : `hover:bg-opacity-80 hover:transform hover:scale-105`
+                          }`}
+                          style={{
+                            backgroundColor: isSelected
+                              ? "#FBBF24"
+                              : isUnavailable
+                              ? "#374151"
+                              : sections[5].color,
+                            fontSize: "0.6rem",
+                          }}
+                        >
+                          {isReserved ? (
+                            <svg
+                              className="w-2.5 h-2.5 text-gray-400"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          ) : (
+                            seatNumber
+                          )}
+                        </button>
+                      );
+                    }
+                  )}
                 </div>
               ))}
             </div>
@@ -450,9 +486,7 @@ const SeatPlanView = ({
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-bold">
-                    ${seat.price}
-                  </div>
+                  <div className="font-bold">${seat.price}</div>
                   <button
                     onClick={() => toggleSeat(seat)}
                     className="text-xs text-orange-400 hover:text-orange-300 cursor-pointer"
@@ -471,7 +505,8 @@ const SeatPlanView = ({
             </div>
             {mode === "reserve" && (
               <p className="text-sm text-gray-400 mt-2">
-                These seats will be reserved for your personal guests at no cost.
+                These seats will be reserved for your personal guests at no
+                cost.
               </p>
             )}
           </div>
@@ -545,7 +580,10 @@ const SeatPlanView = ({
               : "Select seats from the seating chart."}
           </p>
           <div className="mt-6 text-sm text-gray-500">
-            <p>Tip: Click on a section above to focus on that specific seating area.</p>
+            <p>
+              Tip: Click on a section above to focus on that specific seating
+              area.
+            </p>
           </div>
         </div>
       )}
@@ -556,7 +594,9 @@ const SeatPlanView = ({
           onClick={() =>
             navigate("/contact", {
               state: {
-                subject: `Seating inquiry for ${eventDetails.title || "the event"}`,
+                subject: `Seating inquiry for ${
+                  eventDetails.title || "the event"
+                }`,
                 organizer: eventDetails.organizer,
               },
             })
@@ -709,7 +749,7 @@ const SeatPlanView = ({
             >
               All Sections
             </button>
-            
+
             {/* Individual Section Buttons */}
             {sections.map((section) => (
               <button
@@ -735,13 +775,16 @@ const SeatPlanView = ({
             <div className="lg:col-span-4 bg-gray-900 rounded-lg border border-gray-700 p-4 overflow-x-auto">
               {/* Stage */}
               <div className="w-full max-w-5xl mx-auto h-12 bg-gradient-to-r from-red-900 via-red-600 to-red-900 rounded-xl flex items-center justify-center mb-8 sticky top-0 z-10">
-                <span className="text-red-100 font-bold tracking-widest">STAGE</span>
+                <span className="text-red-100 font-bold tracking-widest">
+                  STAGE
+                </span>
               </div>
 
               {/* Seating Layout Container */}
               <div className="w-full max-w-6xl mx-auto pb-4 overflow-x-auto">
                 {/* Greenfield VIP Zone */}
-                {(!activeSection || activeSection === "greenfield-vip-zone") && <VIPSection />}
+                {(!activeSection ||
+                  activeSection === "greenfield-vip-zone") && <VIPSection />}
 
                 {/* Alfa College Zone - Rows C-E */}
                 {(!activeSection || activeSection === "alfa-college-zone") && (
@@ -763,7 +806,8 @@ const SeatPlanView = ({
                 )}
 
                 {/* Ample Accounting Zone */}
-                {(!activeSection || activeSection === "ample-accounting-zone") && (
+                {(!activeSection ||
+                  activeSection === "ample-accounting-zone") && (
                   <SectionComponent section={sections[3]} startRowIndex={0} />
                 )}
 
@@ -781,7 +825,9 @@ const SeatPlanView = ({
                 </div>
 
                 {/* Gamma College Zone Section */}
-                {(!activeSection || activeSection === "gamma-college-zone") && <GammaCollegeZoneSection />}
+                {(!activeSection || activeSection === "gamma-college-zone") && (
+                  <GammaCollegeZoneSection />
+                )}
               </div>
 
               {/* Legend */}
@@ -790,7 +836,9 @@ const SeatPlanView = ({
                 <div className="flex flex-wrap gap-4">
                   <div className="flex items-center space-x-2">
                     <div className="w-4 h-4 bg-red-900 opacity-60 rounded"></div>
-                    <span className="text-xs text-gray-400">VIP (Contact Organizer)</span>
+                    <span className="text-xs text-gray-400">
+                      VIP (Contact Organizer)
+                    </span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-4 h-4 bg-gray-700 opacity-50 rounded"></div>
@@ -842,12 +890,17 @@ const SeatPlanView = ({
                     <span className="text-xs text-gray-400">Judges' Table</span>
                   </div>
                   {sections.slice(1).map((section) => (
-                    <div key={`legend-${section.id}`} className="flex items-center space-x-2">
+                    <div
+                      key={`legend-${section.id}`}
+                      className="flex items-center space-x-2"
+                    >
                       <div
                         className="w-4 h-4 rounded"
                         style={{ backgroundColor: section.color }}
                       ></div>
-                      <span className="text-xs text-gray-400">{section.name}</span>
+                      <span className="text-xs text-gray-400">
+                        {section.name}
+                      </span>
                     </div>
                   ))}
                 </div>
