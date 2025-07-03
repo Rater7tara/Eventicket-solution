@@ -392,17 +392,17 @@ const EventDetails = () => {
                     <div className="grid grid-cols-2 gap-2">
                       <div className="p-3 border border-red-500 bg-gray-700 rounded-lg">
                         <div className="font-medium text-white text-sm">Greenfield VIP Zone</div>
-                        <div className="text-xs text-gray-400">$200</div>
+                        <div className="text-xs text-gray-400">$150</div>
                       </div>
                       
                       <div className="p-3 border border-orange-500 bg-gray-700 rounded-lg">
                         <div className="font-medium text-white text-sm">Alfa College Zone</div>
-                        <div className="text-xs text-gray-400">$160</div>
+                        <div className="text-xs text-gray-400">$120</div>
                       </div>
                       
                       <div className="p-3 border border-orange-300 bg-gray-700 rounded-lg">
                         <div className="font-medium text-white text-sm">Luminedge Zone</div>
-                        <div className="text-xs text-gray-400">$120</div>
+                        <div className="text-xs text-gray-400">$100</div>
                       </div>
                       
                       <div className="p-3 border border-purple-500 bg-gray-700 rounded-lg">

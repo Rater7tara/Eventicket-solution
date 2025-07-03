@@ -43,6 +43,7 @@ import EventReport from "../pages/Dashboard/AdminDashborad/Reports/EventReport";
 import CancelTicket from "../pages/Dashboard/AdminDashborad/CancelTicket/CancelTicket";
 import SellerSoldTickets from "../pages/Dashboard/SellerDashboard/SellerSoldTickets/SellerSoldTickets";
 import AdminCancelTickets from "../pages/Dashboard/AdminDashborad/AdminCancelTickets/AdminCancelTickets";
+import MyReservation from "../pages/Dashboard/AdminDashborad/MyReservation/MyReservation";
 
 export const router = createBrowserRouter([
   {
@@ -163,6 +164,10 @@ export const router = createBrowserRouter([
       {
         path: "admin-cancel-ticket",
         element: <AdminCancelTickets />,
+      },
+      {
+        path: "my-reservation",
+        element: <MyReservation />,
       },
       {
         path: "admin-profile",

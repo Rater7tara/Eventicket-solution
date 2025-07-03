@@ -16,10 +16,13 @@ const SeatPlan = () => {
   );
   const [activeSection, setActiveSection] = useState(null);
   const [isBooking, setIsBooking] = useState(false);
+  const [isReserving, setIsReserving] = useState(false);
+  const [reserveSuccess, setReserveSuccess] = useState(false);
   const [bookingError, setBookingError] = useState("");
   const [timerActive, setTimerActive] = useState(true);
   const [showTimeoutModal, setShowTimeoutModal] = useState(false);
   const [bookedSeatsData, setBookedSeatsData] = useState([]);
+  const [reservedSeatsData, setReservedSeatsData] = useState([]);
   const [isLoadingSeats, setIsLoadingSeats] = useState(true);
   const [userData, setUserData] = useState(location.state?.userData || null);
   const [bookedSeats, setBookedSeats] = useState([]);
@@ -31,6 +34,36 @@ const SeatPlan = () => {
   const quantity = location.state?.quantity || 1;
   const mode = location.state?.mode || "book";
   const sellerId = location.state?.sellerId || null;
+
+  // Check if user is seller or admin
+  const isSellerOrAdmin = () => {
+    // Check if user is admin
+    if (userData?.role === 'admin' || userData?.userType === 'admin' || userData?.isAdmin) {
+      return true;
+    }
+    
+    // Check if user is seller (event organizer)
+    if (userData?.role === 'seller' || userData?.userType === 'seller' || userData?.isSeller) {
+      return true;
+    }
+    
+    // Check if current user is the event organizer/seller
+    if (eventDetails?.organizer && userData?._id === eventDetails.organizer) {
+      return true;
+    }
+    
+    // Check if current user is the sellerId
+    if (sellerId && userData?._id === sellerId) {
+      return true;
+    }
+    
+    // Check auth context for role
+    if (authContext?.user?.role === 'admin' || authContext?.user?.role === 'seller') {
+      return true;
+    }
+    
+    return false;
+  };
 
   // Timer persistence key (only used for cleanup on successful booking)
   const timerKey = `timer_${eventDetails._id || eventDetails.id}_${mode}`;
@@ -83,7 +116,7 @@ const SeatPlan = () => {
   {
     id: "greenfield-vip-zone",
     name: "Greenfield VIP Zone",
-    price: 200,
+    price: 150,
     color: "#FF0000",
     rows: 2,
     seatsPerRow: 20,
@@ -94,7 +127,7 @@ const SeatPlan = () => {
   {
     id: "alfa-college-zone",
     name: "Alfa College Zone",
-    price: 160,
+    price: 120,
     color: "#FF4500",
     rows: 3,
     seatsPerRow: 20,
@@ -104,7 +137,7 @@ const SeatPlan = () => {
   {
     id: "luminedge-zone",
     name: "Luminedge Zone",
-    price: 120,
+    price: 100,
     color: "#FF7F00",
     rows: 5,
     seatsPerRow: 20,
@@ -194,6 +227,13 @@ const SeatPlan = () => {
     }
   }, [bookedSeatsData]);
 
+  useEffect(() => {
+    if (reservedSeatsData.length > 0) {
+      console.log("Reserved seats loaded:", reservedSeatsData);
+      console.log("Number of reserved seats:", reservedSeatsData.length);
+    }
+  }, [reservedSeatsData]);
+
   // API functions
   const fetchBookedSeats = async () => {
     if (!eventDetails._id && !eventDetails.id) {
@@ -249,11 +289,46 @@ const SeatPlan = () => {
         console.log("No booked seats found for this event");
         setBookedSeatsData([]);
       }
+
+      // Fetch reserved seats as well
+      await fetchReservedSeats(eventId, token, headers);
     } catch (error) {
       console.error("Error fetching booked seats:", error);
       setBookedSeatsData([]);
     } finally {
       setIsLoadingSeats(false);
+    }
+  };
+
+  // New function to fetch reserved seats
+  const fetchReservedSeats = async (eventId, token, headers) => {
+    try {
+      const response = await fetch(
+        `${serverURL.url}bookings/reserved-seats/${eventId}`,
+        {
+          method: "GET",
+          headers: headers,
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Reserved seats API response:", data);
+
+        if (data.success && data.seats && data.seats.length > 0) {
+          setReservedSeatsData(data.seats);
+          console.log("Reserved seats loaded:", data.seats);
+        } else {
+          console.log("No reserved seats found for this event");
+          setReservedSeatsData([]);
+        }
+      } else {
+        console.log("Reserved seats endpoint not available or error occurred");
+        setReservedSeatsData([]);
+      }
+    } catch (error) {
+      console.error("Error fetching reserved seats:", error);
+      setReservedSeatsData([]);
     }
   };
 
@@ -314,6 +389,27 @@ const SeatPlan = () => {
     });
   };
 
+  // New function to check if seat is reserved
+  const isSeatReserved = (section, row, seatNumber) => {
+    if (isLoadingSeats) return false;
+
+    return reservedSeatsData.some((reservedSeat) => {
+      const reservedSeatNumber = parseInt(reservedSeat.seatNumber);
+      const currentSeatNumber = parseInt(seatNumber);
+
+      const matches =
+        reservedSeat.section === section &&
+        reservedSeat.row === row &&
+        reservedSeatNumber === currentSeatNumber;
+
+      if (matches) {
+        console.log(`Seat ${section} ${row}${seatNumber} is reserved:`, reservedSeat);
+      }
+
+      return matches;
+    });
+  };
+
   const handleGoBack = () => {
     navigate("/");
   };
@@ -346,6 +442,7 @@ const SeatPlan = () => {
     });
   };
 
+  // New function to handle free reservation
   const handleReserveSeats = async () => {
     if (selectedSeats.length === 0) return;
 
@@ -367,12 +464,10 @@ const SeatPlan = () => {
         section: seat.section,
         row: seat.row,
         seatNumber: seat.number,
-        price: seat.price
       }));
 
       const reserveData = {
         eventId: eventDetails._id || eventDetails.id,
-        sellerId: sellerId || userData?._id || authContext?.user?._id,
         seats: formattedSeats,
       };
 
@@ -394,7 +489,7 @@ const SeatPlan = () => {
       }
 
       console.log("Seats reserved successfully:", data);
-      await fetchBookedSeats();
+      await fetchBookedSeats(); // This will also fetch reserved seats
       setSelectedSeats([]);
       setReserveSuccess(true);
       
@@ -402,7 +497,8 @@ const SeatPlan = () => {
       cleanupTimer();
 
       setTimeout(() => {
-        navigate("/dashboard/my-tickets", {
+        setReserveSuccess(false);
+        navigate("/dashboard/my-reservation", {
           state: {
             message: `Successfully reserved ${formattedSeats.length} seats for your event.`,
           },
@@ -639,9 +735,10 @@ const SeatPlan = () => {
       bookingError={bookingError}
       timerActive={timerActive}
       showTimeoutModal={showTimeoutModal}
-      isReserving={false} // No longer using separate reserve state
-      reserveSuccess={false} // No longer using reserve success state
+      isReserving={isReserving}
+      reserveSuccess={reserveSuccess}
       bookedSeatsData={bookedSeatsData}
+      reservedSeatsData={reservedSeatsData}
       isLoadingSeats={isLoadingSeats}
       userData={userData}
       timerStartTime={timerStartTime}
@@ -664,10 +761,13 @@ const SeatPlan = () => {
       toggleSection={toggleSection}
       toggleSeat={toggleSeat}
       handleCheckout={handleCheckout}
+      handleReserveSeats={handleReserveSeats}
       handleContactOrganizer={handleContactOrganizer}
       formatEventDate={formatEventDate}
       formatEventTime={formatEventTime}
       isSeatBooked={isSeatBooked}
+      isSeatReserved={isSeatReserved}
+      isSellerOrAdmin={isSellerOrAdmin}
       setSelectedSeats={setSelectedSeats}
       navigate={navigate}
     />

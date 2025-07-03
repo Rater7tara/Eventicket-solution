@@ -12,6 +12,7 @@ const SeatPlanView = ({
   isReserving,
   reserveSuccess,
   bookedSeatsData,
+  reservedSeatsData,
   isLoadingSeats,
   userData,
   timerStartTime,
@@ -34,10 +35,13 @@ const SeatPlanView = ({
   toggleSection,
   toggleSeat,
   handleCheckout,
+  handleReserveSeats,
   handleContactOrganizer,
   formatEventDate,
   formatEventTime,
   isSeatBooked,
+  isSeatReserved,
+  isSellerOrAdmin,
   setSelectedSeats,
   navigate
 }) => {
@@ -83,7 +87,7 @@ const SeatPlanView = ({
     </div>
   );
 
-  // Success Modal for Reserve (This should not show anymore since we use same booking process)
+  // Success Modal for Reserve
   const ReserveSuccessModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-gray-800 p-6 rounded-lg border border-green-500 max-w-md mx-4">
@@ -104,14 +108,14 @@ const SeatPlanView = ({
             </svg>
           </div>
           <h3 className="text-lg font-bold text-green-400 mb-2">
-            Booking Successful!
+            Reservation Successful!
           </h3>
           <p className="text-gray-300 mb-6">
-            You have successfully booked {selectedSeats.length} seats.
-            Proceeding to checkout for payment.
+            You have successfully reserved {selectedSeats.length} seats for free.
+            These seats are now locked and reserved for you.
           </p>
           <p className="text-sm text-gray-400">
-            Redirecting to checkout...
+            Redirecting to your tickets...
           </p>
         </div>
       </div>
@@ -270,14 +274,16 @@ const SeatPlanView = ({
                       const seatId = `${section.id}_${idx}_${colIndex}_${seatIndex}`;
                       
                       const isBooked = isSeatBooked(section.id, rowLetters[rowIndex], seatNumber);
+                      const isReserved = isSeatReserved(section.id, rowLetters[rowIndex], seatNumber);
                       const isSelected = selectedSeats.some((s) => s.id === seatId);
+                      const isUnavailable = isBooked || isReserved;
 
                       return (
                         <button
                           key={seatId}
-                          disabled={isBooked}
+                          disabled={isUnavailable}
                           onClick={() =>
-                            !isBooked &&
+                            !isUnavailable &&
                             toggleSeat({
                               id: seatId,
                               name: `${section.name} ${rowLetters[rowIndex]}${seatNumber}`,
@@ -287,8 +293,8 @@ const SeatPlanView = ({
                               number: seatNumber,
                             })
                           }
-                          className={`w-6 h-6 rounded flex items-center justify-center text-xs font-medium transition-all cursor-pointer ${
-                            isBooked
+                          className={`w-6 h-6 rounded flex items-center justify-center text-xs font-medium transition-all cursor-pointer relative ${
+                            isUnavailable
                               ? "bg-gray-700 opacity-50 cursor-not-allowed"
                               : isSelected
                               ? "bg-yellow-400 text-gray-900 shadow-md transform scale-110"
@@ -297,13 +303,27 @@ const SeatPlanView = ({
                           style={{
                             backgroundColor: isSelected
                               ? "#FBBF24"
-                              : isBooked
+                              : isUnavailable
                               ? "#374151"
                               : section.color,
                             fontSize: "0.65rem",
                           }}
                         >
-                          {seatNumber}
+                          {isReserved ? (
+                            <svg
+                              className="w-3 h-3 text-gray-400"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          ) : (
+                            seatNumber
+                          )}
                         </button>
                       );
                     })}
@@ -340,14 +360,16 @@ const SeatPlanView = ({
                     const seatId = `gamma-college-zone_${rowIndex}_${colIndex}_${seatIndex}`;
                     
                     const isBooked = isSeatBooked("gamma-college-zone", rowLetters[rowIndex], seatNumber);
+                    const isReserved = isSeatReserved("gamma-college-zone", rowLetters[rowIndex], seatNumber);
                     const isSelected = selectedSeats.some((s) => s.id === seatId);
+                    const isUnavailable = isBooked || isReserved;
 
                     return (
                       <button
                         key={seatId}
-                        disabled={isBooked}
+                        disabled={isUnavailable}
                         onClick={() =>
-                          !isBooked &&
+                          !isUnavailable &&
                           toggleSeat({
                             id: seatId,
                             name: `Gamma College Zone ${rowLetters[rowIndex]}${seatNumber}`,
@@ -358,7 +380,7 @@ const SeatPlanView = ({
                           })
                         }
                         className={`w-5 h-5 rounded flex items-center justify-center text-xs font-medium transition-all cursor-pointer ${
-                          isBooked
+                          isUnavailable
                             ? "bg-gray-700 opacity-50 cursor-not-allowed"
                             : isSelected
                             ? "bg-yellow-400 text-gray-900 shadow-md transform scale-110"
@@ -367,13 +389,27 @@ const SeatPlanView = ({
                         style={{
                           backgroundColor: isSelected
                             ? "#FBBF24"
-                            : isBooked
+                            : isUnavailable
                             ? "#374151"
                             : sections[5].color,
                           fontSize: "0.6rem",
                         }}
                       >
-                        {seatNumber}
+                        {isReserved ? (
+                          <svg
+                            className="w-2.5 h-2.5 text-gray-400"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        ) : (
+                          seatNumber
+                        )}
                       </button>
                     );
                   })}
@@ -440,6 +476,26 @@ const SeatPlanView = ({
             )}
           </div>
 
+          {/* Free Reserve Button - Only show for sellers and admins */}
+          {isSellerOrAdmin() && (
+            <button
+              onClick={handleReserveSeats}
+              disabled={selectedSeats.length === 0 || isBooking || isReserving}
+              className={`w-full py-3 mb-3 cursor-pointer ${
+                selectedSeats.length === 0 || isBooking || isReserving
+                  ? "bg-gray-600 cursor-not-allowed"
+                  : "bg-gradient-to-r from-green-600 to-green-700 hover:shadow-green-500/30 transform hover:-translate-y-0.5"
+              } text-white font-bold rounded-lg shadow-lg transition-all duration-300`}
+            >
+              {isReserving
+                ? "Reserving..."
+                : selectedSeats.length === 0
+                ? "Select Seats to Reserve"
+                : "Reserve Seats (Free)"}
+            </button>
+          )}
+
+          {/* Proceed to Checkout Button */}
           <button
             onClick={handleCheckout}
             disabled={selectedSeats.length === 0 || isBooking || isReserving}
@@ -449,9 +505,7 @@ const SeatPlanView = ({
                 : "bg-gradient-to-r from-purple-600 to-purple-700 hover:shadow-purple-500/30 transform hover:-translate-y-0.5"
             } text-white font-bold rounded-lg shadow-lg transition-all duration-300`}
           >
-            {isReserving
-              ? "Processing..."
-              : isBooking
+            {isBooking
               ? "Processing..."
               : selectedSeats.length === 0
               ? "Select Seats"
@@ -531,6 +585,7 @@ const SeatPlanView = ({
 
       {/* Modals */}
       {showTimeoutModal && <TimeoutModal />}
+      {reserveSuccess && <ReserveSuccessModal />}
 
       <div className="max-w-full mx-auto bg-gray-800 bg-opacity-80 backdrop-blur-lg rounded-xl shadow-2xl overflow-hidden border border-orange-500 border-opacity-30">
         {/* Header with event info */}
@@ -740,6 +795,22 @@ const SeatPlanView = ({
                   <div className="flex items-center space-x-2">
                     <div className="w-4 h-4 bg-gray-700 opacity-50 rounded"></div>
                     <span className="text-xs text-gray-400">Booked</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 bg-gray-700 opacity-50 rounded flex items-center justify-center">
+                      <svg
+                        className="w-2.5 h-2.5 text-gray-400"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </div>
+                    <span className="text-xs text-gray-400">Reserved</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-4 h-4 bg-yellow-400 rounded"></div>

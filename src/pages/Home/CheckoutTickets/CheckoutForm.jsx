@@ -26,7 +26,8 @@ const CheckoutForm = ({
   const [succeeded, setSucceeded] = useState(false);
   const [disabled, setDisabled] = useState(true);
   const [clientSecret, setClientSecret] = useState("");
-  const [orderId, setOrderId] = useState("");
+  const [paymentIntentId, setPaymentIntentId] = useState(""); // Changed from orderId to paymentIntentId
+  const [confirmedBookingId, setConfirmedBookingId] = useState(""); // Store the confirmed booking ID
   const [errorDetails, setErrorDetails] = useState("");
   const [paymentInitiated, setPaymentInitiated] = useState(false);
   const [tokenAttempts, setTokenAttempts] = useState(0);
@@ -129,14 +130,9 @@ const CheckoutForm = ({
     });
   };
 
-  // CRITICAL FIX: Generate a unique payment session ID to prevent duplicates
-  const generateUniquePaymentId = () => {
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 15);
-    return `payment_${timestamp}_${random}`;
-  };
+  // Remove the generateOrderIdFromPaymentIntent function since we're not generating order IDs
 
-  // Create payment intent - COMPLETELY REWRITTEN TO PREVENT DUPLICATES
+  // Create payment intent - UPDATED TO MATCH YOUR API RESPONSE
   useEffect(() => {
     // Skip if conditions not met
     if (grandTotal <= 0 || loading || !bookingId) {
@@ -160,14 +156,14 @@ const CheckoutForm = ({
     const existingClientSecret = sessionStorage.getItem(
       `clientSecret_${currentBookingId}`
     );
-    const existingOrderId = sessionStorage.getItem(
-      `orderId_${currentBookingId}`
+    const existingPaymentIntentId = sessionStorage.getItem(
+      `paymentIntentId_${currentBookingId}`
     );
 
-    if (existingClientSecret && existingOrderId) {
+    if (existingClientSecret && existingPaymentIntentId) {
       console.log("Using existing payment intent from session storage");
       setClientSecret(existingClientSecret);
-      setOrderId(existingOrderId);
+      setPaymentIntentId(existingPaymentIntentId);
       setPaymentInitiated(true);
       return;
     }
@@ -201,17 +197,12 @@ const CheckoutForm = ({
           throw new Error("User ID not found. Please log in again.");
         }
 
-        // Generate unique payment session ID
-        const uniquePaymentId = generateUniquePaymentId();
-
-        // CRITICAL FIX: Include unique payment ID to prevent backend duplicates
+        // UPDATED: Match your API structure - no orderId field needed
         const paymentData = {
           ticketId: event._id,
           quantity: selectedSeats.length || 1,
           userId: userId,
-          orderId: `order_${uniquePaymentId}`, // Use unique order ID
           bookingId: currentBookingId,
-          paymentSessionId: uniquePaymentId, // Add unique session identifier
           // Add coupon information if applied
           ...(appliedCoupon && {
             couponId: appliedCoupon.id,
@@ -228,8 +219,6 @@ const CheckoutForm = ({
         const headers = {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
-          // Add idempotency key to prevent duplicate processing
-          "Idempotency-Key": uniquePaymentId,
         };
 
         console.log("Making payment request with headers:", headers);
@@ -245,7 +234,7 @@ const CheckoutForm = ({
         const responseData = await response.json();
         console.log("API response:", responseData);
 
-        // IMPROVED: Handle existing payment scenario gracefully
+        // Handle response according to your API structure
         if (!response.ok) {
           if (
             response.status === 400 &&
@@ -255,7 +244,8 @@ const CheckoutForm = ({
             if (responseData.clientSecret) {
               console.log("Using existing payment intent from server");
               setClientSecret(responseData.clientSecret);
-              setOrderId(responseData.orderId);
+              setPaymentIntentId(responseData.paymentIntentId);
+              setConfirmedBookingId(responseData.bookingId);
 
               // Cache for future use
               sessionStorage.setItem(
@@ -263,56 +253,10 @@ const CheckoutForm = ({
                 responseData.clientSecret
               );
               sessionStorage.setItem(
-                `orderId_${currentBookingId}`,
-                responseData.orderId
+                `paymentIntentId_${currentBookingId}`,
+                responseData.paymentIntentId
               );
               return;
-            } else {
-              // If no client secret, create a fresh booking with a new unique ID
-              console.log("Creating fresh payment with new unique ID");
-
-              // Generate a completely new unique booking reference
-              const freshPaymentId = generateUniquePaymentId();
-              const freshBookingReference = `${currentBookingId}_${Date.now()}`;
-
-              const freshPaymentData = {
-                ...paymentData,
-                orderId: `order_${freshPaymentId}`,
-                paymentSessionId: freshPaymentId,
-                bookingReference: freshBookingReference, // Use a derived reference instead of original booking ID
-              };
-
-              const freshHeaders = {
-                ...headers,
-                "Idempotency-Key": freshPaymentId,
-              };
-
-              const freshResponse = await fetch(
-                `${API_BASE_URL}payments/create-payment`,
-                {
-                  method: "POST",
-                  headers: freshHeaders,
-                  body: JSON.stringify(freshPaymentData),
-                }
-              );
-
-              const freshResponseData = await freshResponse.json();
-
-              if (freshResponse.ok && freshResponseData.success) {
-                setClientSecret(freshResponseData.clientSecret);
-                setOrderId(freshResponseData.orderId);
-
-                // Cache the fresh payment data
-                sessionStorage.setItem(
-                  `clientSecret_${currentBookingId}`,
-                  freshResponseData.clientSecret
-                );
-                sessionStorage.setItem(
-                  `orderId_${currentBookingId}`,
-                  freshResponseData.orderId
-                );
-                return;
-              }
             }
           }
 
@@ -322,10 +266,11 @@ const CheckoutForm = ({
           );
         }
 
-        // Check for success and set client secret for Stripe
+        // Check for success and set payment data from your API response
         if (responseData.success) {
           setClientSecret(responseData.clientSecret);
-          setOrderId(responseData.orderId);
+          setPaymentIntentId(responseData.paymentIntentId);
+          setConfirmedBookingId(responseData.bookingId);
 
           // Cache for future use
           sessionStorage.setItem(
@@ -333,8 +278,8 @@ const CheckoutForm = ({
             responseData.clientSecret
           );
           sessionStorage.setItem(
-            `orderId_${currentBookingId}`,
-            responseData.orderId
+            `paymentIntentId_${currentBookingId}`,
+            responseData.paymentIntentId
           );
         } else {
           throw new Error("Could not initialize payment. Please try again.");
@@ -376,7 +321,7 @@ const CheckoutForm = ({
     appliedCoupon,
     discount,
     bookingId,
-  ]); // Removed paymentInitiated and tokenAttempts from dependencies to prevent loops
+  ]);
 
   // Handle form submission
   const handleSubmit = async (event) => {
@@ -434,17 +379,19 @@ const CheckoutForm = ({
       try {
         const token = await ensureAuthToken();
 
-        // Include coupon information in confirmation
+        // UPDATED: Match your API structure - only send paymentIntentId
         const confirmationData = {
-          orderId,
           paymentIntentId: paymentIntent.id,
-          finalAmount: grandTotal,
+          // Include coupon information if needed
           ...(appliedCoupon && {
             couponId: appliedCoupon.id,
             couponCode: appliedCoupon.code,
             discountApplied: appliedCoupon.discountAmount || discount,
+            finalAmount: grandTotal,
           }),
         };
+
+        console.log("Sending confirmation data:", confirmationData);
 
         // Call confirm-payment endpoint
         const response = await fetch(
@@ -460,50 +407,64 @@ const CheckoutForm = ({
         );
 
         const data = await response.json();
+        console.log("Confirmation response:", data);
 
         if (data.success) {
           // Clear cached payment data after successful completion
           const currentBookingId =
             bookingId || sessionStorage.getItem("tempBookingId");
           sessionStorage.removeItem(`clientSecret_${currentBookingId}`);
-          sessionStorage.removeItem(`orderId_${currentBookingId}`);
+          sessionStorage.removeItem(`paymentIntentId_${currentBookingId}`);
 
+          // Get order ID from backend response
+          const orderId = data.orderId || data.order_id || paymentIntent.id;
+          
           localStorage.setItem("completedOrderId", orderId);
           setError(null);
           setSucceeded(true);
 
-          // Pass additional data to parent component
+          // Pass data to parent component with order ID from backend
           onPaymentComplete(orderId, {
             paymentIntentId: paymentIntent.id,
+            bookingId: confirmedBookingId || bookingId,
             appliedCoupon,
             discount,
             finalAmount: grandTotal,
+            orderId: orderId,
+            ...data, // Include all backend response data
           });
         } else {
           // If backend confirmation fails but Stripe succeeded,
-          // still consider it successful from user's perspective
-          localStorage.setItem("completedOrderId", orderId);
+          // use payment intent ID as fallback order ID
+          const fallbackOrderId = paymentIntent.id;
+          localStorage.setItem("completedOrderId", fallbackOrderId);
           setError(null);
           setSucceeded(true);
-          onPaymentComplete(orderId, {
+          onPaymentComplete(fallbackOrderId, {
             paymentIntentId: paymentIntent.id,
+            bookingId: confirmedBookingId || bookingId,
             appliedCoupon,
             discount,
             finalAmount: grandTotal,
+            orderId: fallbackOrderId,
           });
         }
       } catch (err) {
         console.error("Error confirming payment:", err);
 
         // Even if confirmation fails, Stripe processed the payment
-        localStorage.setItem("completedOrderId", orderId);
+        // Use payment intent ID as fallback order ID
+        const fallbackOrderId = paymentIntent.id;
+        localStorage.setItem("completedOrderId", fallbackOrderId);
         setError(null);
         setSucceeded(true);
-        onPaymentComplete(orderId, {
+        onPaymentComplete(fallbackOrderId, {
           paymentIntentId: paymentIntent.id,
+          bookingId: confirmedBookingId || bookingId,
           appliedCoupon,
           discount,
           finalAmount: grandTotal,
+          orderId: fallbackOrderId,
         });
       }
     } else {
@@ -519,14 +480,15 @@ const CheckoutForm = ({
     const currentBookingId =
       bookingId || sessionStorage.getItem("tempBookingId");
     sessionStorage.removeItem(`clientSecret_${currentBookingId}`);
-    sessionStorage.removeItem(`orderId_${currentBookingId}`);
+    sessionStorage.removeItem(`paymentIntentId_${currentBookingId}`);
 
     // Reset component state
     setPaymentInitiated(false);
     setError(null);
     setErrorDetails("");
     setClientSecret("");
-    setOrderId("");
+    setPaymentIntentId("");
+    setConfirmedBookingId("");
 
     // Reset refs
     paymentInProgressRef.current = false;
@@ -542,7 +504,7 @@ const CheckoutForm = ({
     const currentBookingId =
       bookingId || sessionStorage.getItem("tempBookingId");
     sessionStorage.removeItem(`clientSecret_${currentBookingId}`);
-    sessionStorage.removeItem(`orderId_${currentBookingId}`);
+    sessionStorage.removeItem(`paymentIntentId_${currentBookingId}`);
     sessionStorage.removeItem("tempBookingId");
     sessionStorage.removeItem("tempUserData");
     sessionStorage.removeItem("temp-auth-token");

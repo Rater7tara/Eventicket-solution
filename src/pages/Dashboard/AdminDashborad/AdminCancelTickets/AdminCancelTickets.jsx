@@ -158,18 +158,24 @@ const AdminCancelTickets = () => {
       if (data.success && data.data && Array.isArray(data.data)) {
         console.log("Processing bookings:", data.data);
 
-        // Filter out cancelled bookings and only show active ones
+        // Filter out cancelled bookings and only show active ones that can be cancelled
         const activeBookings = data.data.filter(
           (booking) =>
             booking.status !== "cancelled" &&
             booking.status !== "canceled" &&
-            booking.isTicketAvailable !== false
+            booking.ticketStatus !== "cancelled" &&
+            booking.ticketStatus !== "canceled" &&
+            booking.isUserVisible !== false &&
+            // Only show bookings with successful payments that can be refunded
+            booking.paymentStatus === "success" &&
+            booking.status === "success" &&
+            booking.ticketStatus === "unused"
         );
 
-        // Sort bookings by booking time (most recent first)
+        // Sort bookings by order time (most recent first)
         const sortedBookings = activeBookings.sort((a, b) => {
-          const dateA = new Date(a.bookingTime);
-          const dateB = new Date(b.bookingTime);
+          const dateA = new Date(a.orderTime || a.createdAt);
+          const dateB = new Date(b.orderTime || b.createdAt);
           return dateB.getTime() - dateA.getTime(); // Most recent first
         });
 
@@ -193,13 +199,15 @@ const AdminCancelTickets = () => {
   const filterBookings = () => {
     let filtered = [...bookings];
 
-    // Enhanced Search filter - includes buyer name, booking ID, event name, and payment ID
+    // Enhanced Search filter - includes buyer name, booking ID, order ID, event name, and payment ID
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (booking) =>
-          // Booking ID
+          // Order ID (top-level _id)
           booking._id.toLowerCase().includes(searchLower) ||
+          // Booking ID
+          booking.bookingId?.toLowerCase().includes(searchLower) ||
           // Event name/title
           booking.eventId?.title?.toLowerCase().includes(searchLower) ||
           // Payment Intent ID
@@ -208,13 +216,11 @@ const AdminCancelTickets = () => {
           booking.buyerId?.name?.toLowerCase().includes(searchLower) ||
           // Buyer email (additional search option)
           booking.buyerId?.email?.toLowerCase().includes(searchLower) ||
-          // Recipient email (for gift bookings)
-          booking.recipientEmail?.toLowerCase().includes(searchLower) ||
           // Seat details (section and row)
           booking.seats?.some(
             (seat) =>
-              seat.section.toLowerCase().includes(searchLower) ||
-              seat.row.toLowerCase().includes(searchLower)
+              seat.section?.toLowerCase().includes(searchLower) ||
+              seat.row?.toLowerCase().includes(searchLower)
           )
       );
     }
@@ -224,9 +230,9 @@ const AdminCancelTickets = () => {
       filtered = filtered.filter((booking) => {
         switch (statusFilter) {
           case "paid":
-            return booking.isPaid === true;
+            return booking.paymentStatus === "success";
           case "unpaid":
-            return booking.isPaid === false;
+            return booking.paymentStatus !== "success";
           case "success":
             return booking.status === "success";
           case "pending":
@@ -241,7 +247,7 @@ const AdminCancelTickets = () => {
     setCurrentPage(1); // Reset to first page when filtering
   };
 
-  // Function to cancel a booking using the refund API (FIXED - orderId only)
+  // Function to cancel a booking using the updated cancel API
   const cancelBooking = async (booking) => {
     setCancelLoading(true);
     setError("");
@@ -262,46 +268,41 @@ const AdminCancelTickets = () => {
 
       console.log("=== DEBUGGING CANCEL BOOKING ===");
       console.log("Full booking object:", booking);
-      console.log("Booking._id:", booking._id);
-      console.log("Booking._id type:", typeof booking._id);
+      console.log("Order ID (booking._id):", booking._id);
+      console.log("Booking ID (booking.bookingId):", booking.bookingId);
       console.log("Seats:", booking.seats);
 
       // Validate that we have required data
       if (!booking._id) {
         throw new Error(
-          "Booking ID (_id) is missing. Cannot process refund for this booking."
+          "Order ID (_id) is missing. Cannot process cancellation for this booking."
         );
       }
 
       if (!booking.seats || booking.seats.length === 0) {
         throw new Error(
-          "Seat information is missing. Cannot process refund for this booking."
+          "Seat information is missing. Cannot process cancellation for this booking."
         );
       }
 
-      // Prepare request body with only orderId and seat details
+      // Prepare request body with orderId and seat details
       const requestBody = {
-        orderId: String(booking._id), // Only send orderId
+        orderId: String(booking._id), // Use the top-level _id as orderId
         seatToCancel: {
           section: String(booking.seats[0].section),
           row: String(booking.seats[0].row),
-          seatNumber: String(booking.seats[0].seatNumber),
+          seatNumber: Number(booking.seats[0].seatNumber),
           price: Number(booking.seats[0].price || booking.totalAmount || 0),
         },
       };
 
       console.log("=== REQUEST BODY DETAILS ===");
-      console.log(
-        "orderId:",
-        requestBody.orderId,
-        "type:",
-        typeof requestBody.orderId
-      );
+      console.log("orderId:", requestBody.orderId, "type:", typeof requestBody.orderId);
       console.log("Full request body:", requestBody);
       console.log("Stringified body:", JSON.stringify(requestBody));
 
-      // Call the refund API with the correct format
-      const response = await fetch(`${API_BASE_URL}payments/refund`, {
+      // Call the cancel booking API with the correct endpoint
+      const response = await fetch(`${API_BASE_URL}payments/booking/cancel`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -341,9 +342,20 @@ const AdminCancelTickets = () => {
         console.error("Error message:", errorMessage);
         console.error("Full response data:", data);
 
-        throw new Error(
-          `Failed to cancel booking: ${errorMessage} (Status: ${response.status})`
-        );
+        // Provide more user-friendly error messages
+        if (errorMessage.includes("does not have a successful charge to refund")) {
+          throw new Error(
+            "This payment cannot be refunded. The payment may not have been completed successfully, or it may have already been refunded. Please check the payment status in your Stripe dashboard."
+          );
+        } else if (errorMessage.includes("PaymentIntent")) {
+          throw new Error(
+            "Payment processing error: " + errorMessage + ". Please check the payment details in Stripe."
+          );
+        } else {
+          throw new Error(
+            `Failed to cancel booking: ${errorMessage} (Status: ${response.status})`
+          );
+        }
       }
 
       // If cancellation was successful
@@ -357,7 +369,7 @@ const AdminCancelTickets = () => {
       setShowCancelModal(false);
       setBookingToCancel(null);
       setSuccessMessage(
-        `Booking ${booking._id} has been successfully cancelled and refunded.`
+        `Order ${booking._id} has been successfully cancelled and refunded.`
       );
 
       // Refresh bookings to get most up-to-date data
@@ -381,10 +393,35 @@ const AdminCancelTickets = () => {
     }
   };
 
-  // Show cancel confirmation
+  // Show cancel confirmation with validation
   const showCancelConfirmation = (booking) => {
+    console.log("=== SHOWING CANCEL CONFIRMATION ===");
+    console.log("Booking to cancel:", booking);
+    
+    // Validate if booking can be cancelled
+    if (booking.paymentStatus !== "success") {
+      setError(`Cannot cancel this order: Payment status is "${booking.paymentStatus}". Only successfully paid orders can be cancelled.`);
+      return;
+    }
+    
+    if (booking.status !== "success") {
+      setError(`Cannot cancel this order: Order status is "${booking.status}". Only successful orders can be cancelled.`);
+      return;
+    }
+    
+    if (booking.ticketStatus === "used") {
+      setError(`Cannot cancel this order: Ticket has already been used. Used tickets cannot be refunded.`);
+      return;
+    }
+    
+    if (!booking.paymentIntentId) {
+      setError(`Cannot cancel this order: No payment information found. This order may not have been processed through Stripe.`);
+      return;
+    }
+    
     setBookingToCancel(booking);
     setShowCancelModal(true);
+    console.log("Modal state set to true");
   };
 
   // Function to close cancel modal
@@ -477,7 +514,7 @@ const AdminCancelTickets = () => {
               />
               <input
                 type="text"
-                placeholder="Search by buyer name, booking ID, event name, payment ID, or seat details..."
+                placeholder="Search by buyer name, order ID, booking ID, event name, payment ID, or seat details..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm"
@@ -512,7 +549,7 @@ const AdminCancelTickets = () => {
             bookings
           </span>
           <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-            Sorted by most recent bookings first
+            Sorted by most recent orders first
           </span>
         </div>
       </div>
@@ -554,7 +591,7 @@ const AdminCancelTickets = () => {
               <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
                 <tr>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                    Booking Details
+                    Order Details
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Event Information
@@ -576,11 +613,14 @@ const AdminCancelTickets = () => {
                     key={booking._id}
                     className="hover:bg-gray-50 transition-colors"
                   >
-                    {/* Booking Details */}
+                    {/* Order Details */}
                     <td className="px-6 py-4">
                       <div className="text-sm">
                         <div className="font-semibold text-gray-900 mb-1">
-                          Buyer: {booking.buyerId.name}
+                          Buyer: {booking.buyerId?.name || "Unknown"}
+                        </div>
+                        <div className="text-gray-500 text-xs">
+                          Order: ...{booking._id?.slice(-8)}
                         </div>
                         {booking.paymentIntentId && (
                           <div className="text-gray-500 text-xs">
@@ -631,12 +671,23 @@ const AdminCancelTickets = () => {
                         </span>
                         <span
                           className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
-                            booking.isPaid
+                            booking.paymentStatus === "success"
                               ? "bg-blue-100 text-blue-800"
                               : "bg-red-100 text-red-800"
                           }`}
                         >
-                          {booking.isPaid ? "Paid" : "Unpaid"}
+                          {booking.paymentStatus === "success" ? "Paid" : "Unpaid"}
+                        </span>
+                        <span
+                          className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
+                            booking.ticketStatus === "unused"
+                              ? "bg-green-100 text-green-800"
+                              : booking.ticketStatus === "used"
+                              ? "bg-gray-100 text-gray-800"
+                              : "bg-yellow-100 text-yellow-800"
+                          }`}
+                        >
+                          {booking.ticketStatus || "Unknown"}
                         </span>
                       </div>
                     </td>
@@ -650,14 +701,39 @@ const AdminCancelTickets = () => {
                         >
                           <Eye size={14} />
                         </button>
-                        <button
-                          onClick={() => showCancelConfirmation(booking)}
-                          className="inline-flex items-center gap-1 bg-red-50 text-red-600 px-3 py-2 rounded-lg text-xs hover:bg-red-100 transition-colors cursor-pointer"
-                          disabled={cancelLoading}
-                        >
-                          <X size={14} />
-                          Cancel
-                        </button>
+                        {/* Only show cancel button for refundable bookings */}
+                        {booking.paymentStatus === "success" && 
+                         booking.status === "success" && 
+                         booking.ticketStatus === "unused" && 
+                         booking.paymentIntentId ? (
+                          <button
+                            onClick={() => {
+                              console.log("=== CANCEL BUTTON CLICKED ===");
+                              console.log("Booking:", booking);
+                              showCancelConfirmation(booking);
+                            }}
+                            className="inline-flex items-center gap-1 bg-red-50 text-red-600 px-3 py-2 rounded-lg text-xs hover:bg-red-100 transition-colors cursor-pointer"
+                            disabled={cancelLoading}
+                          >
+                            <X size={14} />
+                            Cancel
+                          </button>
+                        ) : (
+                          <button
+                            className="inline-flex items-center gap-1 bg-gray-50 text-gray-400 px-3 py-2 rounded-lg text-xs cursor-not-allowed"
+                            disabled={true}
+                            title={`Cannot cancel: ${
+                              booking.paymentStatus !== "success" ? "Payment not successful" :
+                              booking.status !== "success" ? "Order not successful" :
+                              booking.ticketStatus !== "unused" ? "Ticket already used" :
+                              !booking.paymentIntentId ? "No payment information" :
+                              "Not refundable"
+                            }`}
+                          >
+                            <X size={14} />
+                            Cannot Cancel
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -743,7 +819,7 @@ const AdminCancelTickets = () => {
             <div className="bg-gradient-to-r from-red-500 to-red-600 p-6 flex justify-between items-center rounded-t-xl">
               <h3 className="text-xl font-bold text-white flex items-center gap-3">
                 <AlertTriangle size={24} />
-                Cancel Booking & Process Refund
+                Cancel Order & Process Refund
               </h3>
               <button
                 onClick={closeCancelModal}
@@ -758,15 +834,20 @@ const AdminCancelTickets = () => {
             <div className="p-6">
               <div className="mb-6">
                 <h4 className="text-lg font-semibold text-gray-800 mb-4">
-                  Are you sure you want to cancel this booking and process a
-                  refund?
+                  Are you sure you want to cancel this order and process a refund?
                 </h4>
 
                 <div className="bg-gray-50 p-4 rounded-lg mb-4 space-y-3">
                   <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Order ID:</span>
+                    <span className="text-sm font-medium text-gray-800">
+                      ...{bookingToCancel._id?.slice(-8)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Booking ID:</span>
                     <span className="text-sm font-medium text-gray-800">
-                      ...{bookingToCancel._id.slice(-8)}
+                      ...{bookingToCancel.bookingId?.slice(-8) || "N/A"}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -828,7 +909,7 @@ const AdminCancelTickets = () => {
                         Important Notice
                       </p>
                       <p className="text-sm text-yellow-700">
-                        This will cancel the entire booking and automatically
+                        This will cancel the entire order and automatically
                         process a full refund to the original payment method.
                         This action cannot be undone.
                       </p>
@@ -844,7 +925,7 @@ const AdminCancelTickets = () => {
                   className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 cursor-pointer transition-colors"
                   disabled={cancelLoading}
                 >
-                  Keep Booking
+                  Keep Order
                 </button>
                 <button
                   onClick={() => cancelBooking(bookingToCancel)}
@@ -878,7 +959,7 @@ const AdminCancelTickets = () => {
             <div className="bg-gradient-to-r from-red-700 to-red-500 p-6 flex justify-between items-center sticky top-0 z-10">
               <div>
                 <h3 className="text-xl font-bold text-white">
-                  Booking Details
+                  Order Details
                 </h3>
                 <p className="text-sm text-red-100 mt-1">
                   {selectedBooking.eventId?.title || "Unknown Event"}
@@ -910,15 +991,15 @@ const AdminCancelTickets = () => {
                 </div>
                 <div className="bg-purple-50 p-4 rounded-lg text-center">
                   <div className="text-2xl font-bold text-purple-600">
-                    {selectedBooking.isPaid ? "Paid" : "Unpaid"}
+                    {selectedBooking.paymentStatus === "success" ? "Paid" : "Unpaid"}
                   </div>
                   <div className="text-sm text-purple-600">Payment Status</div>
                 </div>
                 <div className="bg-orange-50 p-4 rounded-lg text-center">
                   <div className="text-2xl font-bold text-orange-600 capitalize">
-                    {selectedBooking.status || "Unknown"}
+                    {selectedBooking.ticketStatus || "Unknown"}
                   </div>
-                  <div className="text-sm text-orange-600">Booking Status</div>
+                  <div className="text-sm text-orange-600">Ticket Status</div>
                 </div>
               </div>
 
@@ -927,13 +1008,19 @@ const AdminCancelTickets = () => {
                 {/* Basic Info */}
                 <div>
                   <h4 className="font-bold text-gray-700 mb-4 text-lg border-b pb-2">
-                    Booking Information
+                    Order Information
                   </h4>
                   <div className="space-y-4">
                     <div>
-                      <p className="text-sm text-gray-500 mb-1">Booking ID</p>
+                      <p className="text-sm text-gray-500 mb-1">Order ID</p>
                       <p className="font-medium text-gray-800 break-all bg-gray-50 p-2 rounded text-sm">
                         {selectedBooking._id}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Booking ID</p>
+                      <p className="font-medium text-gray-800 break-all bg-gray-50 p-2 rounded text-sm">
+                        {selectedBooking.bookingId || "N/A"}
                       </p>
                     </div>
                     <div>
@@ -942,6 +1029,12 @@ const AdminCancelTickets = () => {
                       </p>
                       <p className="font-medium text-gray-800 break-all bg-gray-50 p-2 rounded text-sm">
                         {selectedBooking.paymentIntentId || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Order Time</p>
+                      <p className="font-medium text-gray-800">
+                        {formatDateTime(selectedBooking.orderTime || selectedBooking.createdAt)}
                       </p>
                     </div>
                   </div>
@@ -979,6 +1072,12 @@ const AdminCancelTickets = () => {
                             {selectedBooking.buyerId._id}
                           </p>
                         </div>
+                        <div>
+                          <p className="text-sm text-gray-500 mb-1">Seller ID</p>
+                          <p className="font-medium text-gray-800 break-all bg-gray-50 p-2 rounded text-sm">
+                            {selectedBooking.sellerId || "N/A"}
+                          </p>
+                        </div>
                       </>
                     ) : (
                       <div className="bg-yellow-50 p-4 rounded-lg">
@@ -991,18 +1090,8 @@ const AdminCancelTickets = () => {
                             Guest Purchase
                           </p>
                         </div>
-                        {selectedBooking.recipientEmail && (
-                          <div className="mt-3">
-                            <p className="text-sm text-gray-500 mb-1">
-                              Recipient Email
-                            </p>
-                            <p className="font-medium text-gray-800 bg-white p-2 rounded text-sm">
-                              {selectedBooking.recipientEmail}
-                            </p>
-                          </div>
-                        )}
                         <p className="text-sm text-yellow-700 mt-2">
-                          This booking was made without a registered account.
+                          This order was made without a registered account.
                         </p>
                       </div>
                     )}
@@ -1032,6 +1121,12 @@ const AdminCancelTickets = () => {
                       <p className="text-sm text-gray-500 mb-1">Event ID</p>
                       <p className="font-medium text-gray-800 break-all bg-gray-50 p-2 rounded text-sm">
                         {selectedBooking.eventId?._id || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500 mb-1">Quantity</p>
+                      <p className="font-medium text-gray-800">
+                        {selectedBooking.quantity || 1} ticket(s)
                       </p>
                     </div>
                   </div>
@@ -1137,40 +1232,23 @@ const AdminCancelTickets = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                    <Ticket
-                      size={20}
-                      className={
-                        selectedBooking.isTicketAvailable
-                          ? "text-green-500"
-                          : "text-red-500"
-                      }
-                    />
+                    <DollarSign size={20} className="text-blue-500" />
                     <div>
-                      <p className="text-sm text-gray-500">Ticket Available</p>
-                      <p className="font-medium text-gray-800">
-                        {selectedBooking.isTicketAvailable ? "Yes" : "No"}
+                      <p className="text-sm text-gray-500">Payment Status</p>
+                      <p className="font-medium text-gray-800 capitalize">
+                        {selectedBooking.paymentStatus || "Unknown"}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                    <DollarSign size={20} className="text-blue-500" />
+                    <Ticket size={20} className="text-purple-500" />
                     <div>
-                      <p className="text-sm text-gray-500">Payment Method</p>
-                      <p className="font-medium text-gray-800">
-                        {selectedBooking.paymentIntentId ? "Stripe" : "Unknown"}
+                      <p className="text-sm text-gray-500">Ticket Status</p>
+                      <p className="font-medium text-gray-800 capitalize">
+                        {selectedBooking.ticketStatus || "Unknown"}
                       </p>
                     </div>
                   </div>
-                  {selectedBooking.note && (
-                    <div className="md:col-span-3 p-4 bg-blue-50 rounded-lg">
-                      <p className="text-sm text-blue-600 font-medium mb-2">
-                        Booking Note
-                      </p>
-                      <p className="text-gray-800 bg-white p-3 rounded border">
-                        {selectedBooking.note}
-                      </p>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -1192,7 +1270,7 @@ const AdminCancelTickets = () => {
                   disabled={cancelLoading}
                 >
                   <X size={18} />
-                  Cancel This Booking & Refund
+                  Cancel This Order & Refund
                 </button>
               </div>
             </div>

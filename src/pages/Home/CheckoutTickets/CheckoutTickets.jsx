@@ -613,152 +613,142 @@ const CheckoutTickets = () => {
     paymentComplete,
   ]);
 
-  const handlePaymentComplete = async (orderId, paymentData) => {
-    console.log("Payment completed, processing order:", orderId);
-    console.log("Payment data received:", paymentData);
 
-    // Handle undefined orderId - extract from paymentData or generate fallback
-    if (!orderId || orderId === "undefined" || orderId === undefined) {
-      console.error("Order ID is undefined! Payment data:", paymentData);
 
-      let fallbackOrderId = null;
 
-      // Try to extract orderId from paymentData first
-      if (paymentData?.orderId) {
-        fallbackOrderId = paymentData.orderId;
-        console.log("Found orderId in paymentData:", fallbackOrderId);
-      }
+const handlePaymentComplete = async (orderId, paymentData) => {
+  console.log("Payment completed, processing order:", orderId);
+  console.log("Payment data received:", paymentData);
 
-      // Try localStorage
-      if (!fallbackOrderId) {
-        fallbackOrderId = localStorage.getItem("completedOrderId");
-        console.log("Found orderId in localStorage:", fallbackOrderId);
-      }
-
-      // Generate from payment intent if available
-      if (!fallbackOrderId && paymentData?.paymentIntentId) {
-        fallbackOrderId = `order_${paymentData.paymentIntentId.replace(
-          "pi_",
-          "pmt_"
-        )}`;
-        console.log("Generated orderId from payment intent:", fallbackOrderId);
-      }
-
-      // Last resort - generate a unique orderId
-      if (!fallbackOrderId) {
-        const timestamp = Date.now();
-        const randomStr = Math.random().toString(36).substring(2, 15);
-        fallbackOrderId = `order_${timestamp}_${randomStr}`;
-        console.log("Generated unique fallback orderId:", fallbackOrderId);
-      }
-
-      // Ensure we actually have a valid orderId
-      if (!fallbackOrderId || fallbackOrderId === "undefined") {
-        // Force generate a new one
-        fallbackOrderId = `emergency_order_${Date.now()}_${Math.floor(
-          Math.random() * 10000
-        )}`;
-        console.log("Emergency fallback orderId:", fallbackOrderId);
-      }
-
-      orderId = fallbackOrderId;
-      console.log("Final fallback order ID:", orderId);
-
-      // Store the orderId for future reference
-      localStorage.setItem("completedOrderId", orderId);
-    }
-
-    // Prevent duplicate processing by checking if already completed
-    const processedOrders = JSON.parse(
-      sessionStorage.getItem("processedOrders") || "[]"
-    );
-
-    // Don't check for duplicates if orderId is still undefined
-    if (
-      orderId &&
-      orderId !== "undefined" &&
-      processedOrders.includes(orderId)
-    ) {
-      console.log("Order already processed:", orderId);
-      return;
-    }
-
-    // Check if this payment has already been processed using state
-    if (
-      orderData?.orderId === orderId &&
-      paymentComplete &&
-      orderId &&
-      orderId !== "undefined"
-    ) {
-      console.log("Payment already processed for this order:", orderId);
-      return;
-    }
-
-    // Stop the timer when payment is successful
-    setTimerActive(false);
-    setPaymentComplete(true);
-    setOrderData({ orderId, ...paymentData });
-
-    // Mark order as processed (only if we have a valid orderId)
-    if (orderId && orderId !== "undefined") {
-      processedOrders.push(orderId);
-      sessionStorage.setItem(
-        "processedOrders",
-        JSON.stringify(processedOrders)
-      );
-    }
-
-    // NOW store the booking data permanently after successful payment
-    const tempBookingId = sessionStorage.getItem("tempBookingId");
-    const tempUserData = sessionStorage.getItem("tempUserData");
-
-    console.log("Temp booking ID found:", tempBookingId);
-    console.log("Final orderId being used:", orderId);
-
-    if (tempBookingId) {
-      setFinalBookingId(tempBookingId);
-
-      // Send optional note if provided (for admin/seller only)
-      if (isAdminOrSeller()) {
-        console.log("User is admin/seller, attempting to send note...");
-        console.log("Note details:", {
-          note: optionalNote.trim(),
-          email: recipientEmail.trim(),
-          bookingId: tempBookingId,
-          orderId: orderId,
-        });
-
-        // Add a small delay to ensure all payment processing is complete
-        setTimeout(async () => {
-          try {
-            await sendOptionalNote(tempBookingId);
-          } catch (error) {
-            console.error("Failed to send optional note:", error);
-          }
-        }, 1000);
-      } else {
-        console.log("User is not admin/seller, skipping note sending");
-      }
-
-      // Remove temp booking ID after processing
-      sessionStorage.removeItem("tempBookingId");
+  // Use the order ID from backend response (passed from CheckoutForm)
+  let finalOrderId = orderId;
+  
+  // If no order ID from backend, use payment intent ID as fallback
+  if (!finalOrderId || finalOrderId === "undefined") {
+    if (paymentData?.paymentIntentId) {
+      finalOrderId = paymentData.paymentIntentId;
+      console.log("Using payment intent ID as order ID:", finalOrderId);
     } else {
-      console.warn("No temp booking ID found!");
+      console.error("No order ID or payment intent ID available!");
+      // Handle this error case appropriately
+      setError("Payment processed but order ID missing. Please contact support.");
+      return;
+    }
+  }
+
+  // Prevent duplicate processing
+  const processedOrders = JSON.parse(
+    sessionStorage.getItem("processedOrders") || "[]"
+  );
+
+  if (processedOrders.includes(finalOrderId)) {
+    console.log("Order already processed:", finalOrderId);
+    return;
+  }
+
+  // Check if this payment has already been processed using state
+  if (
+    orderData?.orderId === finalOrderId &&
+    paymentComplete &&
+    finalOrderId &&
+    finalOrderId !== "undefined"
+  ) {
+    console.log("Payment already processed for this order:", finalOrderId);
+    return;
+  }
+
+  // Stop the timer when payment is successful
+  setTimerActive(false);
+  setPaymentComplete(true);
+  setOrderData({ 
+    orderId: finalOrderId, 
+    paymentIntentId: paymentData?.paymentIntentId,
+    bookingId: paymentData?.bookingId,
+    ...paymentData 
+  });
+
+  // Mark order as processed
+  processedOrders.push(finalOrderId);
+  sessionStorage.setItem("processedOrders", JSON.stringify(processedOrders));
+
+  // Get the confirmed booking ID from payment data or use temp booking ID
+  const tempBookingId = paymentData?.bookingId || sessionStorage.getItem("tempBookingId");
+  
+  console.log("Using booking ID:", tempBookingId);
+  console.log("Final order ID being used:", finalOrderId);
+
+  if (tempBookingId) {
+    setFinalBookingId(tempBookingId);
+
+    // Send optional note if provided (for admin/seller only)
+    if (isAdminOrSeller()) {
+      console.log("User is admin/seller, attempting to send note...");
+      
+      setTimeout(async () => {
+        try {
+          await sendOptionalNote(tempBookingId);
+        } catch (error) {
+          console.error("Failed to send optional note:", error);
+        }
+      }, 1000);
     }
 
-    if (tempUserData) {
-      sessionStorage.removeItem("tempUserData");
-    }
+    // Remove temp booking ID after processing
+    sessionStorage.removeItem("tempBookingId");
+  } else {
+    console.warn("No booking ID found!");
+  }
 
-    console.log("Order ID processed successfully:", orderId);
+  // Store the completed order ID (from backend or payment intent ID)
+  localStorage.setItem("completedOrderId", finalOrderId);
 
-    // Scroll to the confirmation section
-    setTimeout(() => {
-      document
-        .getElementById("confirmation")
-        ?.scrollIntoView({ behavior: "smooth" });
-    }, 500);
-  };
+  console.log("Order processed successfully:", finalOrderId);
+
+  // Scroll to confirmation
+  setTimeout(() => {
+    document
+      .getElementById("confirmation")
+      ?.scrollIntoView({ behavior: "smooth" });
+  }, 500);
+};
+
+const handleViewTickets = () => {
+  // Get order ID from state or localStorage (should be from backend now)
+  let savedOrderId = orderData?.orderId || localStorage.getItem("completedOrderId");
+
+  // Only generate if absolutely no order ID is available
+  if (!savedOrderId || savedOrderId === "undefined") {
+    console.warn("No order ID available for ticket view!");
+    // You might want to redirect to an error page or show an error message
+    setError("Order ID not found. Please contact support.");
+    return;
+  }
+
+  // Ensure we have the final booking ID from successful payment
+  const bookingIdToUse = finalBookingId || localStorage.getItem("bookingId");
+
+  console.log("Navigating to tickets with:", {
+    orderId: savedOrderId,
+    bookingId: bookingIdToUse,
+    finalTotal: finalTotal,
+  });
+
+  navigate("/dashboard/my-tickets", {
+    state: {
+      event,
+      selectedSeats,
+      totalPrice,
+      grandTotal: finalTotal,
+      confirmationNumber,
+      purchaseDate: new Date().toISOString(),
+      orderId: savedOrderId, // This should now be from your backend
+      bookingId: bookingIdToUse,
+      appliedCoupon,
+      discount,
+      paymentComplete: true,
+    },
+  });
+};
 
   // Handle go back
   const handleGoBack = () => {
@@ -785,45 +775,45 @@ const CheckoutTickets = () => {
     }
   };
 
-  // FIXED: Only navigate to tickets AFTER payment is complete
-  const handleViewTickets = () => {
-    let savedOrderId =
-      localStorage.getItem("completedOrderId") || orderData?.orderId;
+  // // FIXED: Only navigate to tickets AFTER payment is complete
+  // const handleViewTickets = () => {
+  //   let savedOrderId =
+  //     localStorage.getItem("completedOrderId") || orderData?.orderId;
 
-    // Generate orderId if still missing
-    if (!savedOrderId || savedOrderId === "undefined") {
-      savedOrderId = `ticket_order_${Date.now()}_${Math.floor(
-        Math.random() * 10000
-      )}`;
-      localStorage.setItem("completedOrderId", savedOrderId);
-      console.log("Generated orderId for ticket view:", savedOrderId);
-    }
+  //   // Generate orderId if still missing
+  //   if (!savedOrderId || savedOrderId === "undefined") {
+  //     savedOrderId = `ticket_order_${Date.now()}_${Math.floor(
+  //       Math.random() * 10000
+  //     )}`;
+  //     localStorage.setItem("completedOrderId", savedOrderId);
+  //     console.log("Generated orderId for ticket view:", savedOrderId);
+  //   }
 
-    // Ensure we have the final booking ID from successful payment
-    const bookingIdToUse = finalBookingId || localStorage.getItem("bookingId");
+  //   // Ensure we have the final booking ID from successful payment
+  //   const bookingIdToUse = finalBookingId || localStorage.getItem("bookingId");
 
-    console.log("Navigating to tickets with:", {
-      orderId: savedOrderId,
-      bookingId: bookingIdToUse,
-      finalTotal: finalTotal,
-    });
+  //   console.log("Navigating to tickets with:", {
+  //     orderId: savedOrderId,
+  //     bookingId: bookingIdToUse,
+  //     finalTotal: finalTotal,
+  //   });
 
-    navigate("/dashboard/my-tickets", {
-      state: {
-        event,
-        selectedSeats,
-        totalPrice,
-        grandTotal: finalTotal,
-        confirmationNumber,
-        purchaseDate: new Date().toISOString(),
-        orderId: savedOrderId,
-        bookingId: bookingIdToUse, // Pass the confirmed booking ID
-        appliedCoupon,
-        discount,
-        paymentComplete: true, // Explicitly indicate payment was completed
-      },
-    });
-  };
+  //   navigate("/dashboard/my-tickets", {
+  //     state: {
+  //       event,
+  //       selectedSeats,
+  //       totalPrice,
+  //       grandTotal: finalTotal,
+  //       confirmationNumber,
+  //       purchaseDate: new Date().toISOString(),
+  //       orderId: savedOrderId,
+  //       bookingId: bookingIdToUse, // Pass the confirmed booking ID
+  //       appliedCoupon,
+  //       discount,
+  //       paymentComplete: true, // Explicitly indicate payment was completed
+  //     },
+  //   });
+  // };
 
   // FIXED: Only verify auth token after payment completion
   useEffect(() => {
