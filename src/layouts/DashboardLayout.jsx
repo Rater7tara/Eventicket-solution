@@ -1,6 +1,6 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, Navigate } from 'react-router-dom';
-import { Home, UserCircle, LayoutDashboard, Ticket, LogOut, Menu, X, Calendar, Settings, FileText, ShoppingBag } from 'lucide-react';
+import { Home, UserCircle, LayoutDashboard, Ticket, LogOut, Menu, X, Calendar, Settings, FileText, ShoppingBag, Armchair, Puzzle, TicketX, TicketCheck, Tickets, CalendarPlus, CalendarCog, UserCog, Users, FilePlus2 } from 'lucide-react';
 import { AuthContext } from '../providers/AuthProvider';
 import serverURL from '../ServerConfig'; // Adjust the path as needed
 
@@ -125,35 +125,35 @@ const DashboardLayout = () => {
 
     const roleLinks = {
         admin: [
-            { to: '/dashboard/create-events', label: 'Create Events', icon: <Calendar size={20} /> },
-            { to: '/dashboard/manage-events', label: 'Manage All Events', icon: <Calendar size={20} /> },
+            { to: '/dashboard/create-events', label: 'Create Events', icon: <CalendarPlus size={20} /> },
+            { to: '/dashboard/manage-events', label: 'Manage All Events', icon: <CalendarCog size={20} /> },
             { to: '/dashboard/my-events', label: 'My Events', icon: <Calendar size={20} /> },
-            { to: '/dashboard/coupons', label: 'My Coupons', icon: <Ticket size={20} /> },
-            { to: '/dashboard/my-tickets', label: 'My Tickets', icon: <Ticket size={20} /> },
-            { to: '/dashboard/admin-cancel-ticket', label: 'Cancel Tickets', icon: <Ticket size={20} /> },
+            { to: '/dashboard/coupons', label: 'My Coupons', icon: <Puzzle size={20} /> },
+            { to: '/dashboard/my-tickets', label: 'My Tickets', icon: <Tickets size={20} /> },
+            { to: '/dashboard/admin-cancel-ticket', label: 'Cancel Tickets', icon: <TicketX size={20} /> },
             // { to: '/dashboard/cancel-ticket', label: 'Cancel Tickets', icon: <Ticket size={20} /> },
-            { to: '/dashboard/sold-tickets', label: 'Sold Tickets', icon: <Ticket size={20} /> },
-            { to: '/dashboard/my-reservation', label: 'My Reservation', icon: <Ticket size={20} /> },
-            { to: '/dashboard/manage-users', label: 'Manage Users', icon: <UserCircle size={20} /> },
-            { to: '/dashboard/manage-sellers', label: 'Manage Seller', icon: <UserCircle size={20} /> },
+            { to: '/dashboard/sold-tickets', label: 'Sold Tickets', icon: <TicketCheck size={20} /> },
+            { to: '/dashboard/my-reservation', label: 'My Reservation', icon: <Armchair size={20} /> },
+            { to: '/dashboard/manage-users', label: 'Manage Users', icon: <UserCog size={20} /> },
+            { to: '/dashboard/manage-sellers', label: 'Manage Seller', icon: <Users size={20} /> },
             { to: '/dashboard/reports', label: 'Reports', icon: <FileText size={20} /> },
-            { to: '/dashboard/add-blogs', label: 'Add Blogs', icon: <FileText size={20} /> },
+            { to: '/dashboard/add-blogs', label: 'Add Blogs', icon: <FilePlus2 size={20} /> },
             { to: '/dashboard/admin-profile', label: 'Settings', icon: <Settings size={20} /> },
         ],
         seller: [
             
-            { to: '/dashboard/add-event', label: 'Add Event', icon: <FileText size={20} /> },
+            { to: '/dashboard/add-event', label: 'Add Event', icon: <CalendarPlus size={20} /> },
             { to: '/dashboard/my-events', label: 'My Events', icon: <Calendar size={20} /> },
-            { to: '/dashboard/coupons', label: 'My Coupons', icon: <Ticket size={20} /> },
-            { to: '/dashboard/my-reservation', label: 'My Reservation', icon: <Ticket size={20} /> },
-            { to: '/dashboard/my-tickets', label: 'My Tickets', icon: <Ticket size={20} /> },
-            { to: '/dashboard/cancel-ticket', label: 'Cancel Tickets', icon: <Ticket size={20} /> },
-            { to: '/dashboard/seller-sold-tickets', label: 'Sold Tickets', icon: <Ticket size={20} /> },
+            { to: '/dashboard/coupons', label: 'My Coupons', icon: <Puzzle size={20} /> },
+            { to: '/dashboard/my-reservation', label: 'My Reservation', icon: <Armchair size={20} /> },
+            { to: '/dashboard/my-tickets', label: 'My Tickets', icon: <Tickets size={20} /> },
+            { to: '/dashboard/cancel-ticket', label: 'Cancel Tickets', icon: <TicketX size={20} /> },
+            { to: '/dashboard/seller-sold-tickets', label: 'Sold Tickets', icon: <TicketCheck size={20} /> },
             { to: '/dashboard/sales-report', label: 'Sales Report', icon: <ShoppingBag size={20} /> },
             { to: '/dashboard/seller-profile', label: 'Settings', icon: <Settings size={20} /> },
         ],
         buyer: [
-            { to: '/dashboard/my-tickets', label: 'My Tickets', icon: <Ticket size={20} /> },
+            { to: '/dashboard/my-tickets', label: 'My Tickets', icon: <Tickets size={20} /> },
             { to: '/dashboard/buyer-profile', label: 'Settings', icon: <Settings size={20} /> },
         ],
     };

@@ -247,7 +247,7 @@ const AdminCancelTickets = () => {
     setCurrentPage(1); // Reset to first page when filtering
   };
 
-  // Function to cancel a booking using the updated cancel API
+  // Function to cancel a booking using the refund API
   const cancelBooking = async (booking) => {
     setCancelLoading(true);
     setError("");
@@ -285,7 +285,7 @@ const AdminCancelTickets = () => {
         );
       }
 
-      // Prepare request body with orderId and seat details
+      // Prepare request body with orderId and seat details (using the correct structure)
       const requestBody = {
         orderId: String(booking._id), // Use the top-level _id as orderId
         seatToCancel: {
@@ -301,8 +301,8 @@ const AdminCancelTickets = () => {
       console.log("Full request body:", requestBody);
       console.log("Stringified body:", JSON.stringify(requestBody));
 
-      // Call the cancel booking API with the correct endpoint
-      const response = await fetch(`${API_BASE_URL}payments/booking/cancel`, {
+      // Call the refund API with the correct endpoint
+      const response = await fetch(`${API_BASE_URL}payments/refund`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
