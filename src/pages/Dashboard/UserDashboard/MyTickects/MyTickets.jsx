@@ -31,37 +31,14 @@ const MyTickets = () => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [ticketToCancel, setTicketToCancel] = useState(null);
 
-  // IMPROVED BARCODE GENERATION - Consistent and realistic
-  const generateBarcode = (ticketId, seatInfo = "") => {
-    // Create a consistent seed from ticketId and seat info
-    const baseString = `${ticketId || "DEFAULT"}${seatInfo || "SEAT"}`;
-
-    // Simple hash function to create consistent number from string
-    let hash = 0;
-    for (let i = 0; i < baseString.length; i++) {
-      const char = baseString.charCodeAt(i);
-      hash = (hash << 5) - hash + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-
-    // Convert to positive number and create barcode
-    const positiveHash = Math.abs(hash);
-    const barcodeNumber = positiveHash
-      .toString()
-      .padStart(12, "0")
-      .substring(0, 12);
-
-    return `${barcodeNumber}`;
-  };
-
-  // ENHANCED REALISTIC BARCODE COMPONENT
+  // ENHANCED REALISTIC BARCODE COMPONENT - Updated to use backend ticketCode
   const BarcodeDisplay = ({
-    ticketId,
-    seatInfo,
+    ticketCode, // Changed from ticketId and seatInfo to ticketCode
     isCancelled = false,
     size = "normal",
   }) => {
-    const barcodeId = generateBarcode(ticketId, seatInfo);
+    // Use the ticketCode directly from backend, no generation needed
+    const barcodeId = ticketCode || "000000000000"; // Fallback if no ticketCode
     const containerHeight = size === "large" ? "h-16" : "h-12";
 
     // Generate REALISTIC Code 128 style barcode pattern
@@ -78,7 +55,6 @@ const MyTickets = () => {
 
       // Data pattern based on barcode ID
       for (let i = 0; i < data.length; i++) {
-        const charCode = data.charCodeAt(i);
         const digit = parseInt(data[i]) || 0;
 
         // Create realistic barcode pattern based on digit value
@@ -915,6 +891,7 @@ const MyTickets = () => {
             createdAt: order.createdAt,
             paymentStatus: order.paymentStatus || "Unknown",
             isCancelled: isCancelled,
+            ticketCode: order.ticketCode, // Add ticketCode from backend
             rawOrderData: order, // Store complete order data for debugging
             userInfo: {
               name:
@@ -958,6 +935,7 @@ const MyTickets = () => {
           createdAt: order.createdAt,
           paymentStatus: order.paymentStatus || "Unknown",
           isCancelled: isCancelled,
+          ticketCode: order.ticketCode, // Add ticketCode from backend
           rawOrderData: order, // Store complete order data for debugging
           userInfo: {
             name:
@@ -978,6 +956,7 @@ const MyTickets = () => {
         orderId: t.orderId,
         originalOrderId: t.originalOrderId,
         seatIndex: t.seatIndex,
+        ticketCode: t.ticketCode, // Log ticketCode for verification
       }))
     );
 
@@ -1075,7 +1054,7 @@ const MyTickets = () => {
     }
   };
 
-  // IMPROVED PDF GENERATION WITH SAME BARCODE
+  // IMPROVED PDF GENERATION WITH BACKEND BARCODE
   const generateLocalTicketPDF = (ticketId) => {
     // Find the ticket in our state
     const ticket = tickets.find(
@@ -1341,8 +1320,8 @@ const MyTickets = () => {
       doc.text("VALIDATION", rightColStart, rightY);
       rightY += 10;
 
-      // Generate the SAME barcode as display
-      const barcodeId = generateBarcode(ticket._id, ticket.seat?.name);
+      // Use the SAME ticketCode from backend
+      const barcodeId = ticket.ticketCode || "000000000000"; // Use backend ticketCode
 
       // Barcode
       doc.setFontSize(9);
@@ -1434,7 +1413,7 @@ const MyTickets = () => {
 
       rightY += barcodeHeight + 5;
 
-      // Barcode number
+      // Barcode number - Use backend ticketCode
       doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(...colors.dark);
@@ -1810,11 +1789,10 @@ const MyTickets = () => {
                       </div>
                     </div>
 
-                    {/* Enhanced Barcode */}
+                    {/* Enhanced Barcode - Updated to use backend ticketCode */}
                     <div className="mt-4 mb-4 md:mb-0">
                       <BarcodeDisplay
-                        ticketId={ticket._id}
-                        seatInfo={ticket.seat?.name}
+                        ticketCode={ticket.ticketCode}
                         isCancelled={ticket.isCancelled}
                       />
                     </div>
@@ -1848,19 +1826,6 @@ const MyTickets = () => {
                             )}
                             Download
                           </button>
-
-                          {/* <button
-                            onClick={() => showCancelConfirmation(ticket)}
-                            className="inline-flex items-center gap-1 bg-red-50 text-red-600 px-3 py-2 rounded-lg hover:bg-red-100 transition-colors cursor-pointer"
-                            disabled={cancelLoading}
-                          >
-                            {cancelLoading ? (
-                              <div className="animate-spin h-4 w-4 border-2 border-red-600 border-t-transparent rounded-full mr-1"></div>
-                            ) : (
-                              <X size={18} />
-                            )}
-                            Cancel Ticket
-                          </button> */}
                         </>
                       )}
 
@@ -2296,11 +2261,10 @@ const MyTickets = () => {
                         </div>
                       </div>
 
-                      {/* Enhanced Barcode in preview */}
+                      {/* Enhanced Barcode in preview - Updated to use backend ticketCode */}
                       <div className="mt-2">
                         <BarcodeDisplay
-                          ticketId={selectedTicket._id}
-                          seatInfo={selectedTicket.seat?.name}
+                          ticketCode={selectedTicket.ticketCode}
                           isCancelled={selectedTicket.isCancelled}
                           size="large"
                         />

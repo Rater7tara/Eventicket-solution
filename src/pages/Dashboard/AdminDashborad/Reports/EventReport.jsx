@@ -68,26 +68,10 @@ const EventReport = () => {
   // NEW: Individual seat verification tracking
   const [seatVerification, setSeatVerification] = useState({}); // Track each seat separately
 
-  // BARCODE GENERATION - Same as MyTickets component
-  const generateBarcode = (ticketId, seatInfo = "") => {
-    const baseString = `${ticketId || 'DEFAULT'}${seatInfo || 'SEAT'}`;
-    
-    let hash = 0;
-    for (let i = 0; i < baseString.length; i++) {
-      const char = baseString.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
-    }
-    
-    const positiveHash = Math.abs(hash);
-    const barcodeNumber = positiveHash.toString().padStart(12, '0').substring(0, 12);
-    
-    return `${barcodeNumber}`;
-  };
-
-  // ENHANCED REALISTIC BARCODE COMPONENT - Same as MyTickets
-  const BarcodeDisplay = ({ ticketId, seatInfo, isCancelled = false, size = "normal" }) => {
-    const barcodeId = generateBarcode(ticketId, seatInfo);
+  // UPDATED REALISTIC BARCODE COMPONENT - Now uses backend ticketCode
+  const BarcodeDisplay = ({ ticketCode, isCancelled = false, size = "normal" }) => {
+    // Use the ticketCode directly from backend, no generation needed
+    const barcodeId = ticketCode || "000000000000"; // Fallback if no ticketCode
     const containerHeight = size === "large" ? "h-16" : "h-12";
     
     const generateRealisticBarcode = (data) => {
@@ -180,47 +164,82 @@ const EventReport = () => {
     );
   };
 
-  // NEW: Enhanced barcode verification function for individual seats
+  // UPDATED: Enhanced barcode verification function for individual seats - now uses backend ticketCode
   const verifyScannedBarcode = (scannedCode) => {
-    // Generate all possible barcodes for this event's orders
-    const validBarcodes = [];
+    // Check all orders for matching ticketCode
+    const validTickets = [];
     
     eventOrders.forEach(order => {
       if (order.seats && order.seats.length > 0) {
-        // Multiple seat tickets
-        order.seats.forEach((seat, index) => {
-          const seatInfo = `${seat.section} ${seat.row}${seat.seatNumber}`;
-          const ticketId = `${order._id}_seat_${index}`;
-          const barcode = generateBarcode(ticketId, seatInfo);
-          validBarcodes.push({
-            barcode,
-            orderId: order._id,
-            ticketId,
-            seatIndex: index,
-            seatInfo,
-            order,
-            seat
+        // Multiple seat tickets - check if order has a ticketCode that matches
+        if (order.ticketCode === scannedCode) {
+          // For multi-seat orders, we need to determine which specific seat
+          // Since we can't distinguish individual seats with the same ticketCode,
+          // we'll verify the first unverified seat
+          const unverifiedSeatIndex = order.seats.findIndex((seat, index) => {
+            const seatKey = `${order._id}_seat_${index}`;
+            const currentStatus = seatVerification[seatKey];
+            return !currentStatus || currentStatus === 'Pending';
           });
-        });
+          
+          if (unverifiedSeatIndex !== -1) {
+            const seat = order.seats[unverifiedSeatIndex];
+            const seatInfo = `${seat.section} ${seat.row}${seat.seatNumber}`;
+            validTickets.push({
+              ticketCode: order.ticketCode,
+              orderId: order._id,
+              ticketId: `${order._id}_seat_${unverifiedSeatIndex}`,
+              seatIndex: unverifiedSeatIndex,
+              seatInfo,
+              order,
+              seat
+            });
+          } else {
+            // All seats already verified/used
+            const seat = order.seats[0];
+            const seatInfo = `${seat.section} ${seat.row}${seat.seatNumber}`;
+            validTickets.push({
+              ticketCode: order.ticketCode,
+              orderId: order._id,
+              ticketId: `${order._id}_seat_0`,
+              seatIndex: 0,
+              seatInfo,
+              order,
+              seat,
+              allUsed: true
+            });
+          }
+        }
       } else {
         // General admission ticket
-        const barcode = generateBarcode(order._id, "General Admission");
-        validBarcodes.push({
-          barcode,
-          orderId: order._id,
-          ticketId: order._id,
-          seatIndex: 0,
-          seatInfo: "General Admission",
-          order,
-          seat: null
-        });
+        if (order.ticketCode === scannedCode) {
+          validTickets.push({
+            ticketCode: order.ticketCode,
+            orderId: order._id,
+            ticketId: order._id,
+            seatIndex: 0,
+            seatInfo: "General Admission",
+            order,
+            seat: null
+          });
+        }
       }
     });
 
-    // Check if scanned code matches any valid barcode
-    const matchedTicket = validBarcodes.find(ticket => ticket.barcode === scannedCode);
+    // Check if scanned code matches any valid ticket
+    const matchedTicket = validTickets.find(ticket => ticket.ticketCode === scannedCode);
     
     if (matchedTicket) {
+      // Check if all seats are already used
+      if (matchedTicket.allUsed) {
+        return {
+          status: 'already-used',
+          message: `All seats for this ticket are already used`,
+          ticket: matchedTicket,
+          seatKey: `${matchedTicket.orderId}_seat_${matchedTicket.seatIndex}`
+        };
+      }
+      
       // Create unique seat key for tracking individual seats
       const seatKey = `${matchedTicket.orderId}_seat_${matchedTicket.seatIndex}`;
       const currentSeatStatus = seatVerification[seatKey];
@@ -369,7 +388,7 @@ const EventReport = () => {
     toast.success(`${seatInfo} marked as ${newStatus.toLowerCase()}`);
   };
 
-  // UPDATED: Barcode Modal with blur background
+  // UPDATED: Barcode Modal with backend ticketCode
   const BarcodeModal = () => {
     if (!showBarcodeModal || !selectedOrderForBarcode) return null;
 
@@ -396,7 +415,7 @@ const EventReport = () => {
             {/* Order Info */}
             <div className="bg-gray-50 p-3 rounded-lg">
               <p className="text-sm text-gray-600 mb-1">
-                <strong>Order ID:</strong> {selectedOrderForBarcode._id?.slice(-8) || "N/A"}
+                <strong>Booking ID:</strong> {selectedOrderForBarcode.bookingId || selectedOrderForBarcode._id?.slice(-8) || "N/A"}
               </p>
               <p className="text-sm text-gray-600 mb-1">
                 <strong>Buyer:</strong> {getUserNameById(selectedOrderForBarcode.buyerId)}
@@ -406,57 +425,51 @@ const EventReport = () => {
               </p>
             </div>
 
-            {/* Generate barcodes for each seat */}
+            {/* UPDATED: Single barcode per order using backend ticketCode */}
             <div className="space-y-4">
-              <h4 className="font-medium text-gray-700">Ticket Barcodes:</h4>
+              <h4 className="font-medium text-gray-700">Ticket Barcode:</h4>
               
-              {selectedOrderForBarcode.seats && selectedOrderForBarcode.seats.length > 0 ? (
-                selectedOrderForBarcode.seats.map((seat, index) => {
-                  const seatInfo = `${seat.section} ${seat.row}${seat.seatNumber}`;
-                  const ticketId = `${selectedOrderForBarcode._id}_seat_${index}`;
-                  const isCancelled = selectedOrderForBarcode.paymentStatus === 'cancelled' || 
-                                     selectedOrderForBarcode.paymentStatus === 'failed';
-                  
-                  return (
-                    <div key={index} className="border border-gray-200 rounded-lg p-3">
-                      <div className="text-sm font-medium text-gray-700 mb-2">
-                        Seat: {seatInfo}
-                      </div>
-                      <BarcodeDisplay 
-                        ticketId={ticketId}
-                        seatInfo={seatInfo}
-                        isCancelled={isCancelled}
-                        size="large"
-                      />
-                      <div className="mt-2 text-xs text-gray-500 text-center">
-                        Ticket ID: {ticketId.slice(-8)}
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                // General admission ticket
-                <div className="border border-gray-200 rounded-lg p-3">
-                  <div className="text-sm font-medium text-gray-700 mb-2">
-                    General Admission
-                  </div>
-                  <BarcodeDisplay 
-                    ticketId={selectedOrderForBarcode._id}
-                    seatInfo="General Admission"
-                    isCancelled={selectedOrderForBarcode.paymentStatus === 'cancelled' || 
-                                 selectedOrderForBarcode.paymentStatus === 'failed'}
-                    size="large"
-                  />
-                  <div className="mt-2 text-xs text-gray-500 text-center">
-                    Ticket ID: {selectedOrderForBarcode._id.slice(-8)}
-                  </div>
+              <div className="border border-gray-200 rounded-lg p-3">
+                <div className="text-sm font-medium text-gray-700 mb-2">
+                  {selectedOrderForBarcode.seats && selectedOrderForBarcode.seats.length > 0 
+                    ? `${selectedOrderForBarcode.seats.length} Seat(s)` 
+                    : "General Admission"}
                 </div>
-              )}
+                
+                <BarcodeDisplay 
+                  ticketCode={selectedOrderForBarcode.ticketCode}
+                  isCancelled={selectedOrderForBarcode.paymentStatus === 'cancelled' || 
+                               selectedOrderForBarcode.paymentStatus === 'failed'}
+                  size="large"
+                />
+                
+                <div className="mt-2 text-xs text-gray-500 text-center">
+                  Ticket Code: {selectedOrderForBarcode.ticketCode || "Not Available"}
+                </div>
+                
+                {/* Seat Details */}
+                {selectedOrderForBarcode.seats && selectedOrderForBarcode.seats.length > 0 && (
+                  <div className="mt-3 text-xs text-gray-600">
+                    <strong>Seats:</strong>
+                    <div className="mt-1 space-y-1">
+                      {selectedOrderForBarcode.seats.map((seat, index) => (
+                        <div key={index} className="flex justify-between">
+                          <span>{seat.section} {seat.row}{seat.seatNumber}</span>
+                          <span>${seat.price || 0}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
               <p className="text-sm text-blue-800">
-                <strong>📱 Scan Instructions:</strong> Use your barcode scanner app to scan these codes for ticket verification at the event entrance.
+                <strong>📱 Scan Instructions:</strong> Use your barcode scanner app to scan this code for ticket verification at the event entrance.
+              </p>
+              <p className="text-xs text-blue-700 mt-1">
+                Note: One barcode covers all seats in this order.
               </p>
             </div>
           </div>
@@ -682,12 +695,10 @@ const EventReport = () => {
           <table>
             <thead>
               <tr>
-                <th>Order ID</th>
                 <th>Seller</th>
                 <th>Buyer</th>
                 <th>Amount</th>
                 <th>Seats</th>
-                <th>Payment</th>
                 <th>Verification</th>
                 <th>Date</th>
               </tr>
@@ -700,12 +711,10 @@ const EventReport = () => {
                 
                 return `
                   <tr>
-                    <td>${order._id?.slice(-8) || "N/A"}</td>
                     <td>${seller?.name || "N/A"}</td>
                     <td>${buyer?.name || "N/A"}</td>
                     <td>${formatCurrency(order.totalAmount)}</td>
                     <td>${order.quantity || 0}</td>
-                    <td>${order.paymentStatus || 'N/A'}</td>
                     <td>${verificationInfo.status}</td>
                     <td>${order.orderTime ? new Date(order.orderTime).toLocaleDateString() : "N/A"}</td>
                   </tr>
@@ -740,92 +749,6 @@ const EventReport = () => {
     }
   };
 
-  // UPDATED: Download CSV Report (simplified and more reliable)
-  const downloadCSVReport = async () => {
-    try {
-      setDownloadingPDF(true);
-      
-      const stats = calculateStats();
-      
-      // Create CSV content
-      const csvData = [];
-      
-      // Add headers
-      csvData.push([
-        'Order ID',
-        'Seller Name',
-        'Seller Email',
-        'Buyer Name', 
-        'Buyer Email',
-        'Amount ($)',
-        'Seats',
-        'Payment Status',
-        'Verification Status',
-        'Order Date'
-      ]);
-      
-      // Add order data
-      filteredOrders.forEach(order => {
-        const seller = getUserById(order.sellerId);
-        const buyer = getUserById(order.buyerId);
-        const verificationInfo = getOrderVerificationStatus(order);
-        
-        csvData.push([
-          order._id?.slice(-8) || "N/A",
-          seller?.name || "N/A",
-          seller?.email || "N/A",
-          buyer?.name || "N/A",
-          buyer?.email || "N/A",
-          order.totalAmount || 0,
-          order.quantity || 0,
-          order.paymentStatus || "N/A",
-          verificationInfo.status || "Pending",
-          order.orderTime ? new Date(order.orderTime).toLocaleDateString() : "N/A"
-        ]);
-      });
-      
-      // Add summary section
-      csvData.push([]);
-      csvData.push(['=== SUMMARY ===']);
-      csvData.push(['Total Orders', stats.totalOrders]);
-      csvData.push(['Total Revenue ($)', stats.totalRevenue]);
-      csvData.push(['Total Seats', stats.totalSeats]);
-      csvData.push(['Successful Orders', stats.successfulOrders]);
-      csvData.push(['Pending Orders', stats.pendingOrders]);
-      csvData.push(['Failed Orders', stats.failedOrders]);
-      csvData.push(['Success Rate (%)', stats.successRate]);
-      
-      // Convert to CSV string
-      const csvContent = csvData.map(row => 
-        row.map(field => {
-          const stringField = String(field || '');
-          return stringField.includes(',') || stringField.includes('"') || stringField.includes('\n') 
-            ? `"${stringField.replace(/"/g, '""')}"` 
-            : stringField;
-        }).join(',')
-      ).join('\n');
-      
-      // Create and download file
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${eventData?.title?.replace(/[^a-z0-9]/gi, '-') || 'event'}-report-${new Date().toISOString().split('T')[0]}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      
-      toast.success('CSV report downloaded successfully!');
-      
-    } catch (err) {
-      console.error('Error downloading CSV report:', err);
-      toast.error('Failed to download CSV report. Please try again.');
-    } finally {
-      setDownloadingPDF(false);
-    }
-  };
-
   // Handle ticket verification - Fixed implementation (removed 'Active' status)
   const handleTicketVerification = async (orderId, status) => {
     try {
@@ -841,7 +764,7 @@ const EventReport = () => {
     }
   };
 
-  // Handle ticket scanner - Enhanced with barcode verification
+  // UPDATED: Handle ticket scanner - Enhanced with backend ticketCode verification
   const handleTicketScan = () => {
     if (!scannedTicketId.trim()) {
       toast.error('Please enter a barcode or ticket ID');
@@ -852,7 +775,7 @@ const EventReport = () => {
     setScanResult(null);
     setScanStatus('');
     
-    // Verify the scanned barcode
+    // Verify the scanned barcode using backend ticketCode
     const result = verifyScannedBarcode(scannedTicketId.trim());
     
     setTimeout(() => {
@@ -1023,7 +946,6 @@ const EventReport = () => {
                   Scan Tickets
                 </button>
                 
-                {/* Updated Download Buttons */}
                 <button
                   onClick={downloadPDFReport}
                   disabled={downloadingPDF}
@@ -1035,18 +957,6 @@ const EventReport = () => {
                   />
                   {downloadingPDF ? "Generating..." : "Download PDF"}
                 </button>
-                
-                {/* <button
-                  onClick={downloadCSVReport}
-                  disabled={downloadingPDF}
-                  className="flex items-center px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors duration-200 shadow-md font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <FileSpreadsheet
-                    className={`mr-2 ${downloadingPDF ? "animate-spin" : ""}`}
-                    size={16}
-                  />
-                  {downloadingPDF ? "Generating..." : "Download CSV"}
-                </button> */}
                 
                 <button
                   className="flex items-center px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors duration-200 shadow-md font-medium cursor-pointer"
@@ -1206,9 +1116,6 @@ const EventReport = () => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Order ID
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Seller
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1239,11 +1146,6 @@ const EventReport = () => {
                     
                     return (
                       <tr key={order._id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          <span className="font-mono">
-                            {order._id?.slice(-8) || "N/A"}
-                          </span>
-                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           <div className="flex items-center">
                             <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
@@ -1497,7 +1399,7 @@ const EventReport = () => {
                 <div className="space-y-3">
                   <input
                     type="text"
-                    placeholder="Enter barcode number..."
+                    placeholder="Enter ticket code..."
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={scannedTicketId}
                     onChange={(e) => setScannedTicketId(e.target.value)}
@@ -1518,7 +1420,7 @@ const EventReport = () => {
                         Verifying...
                       </div>
                     ) : (
-                      'Verify Barcode'
+                      'Verify Ticket Code'
                     )}
                   </button>
                 </div>
@@ -1560,7 +1462,7 @@ const EventReport = () => {
                       {scanStatus === 'success' && '✅ VERIFIED - Ticket Valid for Entry'}
                       {scanStatus === 'already-used' && '🎫 ALREADY USED - Entry Completed'}
                       {scanStatus === 'already-verified' && '✅ ALREADY VERIFIED - Ready for Entry'}
-                      {scanStatus === 'pending' && '❌ PENDING - Invalid Barcode'}
+                      {scanStatus === 'pending' && '❌ PENDING - Invalid Ticket Code'}
                     </h4>
                   </div>
                   
@@ -1578,9 +1480,10 @@ const EventReport = () => {
 
                   {scanResult.ticket && (
                     <div className="text-xs text-gray-600 space-y-1">
-                      <div><strong>Order ID:</strong> {scanResult.ticket.orderId.slice(-8)}</div>
+                      <div><strong>Booking ID:</strong> {scanResult.ticket.order.bookingId || scanResult.ticket.orderId.slice(-8)}</div>
                       <div><strong>Seat:</strong> {scanResult.ticket.seatInfo}</div>
                       <div><strong>Buyer:</strong> {getUserNameById(scanResult.ticket.order.buyerId)}</div>
+                      <div><strong>Ticket Code:</strong> {scanResult.ticket.ticketCode}</div>
                       {scanResult.seatKey && (
                         <div><strong>Seat Status:</strong> {seatVerification[scanResult.seatKey] || 'Pending'}</div>
                       )}
@@ -1595,11 +1498,12 @@ const EventReport = () => {
                   <strong>📋 Instructions:</strong>
                 </p>
                 <ul className="text-xs text-blue-700 mt-1 space-y-1">
-                  <li>• Manually enter the 12-digit barcode number</li>
+                  <li>• Enter the ticket code from the barcode</li>
                   <li>• 🟢 Green = Verified ticket (ready for entry)</li>
                   <li>• 🔵 Blue = Already verified ticket</li>
                   <li>• 🟡 Yellow = Already used ticket</li>
                   <li>• 🔴 Red = Invalid/not found ticket</li>
+                  <li>• One ticket code covers all seats in multi-seat orders</li>
                 </ul>
               </div>
 
