@@ -1,6 +1,6 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, Navigate } from 'react-router-dom';
-import { Home, UserCircle, LayoutDashboard, Ticket, LogOut, Menu, X, Calendar, Settings, FileText, ShoppingBag, Armchair, Puzzle, TicketX, TicketCheck, Tickets, CalendarPlus, CalendarCog, UserCog, Users, FilePlus2 } from 'lucide-react';
+import { Home, UserCircle, LayoutDashboard, Ticket, LogOut, Menu, X, Calendar, Settings, FileText, ShoppingBag, Armchair, Puzzle, TicketX, TicketCheck, Tickets, CalendarPlus, CalendarCog, UserCog, Users, FilePlus2, MonitorCog } from 'lucide-react';
 import { AuthContext } from '../providers/AuthProvider';
 import serverURL from '../ServerConfig'; // Adjust the path as needed
 
@@ -125,6 +125,7 @@ const DashboardLayout = () => {
 
     const roleLinks = {
         admin: [
+            { to: '/dashboard/manage-banner', label: 'Manage Banner', icon: <MonitorCog size={20} /> },
             { to: '/dashboard/create-events', label: 'Create Events', icon: <CalendarPlus size={20} /> },
             { to: '/dashboard/manage-events', label: 'Manage All Events', icon: <CalendarCog size={20} /> },
             { to: '/dashboard/my-events', label: 'My Events', icon: <Calendar size={20} /> },

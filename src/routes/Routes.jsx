@@ -44,6 +44,7 @@ import CancelTicket from "../pages/Dashboard/AdminDashborad/CancelTicket/CancelT
 import SellerSoldTickets from "../pages/Dashboard/SellerDashboard/SellerSoldTickets/SellerSoldTickets";
 import AdminCancelTickets from "../pages/Dashboard/AdminDashborad/AdminCancelTickets/AdminCancelTickets";
 import MyReservation from "../pages/Dashboard/AdminDashborad/MyReservation/MyReservation";
+import ManageBanner from "../pages/Dashboard/AdminDashborad/ManageBanner/ManageBanner";
 
 export const router = createBrowserRouter([
   {
@@ -138,6 +139,10 @@ export const router = createBrowserRouter([
         element: <AdminDashboard />,
       },
       {
+        path: "manage-banner",
+        element: <ManageBanner />,
+      },
+      {
         path: "manage-users",
         element: <ManageUsers />,
       },
@@ -214,12 +219,6 @@ export const router = createBrowserRouter([
       {
         path: "coupons",
         element: <SellerCoupons />,
-      },
-
-      // Common routes
-      {
-        path: "settings",
-        element: <div>Settings coming soon</div>, // Placeholder
       },
     ],
   },

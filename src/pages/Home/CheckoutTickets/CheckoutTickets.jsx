@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements } from "@stripe/react-stripe-js";
-import { paymentService } from "../../../services/api";
+// import { paymentService } from "../../../services/api";
 import serverURL from "../../../ServerConfig";
 import CheckoutForm from "./CheckoutForm";
 import { AuthContext } from "../../../providers/AuthProvider";
@@ -12,7 +12,7 @@ import visa from "../../../assets/payment/visa.png";
 import master from "../../../assets/payment/master.png";
 
 const stripePromise = loadStripe(
-  "pk_test_51RMBsVPPhrKgTwpcPcorStmAPBALn5dtB3xrqJ5bn3xfHKRYM1BPXBLyO8HkVtkk7Hhq1HZs9UaJpjR4lqxgnCvu00MVzStYrv"
+  "pk_test_1BSyvkPwDVAlaNVuUyzRGTXN00EN3SVYTn"
 );
 
 const CheckoutTickets = () => {
