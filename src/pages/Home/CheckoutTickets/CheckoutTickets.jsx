@@ -11,9 +11,7 @@ import CountdownTimer from "../../Dashboard/UserDashboard/CountdownTimer/Countdo
 import visa from "../../../assets/payment/visa.png";
 import master from "../../../assets/payment/master.png";
 
-const stripePromise = loadStripe(
-  "pk_live_QkL9qpFUdlXjYpeqw7cRguzE00vDvU8i1W"
-);
+const stripePromise = loadStripe("pk_live_QkL9qpFUdlXjYpeqw7cRguzE00vDvU8i1W");
 
 const CheckoutTickets = () => {
   const location = useLocation();
@@ -613,142 +611,334 @@ const CheckoutTickets = () => {
     paymentComplete,
   ]);
 
+  const sendOrderEmail = async (orderId) => {
+    console.log("🔍 sendOrderEmail called with orderId:", orderId);
 
-
-
-const handlePaymentComplete = async (orderId, paymentData) => {
-  console.log("Payment completed, processing order:", orderId);
-  console.log("Payment data received:", paymentData);
-
-  // Use the order ID from backend response (passed from CheckoutForm)
-  let finalOrderId = orderId;
-  
-  // If no order ID from backend, use payment intent ID as fallback
-  if (!finalOrderId || finalOrderId === "undefined") {
-    if (paymentData?.paymentIntentId) {
-      finalOrderId = paymentData.paymentIntentId;
-      console.log("Using payment intent ID as order ID:", finalOrderId);
-    } else {
-      console.error("No order ID or payment intent ID available!");
-      // Handle this error case appropriately
-      setError("Payment processed but order ID missing. Please contact support.");
+    if (!orderId || orderId === "undefined") {
+      console.log(
+        "❌ Skipping email send - missing or invalid order ID:",
+        orderId
+      );
       return;
     }
-  }
 
-  // Prevent duplicate processing
-  const processedOrders = JSON.parse(
-    sessionStorage.getItem("processedOrders") || "[]"
-  );
+    try {
+      const token = localStorage.getItem("auth-token");
 
-  if (processedOrders.includes(finalOrderId)) {
-    console.log("Order already processed:", finalOrderId);
-    return;
-  }
+      console.log("🔐 Auth token check for email:", {
+        tokenExists: !!token,
+        tokenLength: token?.length,
+        orderId: orderId,
+      });
 
-  // Check if this payment has already been processed using state
-  if (
-    orderData?.orderId === finalOrderId &&
-    paymentComplete &&
-    finalOrderId &&
-    finalOrderId !== "undefined"
-  ) {
-    console.log("Payment already processed for this order:", finalOrderId);
-    return;
-  }
+      if (!token) {
+        console.log(
+          "⚠️ No auth token found, proceeding without authentication"
+        );
+      }
 
-  // Stop the timer when payment is successful
-  setTimerActive(false);
-  setPaymentComplete(true);
-  setOrderData({ 
-    orderId: finalOrderId, 
-    paymentIntentId: paymentData?.paymentIntentId,
-    bookingId: paymentData?.bookingId,
-    ...paymentData 
-  });
+      // Prepare request data
+      const emailData = {
+        orderId: orderId,
+      };
 
-  // Mark order as processed
-  processedOrders.push(finalOrderId);
-  sessionStorage.setItem("processedOrders", JSON.stringify(processedOrders));
+      console.log("📤 Sending order email request:", {
+        url: `${serverURL.url}tickets/send-order-email`,
+        data: emailData,
+      });
 
-  // Get the confirmed booking ID from payment data or use temp booking ID
-  const tempBookingId = paymentData?.bookingId || sessionStorage.getItem("tempBookingId");
-  
-  console.log("Using booking ID:", tempBookingId);
-  console.log("Final order ID being used:", finalOrderId);
+      const headers = {
+        "Content-Type": "application/json",
+      };
 
-  if (tempBookingId) {
-    setFinalBookingId(tempBookingId);
+      // Add auth header if token exists
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
 
-    // Send optional note if provided (for admin/seller only)
-    if (isAdminOrSeller()) {
-      console.log("User is admin/seller, attempting to send note...");
-      
-      setTimeout(async () => {
-        try {
-          await sendOptionalNote(tempBookingId);
-        } catch (error) {
-          console.error("Failed to send optional note:", error);
+      const response = await axios.post(
+        `${serverURL.url}tickets/send-order-email`,
+        emailData,
+        {
+          headers: headers,
+          timeout: 15000, // 15 second timeout
         }
-      }, 1000);
+      );
+
+      console.log("✅ Order email API response:", {
+        status: response.status,
+        data: response.data,
+      });
+
+      if (response.data.success) {
+        console.log(
+          "🎉 Order confirmation email sent successfully for order:",
+          orderId
+        );
+      } else {
+        const errorMsg = response.data.message || "Failed to send order email";
+        console.warn("⚠️ Order email send failed:", errorMsg);
+      }
+    } catch (error) {
+      console.error("❌ Order email sending error details:", {
+        message: error.message,
+        responseStatus: error.response?.status,
+        responseData: error.response?.data,
+        orderId: orderId,
+        fullError: error,
+      });
+
+      // Don't throw error - email sending failure shouldn't break payment flow
+      console.warn(
+        "⚠️ Order email failed but continuing with payment completion"
+      );
+    }
+  };
+
+  const handlePaymentComplete = async (orderId, paymentData) => {
+    console.log("Payment completed, processing order:", orderId);
+    console.log("Payment data received:", paymentData);
+
+    // Use the order ID from backend response (passed from CheckoutForm)
+    let finalOrderId = orderId;
+
+    // If no order ID from backend, use payment intent ID as fallback
+    if (!finalOrderId || finalOrderId === "undefined") {
+      if (paymentData?.paymentIntentId) {
+        finalOrderId = paymentData.paymentIntentId;
+        console.log("Using payment intent ID as order ID:", finalOrderId);
+      } else {
+        console.error("No order ID or payment intent ID available!");
+        // Handle this error case appropriately
+        setError(
+          "Payment processed but order ID missing. Please contact support."
+        );
+        return;
+      }
     }
 
-    // Remove temp booking ID after processing
-    sessionStorage.removeItem("tempBookingId");
-  } else {
-    console.warn("No booking ID found!");
-  }
+    // Prevent duplicate processing
+    const processedOrders = JSON.parse(
+      sessionStorage.getItem("processedOrders") || "[]"
+    );
 
-  // Store the completed order ID (from backend or payment intent ID)
-  localStorage.setItem("completedOrderId", finalOrderId);
+    if (processedOrders.includes(finalOrderId)) {
+      console.log("Order already processed:", finalOrderId);
+      return;
+    }
 
-  console.log("Order processed successfully:", finalOrderId);
+    // Check if this payment has already been processed using state
+    if (
+      orderData?.orderId === finalOrderId &&
+      paymentComplete &&
+      finalOrderId &&
+      finalOrderId !== "undefined"
+    ) {
+      console.log("Payment already processed for this order:", finalOrderId);
+      return;
+    }
 
-  // Scroll to confirmation
-  setTimeout(() => {
-    document
-      .getElementById("confirmation")
-      ?.scrollIntoView({ behavior: "smooth" });
-  }, 500);
-};
+    // Stop the timer when payment is successful
+    setTimerActive(false);
+    setPaymentComplete(true);
+    setOrderData({
+      orderId: finalOrderId,
+      paymentIntentId: paymentData?.paymentIntentId,
+      bookingId: paymentData?.bookingId,
+      ...paymentData,
+    });
 
-const handleViewTickets = () => {
-  // Get order ID from state or localStorage (should be from backend now)
-  let savedOrderId = orderData?.orderId || localStorage.getItem("completedOrderId");
+    // Mark order as processed
+    processedOrders.push(finalOrderId);
+    sessionStorage.setItem("processedOrders", JSON.stringify(processedOrders));
 
-  // Only generate if absolutely no order ID is available
-  if (!savedOrderId || savedOrderId === "undefined") {
-    console.warn("No order ID available for ticket view!");
-    // You might want to redirect to an error page or show an error message
-    setError("Order ID not found. Please contact support.");
-    return;
-  }
+    // Get the confirmed booking ID from payment data or use temp booking ID
+    const tempBookingId =
+      paymentData?.bookingId || sessionStorage.getItem("tempBookingId");
 
-  // Ensure we have the final booking ID from successful payment
-  const bookingIdToUse = finalBookingId || localStorage.getItem("bookingId");
+    console.log("Using booking ID:", tempBookingId);
+    console.log("Final order ID being used:", finalOrderId);
 
-  console.log("Navigating to tickets with:", {
-    orderId: savedOrderId,
-    bookingId: bookingIdToUse,
-    finalTotal: finalTotal,
-  });
+    if (tempBookingId) {
+      setFinalBookingId(tempBookingId);
 
-  navigate("/dashboard/my-tickets", {
-    state: {
-      event,
-      selectedSeats,
-      totalPrice,
-      grandTotal: finalTotal,
-      confirmationNumber,
-      purchaseDate: new Date().toISOString(),
-      orderId: savedOrderId, // This should now be from your backend
+      // Send optional note if provided (for admin/seller only)
+      if (isAdminOrSeller()) {
+        console.log("User is admin/seller, attempting to send note...");
+
+        setTimeout(async () => {
+          try {
+            await sendOptionalNote(tempBookingId);
+          } catch (error) {
+            console.error("Failed to send optional note:", error);
+          }
+        }, 1000);
+      }
+
+      // Remove temp booking ID after processing
+      sessionStorage.removeItem("tempBookingId");
+    } else {
+      console.warn("No booking ID found!");
+    }
+
+    // Store the completed order ID (from backend or payment intent ID)
+    localStorage.setItem("completedOrderId", finalOrderId);
+
+    // NEWLY ADDED: Send order confirmation email
+    console.log("Attempting to send order confirmation email...");
+    setTimeout(async () => {
+      try {
+        await sendOrderEmail(finalOrderId);
+      } catch (error) {
+        console.error("Failed to send order confirmation email:", error);
+        // Don't break the flow if email fails
+      }
+    }, 1500); // Small delay to ensure all other processes complete first
+
+    console.log("Order processed successfully:", finalOrderId);
+
+    // Scroll to confirmation
+    setTimeout(() => {
+      document
+        .getElementById("confirmation")
+        ?.scrollIntoView({ behavior: "smooth" });
+    }, 500);
+  };
+
+  // const handlePaymentComplete = async (orderId, paymentData) => {
+  //   console.log("Payment completed, processing order:", orderId);
+  //   console.log("Payment data received:", paymentData);
+
+  //   // Use the order ID from backend response (passed from CheckoutForm)
+  //   let finalOrderId = orderId;
+
+  //   // If no order ID from backend, use payment intent ID as fallback
+  //   if (!finalOrderId || finalOrderId === "undefined") {
+  //     if (paymentData?.paymentIntentId) {
+  //       finalOrderId = paymentData.paymentIntentId;
+  //       console.log("Using payment intent ID as order ID:", finalOrderId);
+  //     } else {
+  //       console.error("No order ID or payment intent ID available!");
+  //       // Handle this error case appropriately
+  //       setError("Payment processed but order ID missing. Please contact support.");
+  //       return;
+  //     }
+  //   }
+
+  //   // Prevent duplicate processing
+  //   const processedOrders = JSON.parse(
+  //     sessionStorage.getItem("processedOrders") || "[]"
+  //   );
+
+  //   if (processedOrders.includes(finalOrderId)) {
+  //     console.log("Order already processed:", finalOrderId);
+  //     return;
+  //   }
+
+  //   // Check if this payment has already been processed using state
+  //   if (
+  //     orderData?.orderId === finalOrderId &&
+  //     paymentComplete &&
+  //     finalOrderId &&
+  //     finalOrderId !== "undefined"
+  //   ) {
+  //     console.log("Payment already processed for this order:", finalOrderId);
+  //     return;
+  //   }
+
+  //   // Stop the timer when payment is successful
+  //   setTimerActive(false);
+  //   setPaymentComplete(true);
+  //   setOrderData({
+  //     orderId: finalOrderId,
+  //     paymentIntentId: paymentData?.paymentIntentId,
+  //     bookingId: paymentData?.bookingId,
+  //     ...paymentData
+  //   });
+
+  //   // Mark order as processed
+  //   processedOrders.push(finalOrderId);
+  //   sessionStorage.setItem("processedOrders", JSON.stringify(processedOrders));
+
+  //   // Get the confirmed booking ID from payment data or use temp booking ID
+  //   const tempBookingId = paymentData?.bookingId || sessionStorage.getItem("tempBookingId");
+
+  //   console.log("Using booking ID:", tempBookingId);
+  //   console.log("Final order ID being used:", finalOrderId);
+
+  //   if (tempBookingId) {
+  //     setFinalBookingId(tempBookingId);
+
+  //     // Send optional note if provided (for admin/seller only)
+  //     if (isAdminOrSeller()) {
+  //       console.log("User is admin/seller, attempting to send note...");
+
+  //       setTimeout(async () => {
+  //         try {
+  //           await sendOptionalNote(tempBookingId);
+  //         } catch (error) {
+  //           console.error("Failed to send optional note:", error);
+  //         }
+  //       }, 1000);
+  //     }
+
+  //     // Remove temp booking ID after processing
+  //     sessionStorage.removeItem("tempBookingId");
+  //   } else {
+  //     console.warn("No booking ID found!");
+  //   }
+
+  //   // Store the completed order ID (from backend or payment intent ID)
+  //   localStorage.setItem("completedOrderId", finalOrderId);
+
+  //   console.log("Order processed successfully:", finalOrderId);
+
+  //   // Scroll to confirmation
+  //   setTimeout(() => {
+  //     document
+  //       .getElementById("confirmation")
+  //       ?.scrollIntoView({ behavior: "smooth" });
+  //   }, 500);
+  // };
+
+  const handleViewTickets = () => {
+    // Get order ID from state or localStorage (should be from backend now)
+    let savedOrderId =
+      orderData?.orderId || localStorage.getItem("completedOrderId");
+
+    // Only generate if absolutely no order ID is available
+    if (!savedOrderId || savedOrderId === "undefined") {
+      console.warn("No order ID available for ticket view!");
+      // You might want to redirect to an error page or show an error message
+      setError("Order ID not found. Please contact support.");
+      return;
+    }
+
+    // Ensure we have the final booking ID from successful payment
+    const bookingIdToUse = finalBookingId || localStorage.getItem("bookingId");
+
+    console.log("Navigating to tickets with:", {
+      orderId: savedOrderId,
       bookingId: bookingIdToUse,
-      appliedCoupon,
-      discount,
-      paymentComplete: true,
-    },
-  });
-};
+      finalTotal: finalTotal,
+    });
+
+    navigate("/dashboard/my-tickets", {
+      state: {
+        event,
+        selectedSeats,
+        totalPrice,
+        grandTotal: finalTotal,
+        confirmationNumber,
+        purchaseDate: new Date().toISOString(),
+        orderId: savedOrderId, // This should now be from your backend
+        bookingId: bookingIdToUse,
+        appliedCoupon,
+        discount,
+        paymentComplete: true,
+      },
+    });
+  };
 
   // Handle go back
   const handleGoBack = () => {
@@ -775,47 +965,6 @@ const handleViewTickets = () => {
     }
   };
 
-  // // FIXED: Only navigate to tickets AFTER payment is complete
-  // const handleViewTickets = () => {
-  //   let savedOrderId =
-  //     localStorage.getItem("completedOrderId") || orderData?.orderId;
-
-  //   // Generate orderId if still missing
-  //   if (!savedOrderId || savedOrderId === "undefined") {
-  //     savedOrderId = `ticket_order_${Date.now()}_${Math.floor(
-  //       Math.random() * 10000
-  //     )}`;
-  //     localStorage.setItem("completedOrderId", savedOrderId);
-  //     console.log("Generated orderId for ticket view:", savedOrderId);
-  //   }
-
-  //   // Ensure we have the final booking ID from successful payment
-  //   const bookingIdToUse = finalBookingId || localStorage.getItem("bookingId");
-
-  //   console.log("Navigating to tickets with:", {
-  //     orderId: savedOrderId,
-  //     bookingId: bookingIdToUse,
-  //     finalTotal: finalTotal,
-  //   });
-
-  //   navigate("/dashboard/my-tickets", {
-  //     state: {
-  //       event,
-  //       selectedSeats,
-  //       totalPrice,
-  //       grandTotal: finalTotal,
-  //       confirmationNumber,
-  //       purchaseDate: new Date().toISOString(),
-  //       orderId: savedOrderId,
-  //       bookingId: bookingIdToUse, // Pass the confirmed booking ID
-  //       appliedCoupon,
-  //       discount,
-  //       paymentComplete: true, // Explicitly indicate payment was completed
-  //     },
-  //   });
-  // };
-
-  // FIXED: Only verify auth token after payment completion
   useEffect(() => {
     if (paymentComplete) {
       const checkAuthToken = async () => {
