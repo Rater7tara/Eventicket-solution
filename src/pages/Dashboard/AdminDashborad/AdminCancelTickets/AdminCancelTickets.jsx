@@ -163,13 +163,12 @@ const AdminCancelTickets = () => {
           (booking) =>
             booking.status !== "cancelled" &&
             booking.status !== "canceled" &&
-            booking.ticketStatus !== "cancelled" &&
-            booking.ticketStatus !== "canceled" &&
             booking.isUserVisible !== false &&
             // Only show bookings with successful payments that can be refunded
             booking.paymentStatus === "success" &&
             booking.status === "success" &&
-            booking.ticketStatus === "unused"
+            // Use isUsed instead of ticketStatus
+            booking.isUsed === false
         );
 
         // Sort bookings by order time (most recent first)
@@ -504,7 +503,8 @@ const AdminCancelTickets = () => {
       return;
     }
 
-    if (booking.ticketStatus === "used") {
+    // Check if ticket has been used - use isUsed instead of ticketStatus
+    if (booking.isUsed === true) {
       setError(
         `Cannot cancel this ticket: Ticket has already been used. Used tickets cannot be refunded.`
       );

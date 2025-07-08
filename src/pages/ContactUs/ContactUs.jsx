@@ -7,7 +7,8 @@ import {
   Facebook, 
   Twitter, 
   Instagram, 
-  ArrowLeft 
+  ArrowLeft,
+  AlertCircle
 } from 'lucide-react';
 
 const ContactUs = () => {
@@ -18,6 +19,8 @@ const ContactUs = () => {
     message: ''
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
   const [isScrolled, setIsScrolled] = useState(false);
   const pageTopRef = useRef(null);
 
@@ -54,22 +57,86 @@ const ContactUs = () => {
       ...prev,
       [name]: value
     }));
+    // Clear any previous error when user starts typing
+    if (submitError) {
+      setSubmitError('');
+    }
   };
 
-  const handleSubmit = (e) => {
+  const sendEmail = async (formData) => {
+    try {
+      // Load EmailJS library if not already loaded
+      if (!window.emailjs) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js';
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+        
+        // Initialize EmailJS with your public key
+        window.emailjs.init('YOUR_PUBLIC_KEY'); // Replace with your EmailJS public key
+      }
+
+      // Send email using EmailJS
+      const result = await window.emailjs.send(
+        'YOUR_SERVICE_ID', // Replace with your EmailJS service ID
+        'YOUR_TEMPLATE_ID', // Replace with your EmailJS template ID
+        {
+          from_name: formData.name,
+          from_email: formData.email,
+          phone: formData.phone || 'Not provided',
+          message: formData.message,
+          to_email: 'info@eventsntickets.com.au',
+          reply_to: formData.email
+        }
+      );
+
+      return { success: true, result };
+    } catch (error) {
+      console.error('Email sending failed:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Simulate form submission
-    setIsSubmitted(true);
-    // Reset form after 3 seconds
-    setTimeout(() => {
-      setIsSubmitted(false);
-      setFormData({
-        name: '',
-        email: '',
-        phone: '',
-        message: ''
-      });
-    }, 3000);
+    setIsSubmitting(true);
+    setSubmitError('');
+
+    try {
+      // Validate form
+      if (!formData.name.trim() || !formData.email.trim() || !formData.message.trim()) {
+        setSubmitError('Please fill in all required fields.');
+        return;
+      }
+
+      // Send email using EmailJS
+      const result = await sendEmail(formData);
+      
+      if (result.success) {
+        setIsSubmitted(true);
+        console.log('Email sent successfully to: info@eventsntickets.com.au');
+        
+        // Reset form after 4 seconds
+        setTimeout(() => {
+          setIsSubmitted(false);
+          setFormData({
+            name: '',
+            email: '',
+            phone: '',
+            message: ''
+          });
+        }, 4000);
+      } else {
+        setSubmitError(result.error || 'Failed to send message. Please try again.');
+      }
+    } catch (error) {
+      setSubmitError('An error occurred. Please try again later.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -82,13 +149,6 @@ const ContactUs = () => {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 relative z-10">
-        {/* Back button */}
-        {/* <div className="mb-8">
-          <a href="/" className="inline-flex items-center text-gray-600 hover:text-orange-500 transition-colors">
-            <ArrowLeft size={20} className="mr-2" />
-            <span>Back to Home</span>
-          </a>
-        </div> */}
 
         {/* Header */}
         <div className={`top-20 z-30 py-6 px-8 mb-10 bg-white rounded-2xl shadow-lg transform transition-all duration-300 ${
@@ -114,17 +174,6 @@ const ContactUs = () => {
             <h2 className="text-xl font-bold text-gray-800 mb-6">Get in Touch</h2>
             
             <div className="space-y-6">
-              {/* Phone */}
-              {/* <div className="flex items-center">
-                <div className="mr-4 p-3 bg-orange-100 rounded-full">
-                  <Phone size={24} className="text-orange-500" />
-                </div>
-                <div>
-                  <p className="font-semibold text-gray-700">Phone</p>
-                  <p className="text-gray-600">(+61) 123 456 7890</p>
-                </div>
-              </div> */}
-
               {/* Email */}
               <div className="flex items-center">
                 <div className="mr-4 p-3 bg-orange-100 rounded-full">
@@ -132,7 +181,7 @@ const ContactUs = () => {
                 </div>
                 <div>
                   <p className="font-semibold text-gray-700">Email</p>
-                  <p className="text-gray-600">	info@eventsntickets.com.au</p>
+                  <p className="text-gray-600">info@eventsntickets.com.au</p>
                 </div>
               </div>
 
@@ -177,10 +226,18 @@ const ContactUs = () => {
               <div className="bg-green-50 border border-green-200 p-6 rounded-xl text-center">
                 <Send size={48} className="mx-auto mb-4 text-green-500" />
                 <h3 className="text-lg font-bold text-green-700 mb-2">Message Sent Successfully!</h3>
-                <p className="text-green-600">We'll get back to you soon.</p>
+                <p className="text-green-600">Your message has been sent to info@eventsntickets.com.au</p>
+                <p className="text-green-600 mt-2">We'll get back to you soon.</p>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-6">
+                {submitError && (
+                  <div className="bg-red-50 border border-red-200 p-4 rounded-lg flex items-center">
+                    <AlertCircle size={20} className="text-red-500 mr-2" />
+                    <p className="text-red-600">{submitError}</p>
+                  </div>
+                )}
+
                 <div>
                   <label htmlFor="name" className="block text-gray-700 mb-2">Full Name</label>
                   <input 
@@ -190,7 +247,8 @@ const ContactUs = () => {
                     value={formData.name}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-3 border border-orange-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 transition-all"
+                    disabled={isSubmitting}
+                    className="w-full px-4 py-3 border border-orange-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 transition-all disabled:bg-gray-50"
                     placeholder="Enter your full name"
                   />
                 </div>
@@ -204,7 +262,8 @@ const ContactUs = () => {
                     value={formData.email}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-3 border border-orange-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 transition-all"
+                    disabled={isSubmitting}
+                    className="w-full px-4 py-3 border border-orange-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 transition-all disabled:bg-gray-50"
                     placeholder="Enter your email"
                   />
                 </div>
@@ -217,7 +276,8 @@ const ContactUs = () => {
                     name="phone"
                     value={formData.phone}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 border border-orange-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 transition-all"
+                    disabled={isSubmitting}
+                    className="w-full px-4 py-3 border border-orange-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 transition-all disabled:bg-gray-50"
                     placeholder="Enter your phone number"
                   />
                 </div>
@@ -231,47 +291,33 @@ const ContactUs = () => {
                     onChange={handleChange}
                     required
                     rows="4"
-                    className="w-full px-4 py-3 border border-orange-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 transition-all"
+                    disabled={isSubmitting}
+                    className="w-full px-4 py-3 border border-orange-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300 transition-all disabled:bg-gray-50"
                     placeholder="Type your message here..."
                   ></textarea>
                 </div>
 
                 <button 
-                  type="submit" 
-                  className="w-full bg-orange-500 text-white py-3 rounded-lg hover:bg-orange-600 transition-colors flex items-center justify-center"
+                  onClick={handleSubmit}
+                  disabled={isSubmitting}
+                  className="w-full bg-orange-500 text-white py-3 rounded-lg hover:bg-orange-600 transition-colors flex items-center justify-center disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
-                  <Send size={20} className="mr-2" />
-                  Send Message
+                  {isSubmitting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send size={20} className="mr-2" />
+                      Send Message
+                    </>
+                  )}
                 </button>
-              </form>
+              </div>
             )}
           </div>
         </div>
-
-        {/* Google Maps Placeholder */}
-        {/* <div className="mt-12 bg-white rounded-2xl overflow-hidden shadow-lg border border-orange-100 h-96">
-          <div className="aspect-w-16 aspect-h-8">
-            <iframe 
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3024.2219901290355!2d-74.00369368400567!3d40.71312937933185!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89c25a47df06b185%3A0xc80b8f06e177fe62!2sNew%20York%2C%20NY%2C%20USA!5e0!3m2!1sen!2sus!4v1623164983123!5m2!1sen!2sus"
-              width="100%" 
-              height="500" 
-              style={{ border: 0 }}
-              allowFullScreen="" 
-              loading="lazy"
-              className="w-full h-96"
-            ></iframe>
-          </div>
-        </div> */}
-
-        {/* Closing Section */}
-        {/* <div className="mt-12 bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl p-8 text-white shadow-xl">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div>
-              <h3 className="text-xl font-bold mb-2">We're Always Ready to Help</h3>
-              <p className="opacity-90">Our support team is available 24/7 to assist you with any queries.</p>
-            </div>
-          </div>
-        </div> */}
       </div>
     </div>
   );
