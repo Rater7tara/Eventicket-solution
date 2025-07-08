@@ -357,7 +357,7 @@ const Register = () => {
                 Terms of Service
               </a>{" "}
               and{" "}
-              <a href="/privacy" className="underline hover:text-yellow-200">
+              <a href="/privacy-policy" className="underline hover:text-yellow-200">
                 Privacy Policy
               </a>
             </label>

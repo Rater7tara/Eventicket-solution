@@ -577,7 +577,7 @@ const CheckoutForm = ({
             </a>{" "}
             and{" "}
             <a
-              href="/terms-conditions"
+              href="/terms"
               target="_blank"
               rel="noopener noreferrer"
               className="text-orange-400 hover:text-orange-300 underline"
@@ -599,13 +599,13 @@ const CheckoutForm = ({
           )}
 
           <div className="mt-3 flex space-x-2">
-            <button
+            {/* <button
               type="button"
               onClick={handleRetryPayment}
               className="text-orange-300 hover:text-orange-200 underline cursor-pointer text-sm"
             >
               Retry Payment
-            </button>
+            </button> */}
             {error.includes("booking session has expired") && (
               <button
                 type="button"
