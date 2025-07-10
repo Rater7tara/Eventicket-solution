@@ -2,7 +2,6 @@ import React, { useState, useEffect, useContext } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements } from "@stripe/react-stripe-js";
-// import { paymentService } from "../../../services/api";
 import serverURL from "../../../ServerConfig";
 import CheckoutForm from "./CheckoutForm";
 import { AuthContext } from "../../../providers/AuthProvider";
@@ -14,13 +13,13 @@ import master from "../../../assets/payment/master.png";
 const stripePromise = loadStripe("pk_live_QkL9qpFUdlXjYpeqw7cRguzE00vDvU8i1W");
 
 const CheckoutTickets = () => {
-  const location = useLocation();
+  const location = useLocation()
   const navigate = useNavigate();
   const [paymentComplete, setPaymentComplete] = useState(false);
   const [confirmationNumber, setConfirmationNumber] = useState("");
   const [orderData, setOrderData] = useState(null);
   const [authenticationAttempted, setAuthenticationAttempted] = useState(false);
-  const [finalBookingId, setFinalBookingId] = useState(null); // Store final booking ID after payment
+  const [finalBookingId, setFinalBookingId] = useState(null);
   const authContext = useContext(AuthContext);
 
   // Coupon states
@@ -42,6 +41,9 @@ const CheckoutTickets = () => {
   const [timerActive, setTimerActive] = useState(true);
   const [showTimeoutModal, setShowTimeoutModal] = useState(false);
 
+  // CRITICAL: Add key to force CheckoutForm re-render when coupon changes
+  const [checkoutKey, setCheckoutKey] = useState(0);
+
   const { event, selectedSeats, totalPrice, userData } = location.state || {};
 
   // Check if user is admin or seller
@@ -55,7 +57,7 @@ const CheckoutTickets = () => {
     return currentUser?.role === "admin" || currentUser?.role === "seller";
   };
 
-  // FIXED: Calculate final total properly - This is the key fix
+  // FIXED: Calculate final total properly
   useEffect(() => {
     let calculatedTotal = totalPrice || 0;
 
@@ -74,13 +76,31 @@ const CheckoutTickets = () => {
     calculatedTotal = Math.max(0, calculatedTotal);
 
     setFinalTotal(calculatedTotal);
-    console.log(
-      "Final total calculated:",
+    
+    console.log("🔍 CHECKOUT TICKETS - Final total calculated:", {
+      originalPrice: totalPrice,
+      appliedCoupon,
       calculatedTotal,
-      "Applied coupon:",
-      appliedCoupon
-    );
+      finalTotal: calculatedTotal
+    });
   }, [totalPrice, appliedCoupon, discount]);
+
+  // CRITICAL: Clear payment cache when coupon is applied/removed
+  useEffect(() => {
+    if (appliedCoupon || (!appliedCoupon && checkoutKey > 0)) {
+      console.log("🔄 Coupon changed - clearing payment cache and forcing CheckoutForm refresh");
+      
+      // Clear all cached payment data
+      const currentBookingId = sessionStorage.getItem("tempBookingId");
+      if (currentBookingId) {
+        sessionStorage.removeItem(`clientSecret_${currentBookingId}`);
+        sessionStorage.removeItem(`paymentIntentId_${currentBookingId}`);
+      }
+      
+      // Force CheckoutForm to re-render and recreate payment intent
+      setCheckoutKey(prev => prev + 1);
+    }
+  }, [appliedCoupon]);
 
   // Handle timer expiration
   const handleTimerExpire = () => {
@@ -91,7 +111,6 @@ const CheckoutTickets = () => {
     setCouponCode("");
     setCouponError("");
     setCouponSuccess("");
-    // Clear note fields on timeout
     setOptionalNote("");
     setRecipientEmail("");
     setNoteError("");
@@ -102,11 +121,6 @@ const CheckoutTickets = () => {
   const handleTimeoutOk = () => {
     setShowTimeoutModal(false);
     navigate("/");
-  };
-
-  const handleExtendTime = () => {
-    setShowTimeoutModal(false);
-    setTimerActive(true);
   };
 
   // Get auth headers for API requests
@@ -130,12 +144,8 @@ const CheckoutTickets = () => {
     });
 
     if (!optionalNote.trim() || !recipientEmail.trim() || !bookingId) {
-      console.log("❌ Skipping note send - missing required fields:", {
-        hasNote: !!optionalNote.trim(),
-        hasEmail: !!recipientEmail.trim(),
-        hasBookingId: !!bookingId,
-      });
-      return; // Skip if no note, email, or booking ID
+      console.log("❌ Skipping note send - missing required fields");
+      return;
     }
 
     setNoteLoading(true);
@@ -144,31 +154,15 @@ const CheckoutTickets = () => {
     try {
       const token = localStorage.getItem("auth-token");
 
-      console.log("🔐 Auth token check:", {
-        tokenExists: !!token,
-        tokenLength: token?.length,
-        tokenStart: token?.substring(0, 20),
-      });
-
       if (!token) {
         throw new Error("Authentication required to send note");
       }
 
-      // Prepare request data
       const noteData = {
         bookingId: bookingId,
         recipientEmail: recipientEmail.trim(),
         note: optionalNote.trim(),
       };
-
-      console.log("📤 Sending optional note request:", {
-        url: `${serverURL.url}bookings/optional-info`,
-        data: noteData,
-        headers: {
-          Authorization: `Bearer ${token.substring(0, 20)}...`,
-          "Content-Type": "application/json",
-        },
-      });
 
       const response = await axios.post(
         `${serverURL.url}bookings/optional-info`,
@@ -178,230 +172,133 @@ const CheckoutTickets = () => {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-          timeout: 15000, // Increase timeout
+          timeout: 15000,
         }
       );
 
-      console.log("✅ Note API response:", {
-        status: response.status,
-        data: response.data,
-        headers: response.headers,
-      });
-
       if (response.data.success) {
         setNoteSuccess("Note sent successfully!");
-        console.log(
-          "🎉 Optional note sent successfully to:",
-          recipientEmail.trim()
-        );
-
-        // Clear the note fields after successful send
         setOptionalNote("");
         setRecipientEmail("");
       } else {
-        const errorMsg = response.data.message || "Failed to send note";
-        setNoteError(errorMsg);
-        console.error("❌ Note send failed:", errorMsg);
+        setNoteError(response.data.message || "Failed to send note");
       }
     } catch (error) {
-      console.error("❌ Note sending error details:", {
-        message: error.message,
-        responseStatus: error.response?.status,
-        responseData: error.response?.data,
-        responseHeaders: error.response?.headers,
-        requestUrl: error.config?.url,
-        requestData: error.config?.data,
-        fullError: error,
-      });
-
+      console.error("❌ Note sending error:", error);
       let errorMessage = "Failed to send note. Please try again.";
-
       if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
-      } else if (error.response?.status === 400) {
-        errorMessage =
-          "Invalid request. Please check the booking ID and try again.";
-      } else if (error.response?.status === 401) {
-        errorMessage = "Authentication failed. Please log in again.";
-      } else if (error.response?.status === 404) {
-        errorMessage = "Booking not found. Please contact support.";
-      } else if (error.code === "ECONNABORTED") {
-        errorMessage = "Request timeout. Please try again.";
-      } else if (!error.response) {
-        errorMessage = "Network error. Please check your connection.";
       }
-
       setNoteError(errorMessage);
     } finally {
       setNoteLoading(false);
     }
   };
 
-  // Fixed applyCoupon function
-  const applyCoupon = async () => {
-    if (!couponCode.trim()) {
-      setCouponError("Please enter a coupon code");
-      return;
+
+
+const applyCoupon = async () => {
+  if (!couponCode.trim()) {
+    setCouponError("Please enter a coupon code");
+    return;
+  }
+
+  if (!timerActive) {
+    setCouponError("Session expired. Please restart your booking.");
+    return;
+  }
+
+  setCouponLoading(true);
+  setCouponError("");
+  setCouponSuccess("");
+
+  try {
+    const eventId = event?._id || event?.id;
+    
+    if (!eventId) {
+      throw new Error("Event ID is missing. Please refresh and try again.");
     }
 
-    if (!timerActive) {
-      setCouponError("Session expired. Please restart your booking.");
-      return;
+    if (!totalPrice || totalPrice <= 0) {
+      throw new Error("Invalid total price. Please refresh and try again.");
     }
 
-    setCouponLoading(true);
-    setCouponError("");
-    setCouponSuccess("");
+    const token = localStorage.getItem("auth-token");
+    
+    if (!token) {
+      throw new Error("Authentication required. Please log in again.");
+    }
 
-    try {
-      // Ensure we have the event ID
-      const eventId = event?._id || event?.id;
-      console.log("🔍 Debug Info:", {
-        eventId,
-        eventObject: event,
-        totalPrice,
-        couponCode: couponCode.trim(),
-        timerActive,
-      });
+    // Get the current booking ID
+    const currentBookingId = sessionStorage.getItem("tempBookingId");
 
-      if (!eventId) {
-        throw new Error("Event ID is missing. Please refresh and try again.");
-      }
+    const requestData = {
+      eventId: eventId,
+      code: couponCode.toUpperCase().trim(),
+      totalAmount: parseFloat(totalPrice),
+      bookingId: currentBookingId, // CRITICAL: Add booking ID
+    };
 
-      // Ensure we have a valid total price
-      if (!totalPrice || totalPrice <= 0) {
-        throw new Error("Invalid total price. Please refresh and try again.");
-      }
+    console.log("🎟️ Applying coupon with booking ID:", requestData);
 
-      // Get auth token
-      const token = localStorage.getItem("auth-token");
-      console.log("🔐 Auth check:", {
-        tokenExists: !!token,
-        tokenLength: token?.length,
-        tokenStart: token?.substring(0, 20),
-      });
-
-      if (!token) {
-        throw new Error("Authentication required. Please log in again.");
-      }
-
-      // Prepare request data to match your exact API format
-      const requestData = {
-        eventId: eventId,
-        code: couponCode.toUpperCase().trim(),
-        totalAmount: parseFloat(totalPrice),
-      };
-
-      console.log(
-        "🎟️ Coupon request data:",
-        JSON.stringify(requestData, null, 2)
-      );
-      console.log("📍 API Endpoint:", `${serverURL.url}coupons/apply-coupon`);
-
-      // Make the API request with detailed headers
-      const config = {
+    const response = await axios.post(
+      `${serverURL.url}coupons/apply-coupon`,
+      requestData,
+      {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         timeout: 15000,
+      }
+    );
+
+    console.log("✅ Coupon response:", response.data);
+
+    if (response.data.success) {
+      const discountAmount = parseFloat(response.data.discountAmount) || 0;
+      const finalPrice = parseFloat(response.data.finalPrice) || 0;
+      const couponId = response.data.couponId;
+
+      if (finalPrice < 0) {
+        throw new Error("Invalid discount amount. Coupon cannot be applied.");
+      }
+
+      const appliedCouponData = {
+        id: couponId,
+        code: couponCode.toUpperCase().trim(),
+        discountAmount: discountAmount,
+        finalPrice: finalPrice,
+        originalPrice: totalPrice,
       };
 
-      console.log("📤 Request config:", {
-        url: `${serverURL.url}coupons/apply-coupon`,
-        method: "POST",
-        headers: config.headers,
-        data: requestData,
-      });
-
-      const response = await axios.post(
-        `${serverURL.url}coupons/apply-coupon`,
-        requestData,
-        config
+      setAppliedCoupon(appliedCouponData);
+      setDiscount(discountAmount);
+      setCouponSuccess(
+        `Coupon applied! You saved $${discountAmount.toFixed(2)}`
       );
+      setCouponCode("");
 
-      console.log("✅ Coupon response:", response.data);
-
-      if (response.data.success) {
-        const discountAmount = parseFloat(response.data.discountAmount) || 0;
-        const finalPrice = parseFloat(response.data.finalPrice) || 0; // Changed: ensure it defaults to 0, not totalPrice
-        const couponId = response.data.couponId;
-
-        // Validate the response data
-        if (finalPrice < 0) {
-          throw new Error("Invalid discount amount. Coupon cannot be applied.");
-        }
-
-        const appliedCouponData = {
-          id: couponId,
-          code: couponCode.toUpperCase().trim(),
-          discountAmount: discountAmount,
-          finalPrice: finalPrice, // This should be 0 for 100% coupons
-          originalPrice: totalPrice,
-        };
-
-        setAppliedCoupon(appliedCouponData);
-        setDiscount(discountAmount);
-        setCouponSuccess(
-          `Coupon applied! You saved $${discountAmount.toFixed(2)}`
-        );
-        setCouponCode("");
-      } else {
-        setCouponError(response.data.message || "Failed to apply coupon");
-      }
-    } catch (error) {
-      console.error("❌ Coupon error details:", {
-        message: error.message,
-        responseData: error.response?.data,
-        responseStatus: error.response?.status,
-        responseStatusText: error.response?.statusText,
-        responseHeaders: error.response?.headers,
-        requestUrl: error.config?.url,
-        requestMethod: error.config?.method,
-        requestData: error.config?.data,
-        requestHeaders: error.config?.headers,
-        fullError: error,
-      });
-
-      // Log the exact response body if available
-      if (error.response?.data) {
-        console.error("🚨 Backend Error Response:", error.response.data);
-      }
-
-      // Handle specific error cases - prioritize backend message
-      let errorMessage = "Failed to apply coupon. Please try again.";
-
-      if (error.response?.data?.message) {
-        // Use the exact message from your backend
-        errorMessage = error.response.data.message;
-      } else if (error.response?.data?.error) {
-        errorMessage = error.response.data.error;
-      } else if (error.response?.status === 400) {
-        errorMessage =
-          "Invalid coupon code or request. Please check your input.";
-      } else if (error.response?.status === 401) {
-        errorMessage = "Authentication failed. Please log in again.";
-      } else if (error.response?.status === 404) {
-        errorMessage = "Coupon code not found or has expired.";
-      } else if (error.response?.status === 409) {
-        errorMessage =
-          "Coupon has already been used or is not applicable to this event.";
-      } else if (error.code === "ECONNABORTED") {
-        errorMessage =
-          "Request timeout. Please check your connection and try again.";
-      } else if (!error.response) {
-        errorMessage =
-          "Network error. Please check your connection and try again.";
-      }
-
-      setCouponError(errorMessage);
-    } finally {
-      setCouponLoading(false);
+      console.log("🎉 Coupon applied successfully:", appliedCouponData);
+    } else {
+      setCouponError(response.data.message || "Failed to apply coupon");
     }
-  };
+  } catch (error) {
+    console.error("❌ Coupon error:", error);
+    
+    let errorMessage = "Failed to apply coupon. Please try again.";
+    if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    }
+    setCouponError(errorMessage);
+  } finally {
+    setCouponLoading(false);
+  }
+};
 
   // Remove applied coupon
   const removeCoupon = () => {
+    console.log("🗑️ Removing coupon");
     setAppliedCoupon(null);
     setDiscount(0);
     setCouponCode("");
@@ -438,16 +335,12 @@ const CheckoutTickets = () => {
 
   // Handle free checkout (when final total is $0)
   const handleFreeCheckout = async () => {
-    console.log("Processing free checkout...");
+    console.log("🆓 Processing free checkout...");
 
-    // Generate order ID
     const freeOrderId = `free_order_${Date.now()}_${Math.random()
       .toString(36)
       .substring(2, 15)}`;
 
-    console.log("Generated free order ID:", freeOrderId);
-
-    // Mark payment as complete
     setPaymentComplete(true);
     setOrderData({
       orderId: freeOrderId,
@@ -457,121 +350,72 @@ const CheckoutTickets = () => {
       finalAmount: 0,
     });
 
-    // Stop the timer
     setTimerActive(false);
 
-    // Store booking data
     const tempBookingId = sessionStorage.getItem("tempBookingId");
-    console.log("Free checkout - temp booking ID:", tempBookingId);
-
+    
     if (tempBookingId) {
       setFinalBookingId(tempBookingId);
 
-      // Send optional note if provided (for admin/seller only)
       if (isAdminOrSeller()) {
-        console.log("Free checkout - User is admin/seller, sending note...");
-
-        // Add a small delay to ensure all state updates are complete
         setTimeout(async () => {
           try {
             await sendOptionalNote(tempBookingId);
           } catch (error) {
-            console.error(
-              "Free checkout - Failed to send optional note:",
-              error
-            );
+            console.error("Free checkout - Failed to send optional note:", error);
           }
         }, 1000);
-      } else {
-        console.log("Free checkout - User is not admin/seller, skipping note");
       }
 
       sessionStorage.removeItem("tempBookingId");
-    } else {
-      console.warn("Free checkout - No temp booking ID found!");
     }
 
-    // Store completed order
     localStorage.setItem("completedOrderId", freeOrderId);
 
-    // Scroll to confirmation
     setTimeout(() => {
       document
         .getElementById("confirmation")
         ?.scrollIntoView({ behavior: "smooth" });
     }, 500);
-
-    console.log("Free checkout completed with order ID:", freeOrderId);
   };
 
-  // FIXED: Only store user data temporarily, don't trigger authentication until payment
+  // Authentication effect
   useEffect(() => {
     if (userData && !authenticationAttempted && paymentComplete) {
-      // Only authenticate AFTER payment is complete
       const attemptAuthentication = async () => {
         setAuthenticationAttempted(true);
-
-        // Store user data temporarily for payment processing
         sessionStorage.setItem("tempUserData", JSON.stringify(userData));
 
         if (!authContext.user && userData.email) {
           try {
-            console.log("Attempting to sign in after payment:", userData.email);
-            const user = await authContext.signIn(
-              userData.email,
-              userData.password
-            );
-
-            const token = localStorage.getItem("auth-token");
-            if (!token && user) {
-              localStorage.setItem("auth-token", "forced-token-after-signin");
-            }
+            await authContext.signIn(userData.email, userData.password);
           } catch (error) {
             try {
-              console.log("Creating user after payment:", userData.email);
-              const newUser = await authContext.createUser(
-                userData.email,
-                userData.password
-              );
-
-              const token = localStorage.getItem("auth-token");
-              if (!token && newUser) {
-                localStorage.setItem(
-                  "auth-token",
-                  "forced-token-after-creation"
-                );
-              }
+              await authContext.createUser(userData.email, userData.password);
             } catch (createError) {
               console.error("Failed to create user:", createError);
             }
           }
-
-          await new Promise((resolve) => setTimeout(resolve, 500));
         }
       };
 
       attemptAuthentication();
     } else if (userData && !paymentComplete) {
-      // Store user data temporarily for payment processing (but don't authenticate yet)
       sessionStorage.setItem("tempUserData", JSON.stringify(userData));
     }
-  }, [userData, authContext, authenticationAttempted, paymentComplete]); // Added paymentComplete dependency
+  }, [userData, authContext, authenticationAttempted, paymentComplete]);
 
-  // FIXED: Don't store booking data until payment is complete
+  // Initialization effect
   useEffect(() => {
     window.scrollTo(0, 0);
 
-    // FIXED: Handle page refresh - check if we have existing booking data
     const existingBookingId =
       sessionStorage.getItem("tempBookingId") ||
       localStorage.getItem("bookingId");
 
     if (location.state?.bookingId && !paymentComplete) {
-      // Store temporarily for payment processing only
       sessionStorage.setItem("tempBookingId", location.state.bookingId);
     } else if (!existingBookingId && !paymentComplete) {
-      // If no booking ID and not from location state, redirect to event page
-      console.warn("No booking ID found, redirecting to event selection");
       if (event?._id) {
         navigate(`/events/${event._id}`);
         return;
@@ -586,159 +430,50 @@ const CheckoutTickets = () => {
       const timestamp = new Date().getTime().toString().slice(-4);
       setConfirmationNumber(`TKT-${random}-${timestamp}`);
     }
-
-    if (!event || !selectedSeats || selectedSeats.length === 0) {
-      if (process.env.NODE_ENV !== "development") {
-        // Try to get event data from localStorage if available
-        const savedEventData = localStorage.getItem("currentEventData");
-        const savedSeatsData = localStorage.getItem("currentSeatsData");
-
-        if (!savedEventData || !savedSeatsData) {
-          navigate("/");
-        }
-      } else {
-        console.warn(
-          "Missing event data in development mode - would redirect in production"
-        );
-      }
-    }
-  }, [
-    confirmationNumber,
-    navigate,
-    event,
-    selectedSeats,
-    location.state,
-    paymentComplete,
-  ]);
+  }, [confirmationNumber, navigate, event, selectedSeats, location.state, paymentComplete]);
 
   const sendOrderEmail = async (orderId) => {
-    console.log("🔍 sendOrderEmail called with orderId:", orderId);
-
     if (!orderId || orderId === "undefined") {
-      console.log(
-        "❌ Skipping email send - missing or invalid order ID:",
-        orderId
-      );
       return;
     }
 
     try {
       const token = localStorage.getItem("auth-token");
-
-      console.log("🔐 Auth token check for email:", {
-        tokenExists: !!token,
-        tokenLength: token?.length,
-        orderId: orderId,
-      });
-
-      if (!token) {
-        console.log(
-          "⚠️ No auth token found, proceeding without authentication"
-        );
-      }
-
-      // Prepare request data
-      const emailData = {
-        orderId: orderId,
-      };
-
-      console.log("📤 Sending order email request:", {
-        url: `${serverURL.url}tickets/send-order-email`,
-        data: emailData,
-      });
-
-      const headers = {
-        "Content-Type": "application/json",
-      };
-
-      // Add auth header if token exists
+      const headers = { "Content-Type": "application/json" };
+      
       if (token) {
         headers.Authorization = `Bearer ${token}`;
       }
 
-      const response = await axios.post(
+      await axios.post(
         `${serverURL.url}tickets/send-order-email`,
-        emailData,
-        {
-          headers: headers,
-          timeout: 15000, // 15 second timeout
-        }
+        { orderId },
+        { headers, timeout: 15000 }
       );
-
-      console.log("✅ Order email API response:", {
-        status: response.status,
-        data: response.data,
-      });
-
-      if (response.data.success) {
-        console.log(
-          "🎉 Order confirmation email sent successfully for order:",
-          orderId
-        );
-      } else {
-        const errorMsg = response.data.message || "Failed to send order email";
-        console.warn("⚠️ Order email send failed:", errorMsg);
-      }
     } catch (error) {
-      console.error("❌ Order email sending error details:", {
-        message: error.message,
-        responseStatus: error.response?.status,
-        responseData: error.response?.data,
-        orderId: orderId,
-        fullError: error,
-      });
-
-      // Don't throw error - email sending failure shouldn't break payment flow
-      console.warn(
-        "⚠️ Order email failed but continuing with payment completion"
-      );
+      console.error("❌ Order email sending error:", error);
     }
   };
 
   const handlePaymentComplete = async (orderId, paymentData) => {
-    console.log("Payment completed, processing order:", orderId);
-    console.log("Payment data received:", paymentData);
+    console.log("💳 Payment completed:", { orderId, paymentData });
 
-    // Use the order ID from backend response (passed from CheckoutForm)
     let finalOrderId = orderId;
 
-    // If no order ID from backend, use payment intent ID as fallback
     if (!finalOrderId || finalOrderId === "undefined") {
       if (paymentData?.paymentIntentId) {
         finalOrderId = paymentData.paymentIntentId;
-        console.log("Using payment intent ID as order ID:", finalOrderId);
-      } else {
-        console.error("No order ID or payment intent ID available!");
-        // Handle this error case appropriately
-        setError(
-          "Payment processed but order ID missing. Please contact support."
-        );
-        return;
       }
     }
 
-    // Prevent duplicate processing
     const processedOrders = JSON.parse(
       sessionStorage.getItem("processedOrders") || "[]"
     );
 
     if (processedOrders.includes(finalOrderId)) {
-      console.log("Order already processed:", finalOrderId);
       return;
     }
 
-    // Check if this payment has already been processed using state
-    if (
-      orderData?.orderId === finalOrderId &&
-      paymentComplete &&
-      finalOrderId &&
-      finalOrderId !== "undefined"
-    ) {
-      console.log("Payment already processed for this order:", finalOrderId);
-      return;
-    }
-
-    // Stop the timer when payment is successful
     setTimerActive(false);
     setPaymentComplete(true);
     setOrderData({
@@ -748,24 +483,16 @@ const CheckoutTickets = () => {
       ...paymentData,
     });
 
-    // Mark order as processed
     processedOrders.push(finalOrderId);
     sessionStorage.setItem("processedOrders", JSON.stringify(processedOrders));
 
-    // Get the confirmed booking ID from payment data or use temp booking ID
     const tempBookingId =
       paymentData?.bookingId || sessionStorage.getItem("tempBookingId");
-
-    console.log("Using booking ID:", tempBookingId);
-    console.log("Final order ID being used:", finalOrderId);
 
     if (tempBookingId) {
       setFinalBookingId(tempBookingId);
 
-      // Send optional note if provided (for admin/seller only)
       if (isAdminOrSeller()) {
-        console.log("User is admin/seller, attempting to send note...");
-
         setTimeout(async () => {
           try {
             await sendOptionalNote(tempBookingId);
@@ -775,29 +502,19 @@ const CheckoutTickets = () => {
         }, 1000);
       }
 
-      // Remove temp booking ID after processing
       sessionStorage.removeItem("tempBookingId");
-    } else {
-      console.warn("No booking ID found!");
     }
 
-    // Store the completed order ID (from backend or payment intent ID)
     localStorage.setItem("completedOrderId", finalOrderId);
 
-    // NEWLY ADDED: Send order confirmation email
-    console.log("Attempting to send order confirmation email...");
     setTimeout(async () => {
       try {
         await sendOrderEmail(finalOrderId);
       } catch (error) {
         console.error("Failed to send order confirmation email:", error);
-        // Don't break the flow if email fails
       }
-    }, 1500); // Small delay to ensure all other processes complete first
+    }, 1500);
 
-    console.log("Order processed successfully:", finalOrderId);
-
-    // Scroll to confirmation
     setTimeout(() => {
       document
         .getElementById("confirmation")
@@ -805,123 +522,16 @@ const CheckoutTickets = () => {
     }, 500);
   };
 
-  // const handlePaymentComplete = async (orderId, paymentData) => {
-  //   console.log("Payment completed, processing order:", orderId);
-  //   console.log("Payment data received:", paymentData);
-
-  //   // Use the order ID from backend response (passed from CheckoutForm)
-  //   let finalOrderId = orderId;
-
-  //   // If no order ID from backend, use payment intent ID as fallback
-  //   if (!finalOrderId || finalOrderId === "undefined") {
-  //     if (paymentData?.paymentIntentId) {
-  //       finalOrderId = paymentData.paymentIntentId;
-  //       console.log("Using payment intent ID as order ID:", finalOrderId);
-  //     } else {
-  //       console.error("No order ID or payment intent ID available!");
-  //       // Handle this error case appropriately
-  //       setError("Payment processed but order ID missing. Please contact support.");
-  //       return;
-  //     }
-  //   }
-
-  //   // Prevent duplicate processing
-  //   const processedOrders = JSON.parse(
-  //     sessionStorage.getItem("processedOrders") || "[]"
-  //   );
-
-  //   if (processedOrders.includes(finalOrderId)) {
-  //     console.log("Order already processed:", finalOrderId);
-  //     return;
-  //   }
-
-  //   // Check if this payment has already been processed using state
-  //   if (
-  //     orderData?.orderId === finalOrderId &&
-  //     paymentComplete &&
-  //     finalOrderId &&
-  //     finalOrderId !== "undefined"
-  //   ) {
-  //     console.log("Payment already processed for this order:", finalOrderId);
-  //     return;
-  //   }
-
-  //   // Stop the timer when payment is successful
-  //   setTimerActive(false);
-  //   setPaymentComplete(true);
-  //   setOrderData({
-  //     orderId: finalOrderId,
-  //     paymentIntentId: paymentData?.paymentIntentId,
-  //     bookingId: paymentData?.bookingId,
-  //     ...paymentData
-  //   });
-
-  //   // Mark order as processed
-  //   processedOrders.push(finalOrderId);
-  //   sessionStorage.setItem("processedOrders", JSON.stringify(processedOrders));
-
-  //   // Get the confirmed booking ID from payment data or use temp booking ID
-  //   const tempBookingId = paymentData?.bookingId || sessionStorage.getItem("tempBookingId");
-
-  //   console.log("Using booking ID:", tempBookingId);
-  //   console.log("Final order ID being used:", finalOrderId);
-
-  //   if (tempBookingId) {
-  //     setFinalBookingId(tempBookingId);
-
-  //     // Send optional note if provided (for admin/seller only)
-  //     if (isAdminOrSeller()) {
-  //       console.log("User is admin/seller, attempting to send note...");
-
-  //       setTimeout(async () => {
-  //         try {
-  //           await sendOptionalNote(tempBookingId);
-  //         } catch (error) {
-  //           console.error("Failed to send optional note:", error);
-  //         }
-  //       }, 1000);
-  //     }
-
-  //     // Remove temp booking ID after processing
-  //     sessionStorage.removeItem("tempBookingId");
-  //   } else {
-  //     console.warn("No booking ID found!");
-  //   }
-
-  //   // Store the completed order ID (from backend or payment intent ID)
-  //   localStorage.setItem("completedOrderId", finalOrderId);
-
-  //   console.log("Order processed successfully:", finalOrderId);
-
-  //   // Scroll to confirmation
-  //   setTimeout(() => {
-  //     document
-  //       .getElementById("confirmation")
-  //       ?.scrollIntoView({ behavior: "smooth" });
-  //   }, 500);
-  // };
-
   const handleViewTickets = () => {
-    // Get order ID from state or localStorage (should be from backend now)
     let savedOrderId =
       orderData?.orderId || localStorage.getItem("completedOrderId");
 
-    // Only generate if absolutely no order ID is available
     if (!savedOrderId || savedOrderId === "undefined") {
       console.warn("No order ID available for ticket view!");
-      // You might want to redirect to an error page or show an error message
-      setError("Order ID not found. Please contact support.");
       return;
     }
 
-    // Ensure we have the final booking ID from successful payment
     const bookingIdToUse = finalBookingId || localStorage.getItem("bookingId");
-
-    console.log("Navigating to tickets with:", {
-      orderId: savedOrderId,
-      bookingId: bookingIdToUse,
-      finalTotal: finalTotal,
-    });
 
     navigate("/dashboard/my-tickets", {
       state: {
@@ -931,7 +541,7 @@ const CheckoutTickets = () => {
         grandTotal: finalTotal,
         confirmationNumber,
         purchaseDate: new Date().toISOString(),
-        orderId: savedOrderId, // This should now be from your backend
+        orderId: savedOrderId,
         bookingId: bookingIdToUse,
         appliedCoupon,
         discount,
@@ -940,15 +550,12 @@ const CheckoutTickets = () => {
     });
   };
 
-  // Handle go back
   const handleGoBack = () => {
-    // Clear any temporary data when going back
     sessionStorage.removeItem("tempBookingId");
     sessionStorage.removeItem("tempUserData");
     navigate(-1);
   };
 
-  // Format date for better display
   const formatDate = (dateString) => {
     if (!dateString) return "Date TBA";
 
@@ -965,26 +572,9 @@ const CheckoutTickets = () => {
     }
   };
 
-  useEffect(() => {
-    if (paymentComplete) {
-      const checkAuthToken = async () => {
-        const token = localStorage.getItem("auth-token");
-        if (!token && authContext.user) {
-          console.warn(
-            "Auth token is missing but user is authenticated, recreating token"
-          );
-          localStorage.setItem("auth-token", "forced-token-from-verification");
-          await new Promise((resolve) => setTimeout(resolve, 300));
-        }
-      };
-
-      checkAuthToken();
-    }
-  }, [authContext.user, paymentComplete]); // Only run after payment completion
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 text-white p-4">
-      {/* Timer Component - Only show if payment is not complete */}
+      {/* Timer Component */}
       {!paymentComplete && (
         <CountdownTimer
           initialMinutes={10}
@@ -1001,35 +591,18 @@ const CheckoutTickets = () => {
           <div className="bg-gray-800 p-6 rounded-lg border border-red-500 max-w-md mx-4">
             <div className="text-center">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-red-500 rounded-full mb-4">
-                <svg
-                  className="w-8 h-8 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold text-red-400 mb-2">
-                Session Expired
-              </h3>
-              <p className="text-gray-300 mb-6">
-                Your checkout session has expired. Please restart your booking
-                process.
-              </p>
-              <div className="flex space-x-3 justify-center">
-                <button
-                  onClick={handleTimeoutOk}
-                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors cursor-pointer"
-                >
-                  Go to Home
-                </button>
-              </div>
+              <h3 className="text-lg font-bold text-red-400 mb-2">Session Expired</h3>
+              <p className="text-gray-300 mb-6">Your checkout session has expired. Please restart your booking process.</p>
+              <button
+                onClick={handleTimeoutOk}
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors cursor-pointer"
+              >
+                Go to Home
+              </button>
             </div>
           </div>
         </div>
@@ -1043,24 +616,12 @@ const CheckoutTickets = () => {
             className="flex items-center text-white hover:text-orange-200 transition-colors cursor-pointer"
             disabled={paymentComplete}
           >
-            <svg
-              className="w-5 h-5 mr-1"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M10 19l-7-7m0 0l7-7m-7 7h18"
-              />
+            <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
             Back
           </button>
-          <h1 className="text-xl md:text-2xl font-bold">
-            Complete Your Purchase
-          </h1>
+          <h1 className="text-xl md:text-2xl font-bold">Complete Your Purchase</h1>
           <div className="w-12"></div>
         </div>
 
@@ -1068,65 +629,28 @@ const CheckoutTickets = () => {
         <div className="bg-gray-800 bg-opacity-80 backdrop-blur-lg rounded-b-xl shadow-2xl p-6 border border-orange-500 border-opacity-30">
           {/* Order Summary */}
           <div className="mb-8">
-            <h2 className="text-lg font-bold text-orange-300 mb-4">
-              Order Summary
-            </h2>
+            <h2 className="text-lg font-bold text-orange-300 mb-4">Order Summary</h2>
 
             {/* Event Details */}
             <div className="bg-gray-900 rounded-lg p-4 mb-6 border border-gray-700">
               <h3 className="text-md font-bold">{event?.title || "Event"}</h3>
               <div className="text-sm text-gray-300 mt-1">
                 <div className="flex items-center mb-1">
-                  <svg
-                    className="w-4 h-4 mr-2 text-orange-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 002 2z"
-                    />
+                  <svg className="w-4 h-4 mr-2 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 002 2z" />
                   </svg>
                   {formatDate(event?.date)}
                 </div>
                 <div className="flex items-center mb-1">
-                  <svg
-                    className="w-4 h-4 mr-2 text-orange-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
+                  <svg className="w-4 h-4 mr-2 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   {event?.time || "Time TBA"}
                 </div>
                 <div className="flex items-center">
-                  <svg
-                    className="w-4 h-4 mr-2 text-orange-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
+                  <svg className="w-4 h-4 mr-2 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                   {event?.location || "Location TBA"}
                 </div>
@@ -1135,106 +659,36 @@ const CheckoutTickets = () => {
 
             {/* Ticket Display */}
             <div className="space-y-4 mb-6">
-              <h3 className="text-md font-bold text-orange-300">
-                Your Tickets
-              </h3>
-
+              <h3 className="text-md font-bold text-orange-300">Your Tickets</h3>
               {selectedSeats?.map((seat, index) => (
-                <div
-                  key={seat.id || index}
-                  className="relative overflow-hidden"
-                >
+                <div key={seat.id || index} className="relative overflow-hidden">
                   <div className="ticket-card bg-gradient-to-r from-gray-900 to-gray-800 rounded-lg border border-orange-500 border-opacity-40 shadow-lg overflow-hidden">
                     <div className="bg-gradient-to-r from-orange-700 to-orange-500 p-3 flex justify-between items-center">
-                      <div className="font-bold truncate">
-                        {event?.title || "Event"}
-                      </div>
+                      <div className="font-bold truncate">{event?.title || "Event"}</div>
                       <div className="text-sm bg-orange-900 bg-opacity-50 rounded px-2 py-1">
-                        Seat {seat.row}
-                        {seat.number}
+                        Seat {seat.row}{seat.number}
                       </div>
                     </div>
-
                     <div className="p-4 flex justify-between">
                       <div className="flex-1">
                         <div className="flex flex-col space-y-2">
                           <div className="text-xs text-gray-400">Section</div>
                           <div className="font-medium">
-                            {seat.name?.split(" ")[0] || "Section"}{" "}
-                            {seat.name?.split(" ")[1] || ""}
+                            {seat.name?.split(" ")[0] || "Section"} {seat.name?.split(" ")[1] || ""}
                           </div>
-
-                          <div className="text-xs text-gray-400 mt-1">
-                            Date & Time
-                          </div>
+                          <div className="text-xs text-gray-400 mt-1">Date & Time</div>
                           <div className="flex items-center">
-                            <svg
-                              className="w-4 h-4 mr-1 text-orange-400"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 002 2z"
-                              />
+                            <svg className="w-4 h-4 mr-1 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 002 2z" />
                             </svg>
-                            <span className="text-sm">
-                              {formatDate(event?.date)}
-                            </span>
-                          </div>
-                          <div className="flex items-center">
-                            <svg
-                              className="w-4 h-4 mr-1 text-orange-400"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                              />
-                            </svg>
-                            <span className="text-sm">
-                              {event?.time || "Time TBA"}
-                            </span>
+                            <span className="text-sm">{formatDate(event?.date)}</span>
                           </div>
                         </div>
                       </div>
-
                       <div className="ml-4 flex flex-col items-end justify-between">
                         <div className="flex flex-col items-end">
                           <div className="text-xs text-gray-400">Price</div>
-                          <div className="font-bold text-orange-300">
-                            ${seat.price?.toFixed(2) || "0.00"}
-                          </div>
-                        </div>
-
-                        <div className="mt-3">
-                          <div className="bg-gray-200 p-1 rounded">
-                            <div className="flex space-x-0.5">
-                              {Array.from({ length: 20 }).map((_, i) => (
-                                <div
-                                  key={i}
-                                  className="w-0.5 bg-gray-900"
-                                  style={{
-                                    height: `${6 + Math.random() * 14}px`,
-                                  }}
-                                ></div>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="text-center text-xs mt-1 text-gray-400">
-                            TIX-
-                            {seat.section?.substring(0, 3).toUpperCase() ||
-                              "SEC"}
-                            -{seat.row || "A"}
-                            {seat.number || "1"}
-                          </div>
+                          <div className="font-bold text-orange-300">${seat.price?.toFixed(2) || "0.00"}</div>
                         </div>
                       </div>
                     </div>
@@ -1247,18 +701,8 @@ const CheckoutTickets = () => {
             {!paymentComplete && (
               <div className="bg-gray-900 rounded-lg p-4 border border-gray-700 mb-6">
                 <h3 className="text-md font-bold text-orange-300 mb-4 flex items-center">
-                  <svg
-                    className="w-5 h-5 mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a1 1 0 001 1h1a1 1 0 001-1V7a2 2 0 00-2-2H5zM5 19a2 2 0 01-2-2v-3a1 1 0 011-1h1a1 1 0 011 1v3a2 2 0 01-2 2H5z"
-                    />
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a1 1 0 001 1h1a1 1 0 001-1V7a2 2 0 00-2-2H5zM5 19a2 2 0 01-2-2v-3a1 1 0 011-1h1a1 1 0 011 1v3a2 2 0 01-2 2H5z" />
                   </svg>
                   Have a Coupon Code?
                 </h3>
@@ -1503,7 +947,7 @@ const CheckoutTickets = () => {
               </div>
             )}
 
-            {/* Price Summary - FIXED: Now uses finalTotal for the total display */}
+            {/* Price Summary */}
             <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
               <div className="flex justify-between items-center mb-2">
                 <span>
@@ -1553,7 +997,7 @@ const CheckoutTickets = () => {
             </div>
           </div>
 
-          {/* Payment Section (conditional) */}
+          {/* Payment Section */}
           {!paymentComplete ? (
             <div className="mb-6">
               {finalTotal > 0 ? (
@@ -1562,14 +1006,16 @@ const CheckoutTickets = () => {
                     Payment Details
                   </h2>
 
-                  <Elements stripe={stripePromise}>
+                  {/* CRITICAL: Use key prop to force re-render when coupon changes */}
+                  <Elements stripe={stripePromise} key={checkoutKey}>
                     <CheckoutForm
+                      key={`checkout-${checkoutKey}-${finalTotal}`} // Force re-render
                       className="cursor-pointer"
                       grandTotal={finalTotal}
                       event={event}
                       selectedSeats={selectedSeats || []}
                       onPaymentComplete={handlePaymentComplete}
-                      bookingId={sessionStorage.getItem("tempBookingId")} // Use temp booking ID for payment
+                      bookingId={sessionStorage.getItem("tempBookingId")}
                       appliedCoupon={appliedCoupon}
                       discount={discount}
                     />
@@ -1581,11 +1027,8 @@ const CheckoutTickets = () => {
                       agree to our Terms of Service and Privacy Policy.
                     </p>
                     <div className="flex justify-center items-center mt-2 space-x-4">
-                      {/* Visa Card Logo */}
-
-                      <img className="w-14" src={visa} alt="" />
-                      {/* Mastercard Logo */}
-                      <img className="w-14" src={master} alt="" />
+                      <img className="w-14" src={visa} alt="Visa" />
+                      <img className="w-14" src={master} alt="Mastercard" />
                     </div>
                   </div>
                 </>
@@ -1666,12 +1109,6 @@ const CheckoutTickets = () => {
                     <span className="font-mono">{confirmationNumber}</span>
                   </div>
                   <div className="flex justify-between mb-2">
-                    <span className="text-gray-400">
-                      {finalTotal === 0 ? "Booking" : "Purchase"} Date:
-                    </span>
-                    <span>{new Date().toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex justify-between mb-2">
                     <span className="text-gray-400">Order ID:</span>
                     <span className="font-mono text-sm">
                       {orderData?.orderId}
@@ -1699,76 +1136,6 @@ const CheckoutTickets = () => {
                     </span>
                   </div>
                 </div>
-
-                {/* Show note status for admin/seller */}
-                {isAdminOrSeller() &&
-                  (optionalNote.trim() || recipientEmail.trim()) && (
-                    <div className="bg-blue-900 border border-blue-600 rounded-lg p-3 max-w-md mx-auto mb-4">
-                      <div className="text-blue-100 text-sm">
-                        {noteLoading && (
-                          <div className="flex items-center justify-center">
-                            <svg
-                              className="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-300"
-                              xmlns="http://www.w3.org/2000/svg"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                            >
-                              <circle
-                                className="opacity-25"
-                                cx="12"
-                                cy="12"
-                                r="10"
-                                stroke="currentColor"
-                                strokeWidth="4"
-                              ></circle>
-                              <path
-                                className="opacity-75"
-                                fill="currentColor"
-                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                              ></path>
-                            </svg>
-                            Sending note...
-                          </div>
-                        )}
-                        {noteSuccess && (
-                          <div className="flex items-center text-green-300">
-                            <svg
-                              className="w-4 h-4 mr-2"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
-                            {noteSuccess}
-                          </div>
-                        )}
-                        {noteError && (
-                          <div className="flex items-center text-red-300">
-                            <svg
-                              className="w-4 h-4 mr-2"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="2"
-                                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                              />
-                            </svg>
-                            {noteError}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
 
                 <p className="text-sm text-gray-400 mb-6">
                   A confirmation email has been sent to your registered email

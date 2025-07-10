@@ -38,53 +38,62 @@ const CheckoutForm = ({
   // CRITICAL FIX: Use refs to prevent duplicate API calls
   const paymentInProgressRef = useRef(false);
   const currentBookingIdRef = useRef(null);
+  const lastGrandTotalRef = useRef(null);
 
   // Get auth context
   const { user, loading, token } = useContext(AuthContext);
 
   useEffect(() => {
-    console.log("Checkout form received bookingId:", bookingId);
-    console.log("Checkout form received grandTotal (discounted):", grandTotal);
-    console.log("Applied coupon:", appliedCoupon);
-  }, [bookingId, grandTotal, appliedCoupon]);
+    console.log("🔍 CHECKOUT FORM - Component received props:", {
+      grandTotal,
+      bookingId,
+      appliedCoupon,
+      discount,
+      lastGrandTotal: lastGrandTotalRef.current
+    });
+    
+    // Check if grandTotal changed (coupon was applied/removed)
+    if (lastGrandTotalRef.current !== null && lastGrandTotalRef.current !== grandTotal) {
+      console.log("💰 GRAND TOTAL CHANGED - Clearing payment cache:", {
+        oldTotal: lastGrandTotalRef.current,
+        newTotal: grandTotal
+      });
+      
+      // Clear payment cache when total changes
+      const currentBookingId = bookingId || sessionStorage.getItem("tempBookingId");
+      if (currentBookingId) {
+        sessionStorage.removeItem(`clientSecret_${currentBookingId}`);
+        sessionStorage.removeItem(`paymentIntentId_${currentBookingId}`);
+      }
+      
+      // Reset payment state
+      setClientSecret("");
+      setPaymentIntentId("");
+      setPaymentInitiated(false);
+      paymentInProgressRef.current = false;
+      currentBookingIdRef.current = null;
+    }
+    
+    lastGrandTotalRef.current = grandTotal;
+  }, [grandTotal, bookingId, appliedCoupon, discount]);
 
   // Function to get the auth token from multiple possible sources
   const getAuthToken = () => {
-    // First try from AuthContext
-    if (token) {
-      return token;
-    }
+    if (token) return token;
 
-    // Then try from localStorage
     const localToken = localStorage.getItem("auth-token");
-    if (localToken) {
-      return localToken;
-    }
+    if (localToken) return localToken;
 
-    // Then try from other possible localStorage keys
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
-    if (userData.token) {
-      return userData.token;
-    }
+    if (userData.token) return userData.token;
 
-    // Try user info
     const userInfo = JSON.parse(localStorage.getItem("user-info") || "{}");
-    if (userInfo.token) {
-      return userInfo.token;
-    }
+    if (userInfo.token) return userInfo.token;
 
-    // Also check sessionStorage for temporary user data
-    const tempUserData = JSON.parse(
-      sessionStorage.getItem("tempUserData") || "{}"
-    );
-    if (tempUserData.token) {
-      return tempUserData.token;
-    }
+    const tempUserData = JSON.parse(sessionStorage.getItem("tempUserData") || "{}");
+    if (tempUserData.token) return tempUserData.token;
 
-    // As a last resort, check if the user object has a token
-    if (user && user.token) {
-      return user.token;
-    }
+    if (user && user.token) return user.token;
 
     return null;
   };
@@ -97,33 +106,16 @@ const CheckoutForm = ({
       const checkToken = () => {
         const token = getAuthToken();
 
-        // Check if token exists and has valid format (JWT starts with eyJ)
-        if (
-          token &&
-          (token.startsWith("eyJ") || token.startsWith("Bearer eyJ"))
-        ) {
-          console.log("Valid auth token found on attempt", attempts + 1);
-          // Store token temporarily for this session
-          sessionStorage.setItem(
-            "temp-auth-token",
-            token.replace("Bearer ", "")
-          );
+        if (token && (token.startsWith("eyJ") || token.startsWith("Bearer eyJ"))) {
+          console.log("✅ Valid auth token found on attempt", attempts + 1);
+          sessionStorage.setItem("temp-auth-token", token.replace("Bearer ", ""));
           resolve(token.replace("Bearer ", ""));
         } else if (attempts < MAX_TOKEN_ATTEMPTS) {
           attempts++;
-          console.log(
-            "Valid auth token not found, attempt",
-            attempts,
-            "of",
-            MAX_TOKEN_ATTEMPTS
-          );
-
-          // Wait a bit longer between attempts
+          console.log("⏳ Valid auth token not found, attempt", attempts, "of", MAX_TOKEN_ATTEMPTS);
           setTimeout(checkToken, 1000);
         } else {
-          console.log(
-            "Max token check attempts reached, proceeding without token"
-          );
+          console.log("❌ Max token check attempts reached, proceeding without token");
           resolve(null);
         }
       };
@@ -136,32 +128,30 @@ const CheckoutForm = ({
   useEffect(() => {
     // Skip if conditions not met
     if (grandTotal <= 0 || loading || !bookingId) {
+      console.log("⏭️ Skipping payment intent creation:", { grandTotal, loading, bookingId });
       return;
     }
 
     // CRITICAL: Prevent duplicate calls using refs
-    const currentBookingId =
-      bookingId || sessionStorage.getItem("tempBookingId");
+    const currentBookingId = bookingId || sessionStorage.getItem("tempBookingId");
 
-    // If we already processed this booking ID, don't do it again
+    // If we already processed this booking ID with the same total, don't do it again
     if (
       paymentInProgressRef.current &&
-      currentBookingIdRef.current === currentBookingId
+      currentBookingIdRef.current === currentBookingId &&
+      clientSecret // Only skip if we have a valid client secret
     ) {
-      console.log("Payment already in progress for this booking, skipping...");
+      console.log("🔄 Payment already in progress for this booking, skipping...");
       return;
     }
 
-    // Check if we already have a client secret for this booking
-    const existingClientSecret = sessionStorage.getItem(
-      `clientSecret_${currentBookingId}`
-    );
-    const existingPaymentIntentId = sessionStorage.getItem(
-      `paymentIntentId_${currentBookingId}`
-    );
+    // Check if we have cached payment intent for this exact amount
+    const cacheKey = `${currentBookingId}_${grandTotal}`;
+    const existingClientSecret = sessionStorage.getItem(`clientSecret_${cacheKey}`);
+    const existingPaymentIntentId = sessionStorage.getItem(`paymentIntentId_${cacheKey}`);
 
     if (existingClientSecret && existingPaymentIntentId) {
-      console.log("Using existing payment intent from session storage");
+      console.log("📦 Using cached payment intent for exact amount:", grandTotal);
       setClientSecret(existingClientSecret);
       setPaymentIntentId(existingPaymentIntentId);
       setPaymentInitiated(true);
@@ -174,41 +164,36 @@ const CheckoutForm = ({
       currentBookingIdRef.current = currentBookingId;
       setPaymentInitiated(true);
 
+      console.log("🚀 Creating new payment intent for amount:", grandTotal);
+
       try {
         // First, ensure we have the auth token
         const token = await ensureAuthToken();
 
         if (!token) {
-          throw new Error(
-            "Unable to authenticate. Please try logging in again."
-          );
+          throw new Error("Unable to authenticate. Please try logging in again.");
         }
 
         // Get userId from temporary data or context
-        const tempUserData = JSON.parse(
-          sessionStorage.getItem("tempUserData") || "{}"
-        );
-        const userId =
-          user?._id ||
-          tempUserData._id ||
-          JSON.parse(localStorage.getItem("userData") || "{}")._id;
+        const tempUserData = JSON.parse(sessionStorage.getItem("tempUserData") || "{}");
+        const userId = user?._id || tempUserData._id || JSON.parse(localStorage.getItem("userData") || "{}")._id;
 
         if (!userId) {
           throw new Error("User ID not found. Please log in again.");
         }
 
-        // UPDATED: Include proper discount information and final amount
+        // CRITICAL: Send the EXACT discounted amount to backend
         const paymentData = {
           ticketId: event._id,
           quantity: selectedSeats.length || 1,
           userId: userId,
           bookingId: currentBookingId,
           
-          // CRITICAL: Send the final discounted amount
-          amount: grandTotal, // This should be the discounted amount
-          finalAmount: grandTotal, // Explicitly set final amount
+          // MOST IMPORTANT: Send the final discounted amount
+          amount: grandTotal,
+          finalAmount: grandTotal,
           
-          // Original pricing information
+          // Original pricing information for reference
           originalAmount: appliedCoupon?.originalPrice || grandTotal,
           
           // Coupon information if applied
@@ -217,19 +202,18 @@ const CheckoutForm = ({
             couponCode: appliedCoupon.code,
             discountAmount: appliedCoupon.discountAmount || discount,
             hasCoupon: true,
+            couponApplied: true,
           }),
         };
 
-        console.log("Payment data being sent (with discount):", paymentData);
-        console.log("Final amount to charge:", grandTotal);
+        console.log("📤 PAYMENT DATA BEING SENT TO BACKEND:", JSON.stringify(paymentData, null, 2));
+        console.log("💰 AMOUNT TO BE CHARGED:", grandTotal);
 
         // Create headers with token
         const headers = {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         };
-
-        console.log("Making payment request with headers:", headers);
 
         // Call payment API
         const response = await fetch(`${API_BASE_URL}payments/create-payment`, {
@@ -240,7 +224,7 @@ const CheckoutForm = ({
 
         // Get JSON response
         const responseData = await response.json();
-        console.log("API response:", responseData);
+        console.log("📥 BACKEND RESPONSE:", JSON.stringify(responseData, null, 2));
 
         // Handle response according to your API structure
         if (!response.ok) {
@@ -250,28 +234,20 @@ const CheckoutForm = ({
           ) {
             // If payment already exists, try to get existing client secret
             if (responseData.clientSecret) {
-              console.log("Using existing payment intent from server");
+              console.log("♻️ Using existing payment intent from server");
               setClientSecret(responseData.clientSecret);
               setPaymentIntentId(responseData.paymentIntentId);
               setConfirmedBookingId(responseData.bookingId);
 
-              // Cache for future use
-              sessionStorage.setItem(
-                `clientSecret_${currentBookingId}`,
-                responseData.clientSecret
-              );
-              sessionStorage.setItem(
-                `paymentIntentId_${currentBookingId}`,
-                responseData.paymentIntentId
-              );
+              // Cache with amount-specific key
+              const cacheKey = `${currentBookingId}_${grandTotal}`;
+              sessionStorage.setItem(`clientSecret_${cacheKey}`, responseData.clientSecret);
+              sessionStorage.setItem(`paymentIntentId_${cacheKey}`, responseData.paymentIntentId);
               return;
             }
           }
 
-          throw new Error(
-            responseData.message ||
-              `Request failed with status ${response.status}`
-          );
+          throw new Error(responseData.message || `Request failed with status ${response.status}`);
         }
 
         // Check for success and set payment data from your API response
@@ -280,22 +256,18 @@ const CheckoutForm = ({
           setPaymentIntentId(responseData.paymentIntentId);
           setConfirmedBookingId(responseData.bookingId);
 
-          // Cache for future use
-          sessionStorage.setItem(
-            `clientSecret_${currentBookingId}`,
-            responseData.clientSecret
-          );
-          sessionStorage.setItem(
-            `paymentIntentId_${currentBookingId}`,
-            responseData.paymentIntentId
-          );
+          // Cache with amount-specific key to handle different totals
+          const cacheKey = `${currentBookingId}_${grandTotal}`;
+          sessionStorage.setItem(`clientSecret_${cacheKey}`, responseData.clientSecret);
+          sessionStorage.setItem(`paymentIntentId_${cacheKey}`, responseData.paymentIntentId);
 
-          console.log("Payment intent created successfully with amount:", grandTotal);
+          console.log("✅ Payment intent created successfully for amount:", grandTotal);
+          console.log("🔑 Client secret received:", responseData.clientSecret ? "YES" : "NO");
         } else {
           throw new Error("Could not initialize payment. Please try again.");
         }
       } catch (err) {
-        console.error("Payment request error:", err);
+        console.error("❌ Payment request error:", err);
 
         // Reset flags on error
         paymentInProgressRef.current = false;
@@ -356,12 +328,9 @@ const CheckoutForm = ({
     const cardElement = elements.getElement(CardElement);
 
     // Get user data from temporary storage or localStorage
-    const tempUserData = JSON.parse(
-      sessionStorage.getItem("tempUserData") || "{}"
-    );
+    const tempUserData = JSON.parse(sessionStorage.getItem("tempUserData") || "{}");
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
-    const userDataToUse =
-      Object.keys(tempUserData).length > 0 ? tempUserData : userData;
+    const userDataToUse = Object.keys(tempUserData).length > 0 ? tempUserData : userData;
 
     // Set up billing details - REMOVED postal_code (ZIP code)
     const billingDetails = {
@@ -370,26 +339,38 @@ const CheckoutForm = ({
       address: {
         line1: userDataToUse.address || "",
         city: userDataToUse.city || "",
-        // Removed postal_code field
       },
     };
 
-    console.log("Confirming payment with Stripe for amount:", grandTotal);
+    console.log("💳 Confirming payment with Stripe for amount:", grandTotal);
+    console.log("🔐 Client secret:", clientSecret ? "Present" : "Missing");
 
     // Confirm payment with Stripe
-    const { error: paymentError, paymentIntent } =
-      await stripe.confirmCardPayment(clientSecret, {
-        payment_method: {
-          card: cardElement,
-          billing_details: billingDetails,
-        },
-      });
+    const { error: paymentError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+      payment_method: {
+        card: cardElement,
+        billing_details: billingDetails,
+      },
+    });
 
     if (paymentError) {
+      console.error("❌ Stripe payment error:", paymentError);
       setError(`Payment failed: ${paymentError.message}`);
       setProcessing(false);
     } else if (paymentIntent.status === "succeeded") {
-      console.log("Stripe payment succeeded for amount:", paymentIntent.amount / 100); // Stripe amounts are in cents
+      console.log("✅ Stripe payment succeeded!");
+      console.log("💰 Amount charged by Stripe:", paymentIntent.amount / 100); // Stripe amounts are in cents
+      console.log("💰 Expected amount:", grandTotal);
+      
+      // Verify the charged amount matches our expected amount
+      const chargedAmount = paymentIntent.amount / 100;
+      if (Math.abs(chargedAmount - grandTotal) > 0.01) { // Allow for small rounding differences
+        console.warn("⚠️ WARNING: Charged amount doesn't match expected amount!", {
+          charged: chargedAmount,
+          expected: grandTotal,
+          difference: Math.abs(chargedAmount - grandTotal)
+        });
+      }
       
       // Payment succeeded, now confirm with your backend
       try {
@@ -399,6 +380,7 @@ const CheckoutForm = ({
         const confirmationData = {
           paymentIntentId: paymentIntent.id,
           finalAmount: grandTotal, // Send the final discounted amount
+          chargedAmount: chargedAmount, // What Stripe actually charged
           // Include coupon information if needed
           ...(appliedCoupon && {
             couponId: appliedCoupon.id,
@@ -408,30 +390,27 @@ const CheckoutForm = ({
           }),
         };
 
-        console.log("Sending confirmation data:", confirmationData);
+        console.log("📤 Sending confirmation data to backend:", confirmationData);
 
         // Call confirm-payment endpoint
-        const response = await fetch(
-          `${API_BASE_URL}payments/confirm-payment`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(confirmationData),
-          }
-        );
+        const response = await fetch(`${API_BASE_URL}payments/confirm-payment`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(confirmationData),
+        });
 
         const data = await response.json();
-        console.log("Confirmation response:", data);
+        console.log("📥 Backend confirmation response:", data);
 
         if (data.success) {
           // Clear cached payment data after successful completion
-          const currentBookingId =
-            bookingId || sessionStorage.getItem("tempBookingId");
-          sessionStorage.removeItem(`clientSecret_${currentBookingId}`);
-          sessionStorage.removeItem(`paymentIntentId_${currentBookingId}`);
+          const currentBookingId = bookingId || sessionStorage.getItem("tempBookingId");
+          const cacheKey = `${currentBookingId}_${grandTotal}`;
+          sessionStorage.removeItem(`clientSecret_${cacheKey}`);
+          sessionStorage.removeItem(`paymentIntentId_${cacheKey}`);
 
           // Get order ID from backend response
           const orderId = data.orderId || data.order_id || paymentIntent.id;
@@ -440,6 +419,8 @@ const CheckoutForm = ({
           setError(null);
           setSucceeded(true);
 
+          console.log("🎉 Payment completed successfully with order ID:", orderId);
+
           // Pass data to parent component with order ID from backend
           onPaymentComplete(orderId, {
             paymentIntentId: paymentIntent.id,
@@ -447,6 +428,7 @@ const CheckoutForm = ({
             appliedCoupon,
             discount,
             finalAmount: grandTotal,
+            chargedAmount: chargedAmount,
             orderId: orderId,
             ...data, // Include all backend response data
           });
@@ -457,17 +439,21 @@ const CheckoutForm = ({
           localStorage.setItem("completedOrderId", fallbackOrderId);
           setError(null);
           setSucceeded(true);
+          
+          console.log("⚠️ Backend confirmation failed, using fallback order ID:", fallbackOrderId);
+          
           onPaymentComplete(fallbackOrderId, {
             paymentIntentId: paymentIntent.id,
             bookingId: confirmedBookingId || bookingId,
             appliedCoupon,
             discount,
             finalAmount: grandTotal,
+            chargedAmount: chargedAmount,
             orderId: fallbackOrderId,
           });
         }
       } catch (err) {
-        console.error("Error confirming payment:", err);
+        console.error("❌ Error confirming payment with backend:", err);
 
         // Even if confirmation fails, Stripe processed the payment
         // Use payment intent ID as fallback order ID
@@ -475,16 +461,21 @@ const CheckoutForm = ({
         localStorage.setItem("completedOrderId", fallbackOrderId);
         setError(null);
         setSucceeded(true);
+        
+        console.log("⚠️ Backend error, using fallback order ID:", fallbackOrderId);
+        
         onPaymentComplete(fallbackOrderId, {
           paymentIntentId: paymentIntent.id,
           bookingId: confirmedBookingId || bookingId,
           appliedCoupon,
           discount,
           finalAmount: grandTotal,
+          chargedAmount: paymentIntent.amount / 100,
           orderId: fallbackOrderId,
         });
       }
     } else {
+      console.error("❌ Payment failed with status:", paymentIntent.status);
       setError(`Payment status: ${paymentIntent.status}. Please try again.`);
     }
 
@@ -494,10 +485,14 @@ const CheckoutForm = ({
   // Handle manual payment retry
   const handleRetryPayment = () => {
     // Clear all payment state and cached data
-    const currentBookingId =
-      bookingId || sessionStorage.getItem("tempBookingId");
-    sessionStorage.removeItem(`clientSecret_${currentBookingId}`);
-    sessionStorage.removeItem(`paymentIntentId_${currentBookingId}`);
+    const currentBookingId = bookingId || sessionStorage.getItem("tempBookingId");
+    
+    // Clear all cached data for this booking
+    Object.keys(sessionStorage).forEach(key => {
+      if (key.includes(currentBookingId)) {
+        sessionStorage.removeItem(key);
+      }
+    });
 
     // Reset component state
     setPaymentInitiated(false);
@@ -510,6 +505,7 @@ const CheckoutForm = ({
     // Reset refs
     paymentInProgressRef.current = false;
     currentBookingIdRef.current = null;
+    lastGrandTotalRef.current = null;
 
     // Force re-trigger of payment creation
     setTokenAttempts(tokenAttempts + 1);
@@ -518,13 +514,14 @@ const CheckoutForm = ({
   // Handle booking restart
   const handleRestartBooking = () => {
     // Clear all payment and booking data
-    const currentBookingId =
-      bookingId || sessionStorage.getItem("tempBookingId");
-    sessionStorage.removeItem(`clientSecret_${currentBookingId}`);
-    sessionStorage.removeItem(`paymentIntentId_${currentBookingId}`);
-    sessionStorage.removeItem("tempBookingId");
-    sessionStorage.removeItem("tempUserData");
-    sessionStorage.removeItem("temp-auth-token");
+    const currentBookingId = bookingId || sessionStorage.getItem("tempBookingId");
+    
+    // Clear all cached data
+    Object.keys(sessionStorage).forEach(key => {
+      if (key.includes(currentBookingId) || key.includes("temp")) {
+        sessionStorage.removeItem(key);
+      }
+    });
 
     // Navigate back to seat selection
     window.location.href = `/events/${event._id}`;
@@ -547,6 +544,20 @@ const CheckoutForm = ({
 
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-md mt-6">
+      {/* Debug Info - Remove in production */}
+      {/* {process.env.NODE_ENV === 'development' && (
+        <div className="mb-4 p-3 bg-blue-900 rounded-lg text-xs">
+          <div className="text-blue-200 font-bold mb-2">Debug Info:</div>
+          <div className="text-blue-100">
+            <div>Grand Total: ${grandTotal}</div>
+            <div>Applied Coupon: {appliedCoupon ? appliedCoupon.code : 'None'}</div>
+            <div>Discount: ${discount}</div>
+            <div>Client Secret: {clientSecret ? 'Present' : 'Missing'}</div>
+            <div>Payment Initiated: {paymentInitiated ? 'Yes' : 'No'}</div>
+          </div>
+        </div>
+      )} */}
+
       <div className="mb-4">
         <label className="block text-orange-300 text-sm font-medium mb-2">
           Card Details
@@ -616,6 +627,13 @@ const CheckoutForm = ({
           )}
 
           <div className="mt-3 flex space-x-2">
+            {/* <button
+              type="button"
+              onClick={handleRetryPayment}
+              className="text-orange-300 hover:text-orange-200 underline cursor-pointer text-sm"
+            >
+              Retry Payment
+            </button> */}
             {error.includes("booking session has expired") && (
               <button
                 type="button"
@@ -651,7 +669,7 @@ const CheckoutForm = ({
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
             ></path>
           </svg>
-          Initializing payment...
+          Initializing payment for ${grandTotal.toFixed(2)}...
         </div>
       )}
 
@@ -712,7 +730,7 @@ const CheckoutForm = ({
         ) : succeeded ? (
           "Payment Successful!"
         ) : (
-          `Pay $${grandTotal.toLocaleString()}`
+          `Pay ${grandTotal.toFixed(2)}`
         )}
       </button>
 
