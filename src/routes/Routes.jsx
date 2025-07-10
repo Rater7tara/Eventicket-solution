@@ -45,6 +45,7 @@ import SellerSoldTickets from "../pages/Dashboard/SellerDashboard/SellerSoldTick
 import AdminCancelTickets from "../pages/Dashboard/AdminDashborad/AdminCancelTickets/AdminCancelTickets";
 import MyReservation from "../pages/Dashboard/AdminDashborad/MyReservation/MyReservation";
 import ManageBanner from "../pages/Dashboard/AdminDashborad/ManageBanner/ManageBanner";
+import ResetPassword from "../pages/Login/ResetPassword/ResetPassword";
 
 export const router = createBrowserRouter([
   {
@@ -107,6 +108,10 @@ export const router = createBrowserRouter([
       {
         path: "/register",
         element: <Register />,
+      },
+      {
+        path: "/reset-password",
+        element: <ResetPassword />,
       },
     ],
   },

@@ -65,7 +65,7 @@ const Login = () => {
     }
   };
 
-  // Handle forgot password
+  // Enhanced forgot password function with better error handling
   const handleForgotPassword = async (e) => {
     e.preventDefault();
     
@@ -88,13 +88,22 @@ const Login = () => {
       
       const response = await axios.post(
         `${serverURL.url}auth/forget-password`,
-        { email: forgotPasswordEmail.trim() }
+        { 
+          email: forgotPasswordEmail.trim() 
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          timeout: 10000, // 10 second timeout
+        }
       );
 
       console.log("📥 Forgot password response:", response.data);
 
-      if (response.data?.success) {
-        toast.success("Password reset link sent to your email!");
+      // Handle different response scenarios
+      if (response.data?.success || response.status === 200) {
+        toast.success("Password reset link sent to your email! Please check your inbox and spam folder.");
         setShowForgotPassword(false);
         setForgotPasswordEmail("");
       } else {
@@ -102,8 +111,20 @@ const Login = () => {
       }
     } catch (err) {
       console.error("❌ Error in forgot password:", err);
-      const errorMessage = err.response?.data?.message || err.message || "Failed to process request. Please try again.";
-      toast.error(errorMessage);
+      
+      // Handle different error types
+      if (err.code === 'ECONNABORTED') {
+        toast.error("Request timed out. Please try again.");
+      } else if (err.response?.status === 404) {
+        toast.error("Email not found. Please check your email address.");
+      } else if (err.response?.status === 429) {
+        toast.error("Too many requests. Please try again later.");
+      } else if (err.response?.status >= 500) {
+        toast.error("Server error. Please try again later.");
+      } else {
+        const errorMessage = err.response?.data?.message || err.message || "Failed to process request. Please try again.";
+        toast.error(errorMessage);
+      }
     } finally {
       setIsSubmittingForgot(false);
     }
@@ -184,7 +205,7 @@ const Login = () => {
                 <button
                   type="button"
                   onClick={openForgotPasswordModal}
-                  className="text-xs text-orange-100 hover:text-white transition-colors duration-200 cursor-pointer"
+                  className="text-sm text-yellow-300 hover:text-yellow-100 font-medium underline underline-offset-2 hover:underline-offset-4 transition-all duration-200 cursor-pointer"
                 >
                   Forgot Password?
                 </button>
@@ -247,79 +268,67 @@ const Login = () => {
         </div> */}
       </div>
 
-      {/* Forgot Password Modal */}
+      {/* Updated Forgot Password Modal - Styled like Register OTP Modal */}
       {showForgotPassword && (
-        <div className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity duration-300 ease-in-out">
-          <div
-            className="bg-white rounded-lg shadow-2xl w-full max-w-md mx-4 transform transition-all duration-300 ease-out animate-fade-in-up"
-            style={{ animation: "fadeInUp 0.3s ease-out" }}
-          >
-            <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-amber-50">
-              <h2 className="text-xl font-bold text-gray-800">
-                Forgot Password
-              </h2>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+          <div className="bg-white/20 backdrop-blur-xl border border-white/30 shadow-2xl rounded-3xl p-8 w-full max-w-md mx-auto animate-fade-in-up">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold text-white">Reset Password</h3>
               <button
-                className="text-gray-500 hover:text-gray-700 transition-colors duration-200"
                 onClick={resetForgotPasswordModal}
+                className="text-white hover:text-red-300 transition-colors"
               >
-                <X size={24} />
+                <X className="w-6 h-6" />
               </button>
             </div>
 
-            <form onSubmit={handleForgotPassword} className="p-6">
-              <div className="mb-6">
-                <div className="bg-orange-50 border-l-4 border-orange-500 p-4 mb-6">
-                  <div className="flex items-start">
-                    <AlertTriangle
-                      className="text-orange-500 mr-3 mt-0.5 flex-shrink-0"
-                      size={20}
-                    />
-                    <p className="text-sm text-orange-700">
-                      We'll send you a password reset link to your email
-                      address. Please check your inbox and spam folder after submitting.
-                    </p>
-                  </div>
-                </div>
+            <div className="bg-orange-500/20 backdrop-blur-sm border border-orange-400/50 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <AlertTriangle
+                  className="text-orange-300 mr-3 mt-0.5 flex-shrink-0"
+                  size={20}
+                />
+                <p className="text-sm text-orange-50">
+                  We'll send you a password reset link to your email address. Please check your inbox and spam folder after submitting.
+                </p>
+              </div>
+            </div>
 
-                <div>
-                  <label
-                    htmlFor="forgotEmail"
-                    className="block text-sm font-medium text-gray-700 mb-2"
-                  >
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="forgotEmail"
-                      name="forgotEmail"
-                      type="email"
-                      value={forgotPasswordEmail}
-                      onChange={(e) => setForgotPasswordEmail(e.target.value)}
-                      placeholder="Enter your email address"
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition duration-300"
-                      required
-                    />
-                    <Mail
-                      className="absolute left-3 top-3.5 text-gray-400"
-                      size={18}
-                    />
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="form-control">
+                <label className="block text-white font-medium mb-2" htmlFor="forgotEmail">
+                  Email Address
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                    <Mail className="w-5 h-5 text-orange-500" />
                   </div>
+                  <input
+                    id="forgotEmail"
+                    name="forgotEmail"
+                    type="email"
+                    value={forgotPasswordEmail}
+                    onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                    placeholder="Enter your email address"
+                    className="pl-10 w-full py-3 px-4 rounded-lg bg-white/90 border border-orange-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition duration-300"
+                    required
+                  />
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-3">
+              <div className="flex space-x-3 pt-2">
                 <button
                   type="button"
-                  className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 text-gray-800 transition-colors duration-200 font-medium cursor-pointer"
                   onClick={resetForgotPasswordModal}
                   disabled={isSubmittingForgot}
+                  className="flex-1 py-3 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 text-white font-medium hover:bg-white/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors duration-200 shadow-md font-medium cursor-pointer flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={isSubmittingForgot}
+                  className="flex-1 py-3 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 text-white font-medium shadow-lg hover:shadow-orange-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                 >
                   {isSubmittingForgot ? (
                     <>

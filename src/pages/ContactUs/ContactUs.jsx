@@ -8,7 +8,9 @@ import {
   Twitter, 
   Instagram, 
   ArrowLeft,
-  AlertCircle
+  AlertCircle,
+  CheckCircle,
+  Info
 } from 'lucide-react';
 
 const ContactUs = () => {
@@ -21,49 +23,46 @@ const ContactUs = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [debugInfo, setDebugInfo] = useState('');
   const [isScrolled, setIsScrolled] = useState(false);
   const pageTopRef = useRef(null);
 
-  // Scroll to top when page loads/reloads - using immediate scroll for reliability
+  // EmailJS Configuration
+  const emailJSConfig = {
+    publicKey: 'yE3itMLICqdZKlDIc',
+    serviceId: 'service_w6r6t1d',
+    templateId: 'template_j1shtad'
+  };
+
+  // Scroll to top when page loads/reloads
   useEffect(() => {
-    // Force immediate scroll to top without animation for reliability
     window.scrollTo(0, 0);
-    
-    // Add a secondary forced scroll with a slight delay to handle any dynamic content
     setTimeout(() => {
       window.scrollTo(0, 0);
       document.documentElement.scrollTop = 0;
-      document.body.scrollTop = 0; // For Safari
+      document.body.scrollTop = 0;
     }, 50);
   }, []);
 
   // Scroll effect for sticky header
   useEffect(() => {
     const handleScroll = () => {
-      if (window.scrollY > 100) {
-        setIsScrolled(true);
-      } else {
-        setIsScrolled(false);
-      }
+      setIsScrolled(window.scrollY > 100);
     };
-
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    // Clear any previous error when user starts typing
-    if (submitError) {
-      setSubmitError('');
-    }
+    setFormData(prev => ({ ...prev, [name]: value }));
+    if (submitError) setSubmitError('');
+    if (debugInfo) setDebugInfo('');
   };
 
   const sendEmail = async (formData) => {
+    setDebugInfo('Loading EmailJS library...');
+    
     try {
       // Load EmailJS library if not already loaded
       if (!window.emailjs) {
@@ -74,29 +73,66 @@ const ContactUs = () => {
           script.onerror = reject;
           document.head.appendChild(script);
         });
-        
-        // Initialize EmailJS with your public key
-        window.emailjs.init('YOUR_PUBLIC_KEY'); // Replace with your EmailJS public key
+        setDebugInfo('EmailJS library loaded successfully');
       }
+
+      // Initialize EmailJS
+      setDebugInfo('Initializing EmailJS...');
+      window.emailjs.init(emailJSConfig.publicKey);
+      setDebugInfo('EmailJS initialized with public key: ' + emailJSConfig.publicKey);
+
+      // Prepare email data
+      const emailData = {
+        from_name: formData.name,
+        from_email: formData.email,
+        phone: formData.phone || 'Not provided',
+        message: formData.message,
+        to_email: 'info@eventsntickets.com.au',
+        reply_to: formData.email
+      };
+
+      setDebugInfo('Sending email with service: ' + emailJSConfig.serviceId + ', template: ' + emailJSConfig.templateId);
 
       // Send email using EmailJS
       const result = await window.emailjs.send(
-        'YOUR_SERVICE_ID', // Replace with your EmailJS service ID
-        'YOUR_TEMPLATE_ID', // Replace with your EmailJS template ID
-        {
-          from_name: formData.name,
-          from_email: formData.email,
-          phone: formData.phone || 'Not provided',
-          message: formData.message,
-          to_email: 'info@eventsntickets.com.au',
-          reply_to: formData.email
-        }
+        emailJSConfig.serviceId,
+        emailJSConfig.templateId,
+        emailData
       );
 
+      setDebugInfo('Email sent successfully! Response: ' + JSON.stringify(result));
       return { success: true, result };
+
     } catch (error) {
       console.error('Email sending failed:', error);
-      return { success: false, error: error.message };
+      
+      let errorMessage = 'Unknown error occurred';
+      let debugMessage = 'Error details: ';
+      
+      if (error.status) {
+        debugMessage += `Status: ${error.status}, `;
+      }
+      if (error.text) {
+        debugMessage += `Text: ${error.text}, `;
+        errorMessage = error.text;
+      }
+      if (error.message) {
+        debugMessage += `Message: ${error.message}`;
+        errorMessage = error.message;
+      }
+
+      setDebugInfo(debugMessage);
+
+      // Specific error handling
+      if (error.text && error.text.includes('service ID not found')) {
+        errorMessage = `Service ID "${emailJSConfig.serviceId}" not found. Please check your EmailJS dashboard.`;
+      } else if (error.text && error.text.includes('template')) {
+        errorMessage = `Template ID "${emailJSConfig.templateId}" not found or invalid.`;
+      } else if (error.text && error.text.includes('public key')) {
+        errorMessage = `Public key "${emailJSConfig.publicKey}" is invalid.`;
+      }
+
+      return { success: false, error: errorMessage };
     }
   };
 
@@ -104,6 +140,7 @@ const ContactUs = () => {
     e.preventDefault();
     setIsSubmitting(true);
     setSubmitError('');
+    setDebugInfo('');
 
     try {
       // Validate form
@@ -112,14 +149,23 @@ const ContactUs = () => {
         return;
       }
 
+      // Basic email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        setSubmitError('Please enter a valid email address.');
+        return;
+      }
+
+      setDebugInfo('Starting email sending process...');
+
       // Send email using EmailJS
       const result = await sendEmail(formData);
       
       if (result.success) {
         setIsSubmitted(true);
-        console.log('Email sent successfully to: info@eventsntickets.com.au');
+        setDebugInfo('Success! Email sent to info@eventsntickets.com.au');
         
-        // Reset form after 4 seconds
+        // Reset form after 5 seconds
         setTimeout(() => {
           setIsSubmitted(false);
           setFormData({
@@ -128,12 +174,14 @@ const ContactUs = () => {
             phone: '',
             message: ''
           });
-        }, 4000);
+          setDebugInfo('');
+        }, 5000);
       } else {
         setSubmitError(result.error || 'Failed to send message. Please try again.');
       }
     } catch (error) {
-      setSubmitError('An error occurred. Please try again later.');
+      setSubmitError('An unexpected error occurred. Please try again later.');
+      setDebugInfo('Unexpected error: ' + error.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -149,7 +197,6 @@ const ContactUs = () => {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 relative z-10">
-
         {/* Header */}
         <div className={`top-20 z-30 py-6 px-8 mb-10 bg-white rounded-2xl shadow-lg transform transition-all duration-300 ${
           isScrolled ? 'shadow-orange-100' : ''
@@ -166,6 +213,19 @@ const ContactUs = () => {
             </div>
           </div>
         </div>
+
+        {/* Debug Information */}
+        {/* {debugInfo && (
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-start">
+              <Info size={20} className="text-blue-500 mr-2 mt-0.5" />
+              <div>
+                <h3 className="font-semibold text-blue-800 mb-1">Debug Information</h3>
+                <p className="text-sm text-blue-700">{debugInfo}</p>
+              </div>
+            </div>
+          </div>
+        )} */}
 
         {/* Main Content */}
         <div className="grid md:grid-cols-2 gap-8">
@@ -208,13 +268,6 @@ const ContactUs = () => {
               <a href="#" className="text-gray-500 hover:text-orange-500 transition-colors">
                 <Instagram size={24} />
               </a>
-              <a href="#" className="text-gray-500 hover:text-orange-500 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/>
-                  <rect x="2" y="9" width="4" height="12"/>
-                  <circle cx="4" cy="4" r="2"/>
-                </svg>
-              </a>
             </div>
           </div>
 
@@ -224,7 +277,7 @@ const ContactUs = () => {
             
             {isSubmitted ? (
               <div className="bg-green-50 border border-green-200 p-6 rounded-xl text-center">
-                <Send size={48} className="mx-auto mb-4 text-green-500" />
+                <CheckCircle size={48} className="mx-auto mb-4 text-green-500" />
                 <h3 className="text-lg font-bold text-green-700 mb-2">Message Sent Successfully!</h3>
                 <p className="text-green-600">Your message has been sent to info@eventsntickets.com.au</p>
                 <p className="text-green-600 mt-2">We'll get back to you soon.</p>
@@ -239,7 +292,7 @@ const ContactUs = () => {
                 )}
 
                 <div>
-                  <label htmlFor="name" className="block text-gray-700 mb-2">Full Name</label>
+                  <label htmlFor="name" className="block text-gray-700 mb-2">Full Name *</label>
                   <input 
                     type="text" 
                     id="name"
@@ -254,7 +307,7 @@ const ContactUs = () => {
                 </div>
 
                 <div>
-                  <label htmlFor="email" className="block text-gray-700 mb-2">Email Address</label>
+                  <label htmlFor="email" className="block text-gray-700 mb-2">Email Address *</label>
                   <input 
                     type="email" 
                     id="email"
@@ -283,7 +336,7 @@ const ContactUs = () => {
                 </div>
 
                 <div>
-                  <label htmlFor="message" className="block text-gray-700 mb-2">Your Message</label>
+                  <label htmlFor="message" className="block text-gray-700 mb-2">Your Message *</label>
                   <textarea 
                     id="message"
                     name="message"
