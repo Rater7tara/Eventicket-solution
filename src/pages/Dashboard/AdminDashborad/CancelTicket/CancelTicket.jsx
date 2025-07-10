@@ -1013,7 +1013,7 @@ const CancelTicket = () => {
             You don't have any active tickets that can be cancelled.
           </p>
           <Link
-            to="/my-tickets"
+            to="/dashboard/my-tickets"
             className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-lg shadow hover:shadow-lg transition-all duration-200 cursor-pointer"
           >
             <Ticket size={18} />
