@@ -26,8 +26,8 @@ const CheckoutForm = ({
   const [succeeded, setSucceeded] = useState(false);
   const [disabled, setDisabled] = useState(true);
   const [clientSecret, setClientSecret] = useState("");
-  const [paymentIntentId, setPaymentIntentId] = useState(""); // Changed from orderId to paymentIntentId
-  const [confirmedBookingId, setConfirmedBookingId] = useState(""); // Store the confirmed booking ID
+  const [paymentIntentId, setPaymentIntentId] = useState("");
+  const [confirmedBookingId, setConfirmedBookingId] = useState("");
   const [errorDetails, setErrorDetails] = useState("");
   const [paymentInitiated, setPaymentInitiated] = useState(false);
   const [tokenAttempts, setTokenAttempts] = useState(0);
@@ -44,7 +44,9 @@ const CheckoutForm = ({
 
   useEffect(() => {
     console.log("Checkout form received bookingId:", bookingId);
-  }, [bookingId]);
+    console.log("Checkout form received grandTotal (discounted):", grandTotal);
+    console.log("Applied coupon:", appliedCoupon);
+  }, [bookingId, grandTotal, appliedCoupon]);
 
   // Function to get the auth token from multiple possible sources
   const getAuthToken = () => {
@@ -130,9 +132,7 @@ const CheckoutForm = ({
     });
   };
 
-  // Remove the generateOrderIdFromPaymentIntent function since we're not generating order IDs
-
-  // Create payment intent - UPDATED TO MATCH YOUR API RESPONSE
+  // Create payment intent - UPDATED TO PROPERLY HANDLE DISCOUNTED AMOUNT
   useEffect(() => {
     // Skip if conditions not met
     if (grandTotal <= 0 || loading || !bookingId) {
@@ -197,23 +197,31 @@ const CheckoutForm = ({
           throw new Error("User ID not found. Please log in again.");
         }
 
-        // UPDATED: Match your API structure - no orderId field needed
+        // UPDATED: Include proper discount information and final amount
         const paymentData = {
           ticketId: event._id,
           quantity: selectedSeats.length || 1,
           userId: userId,
           bookingId: currentBookingId,
-          // Add coupon information if applied
+          
+          // CRITICAL: Send the final discounted amount
+          amount: grandTotal, // This should be the discounted amount
+          finalAmount: grandTotal, // Explicitly set final amount
+          
+          // Original pricing information
+          originalAmount: appliedCoupon?.originalPrice || grandTotal,
+          
+          // Coupon information if applied
           ...(appliedCoupon && {
             couponId: appliedCoupon.id,
             couponCode: appliedCoupon.code,
             discountAmount: appliedCoupon.discountAmount || discount,
-            originalAmount: appliedCoupon.originalPrice,
-            finalAmount: grandTotal,
+            hasCoupon: true,
           }),
         };
 
-        console.log("Payment data being sent:", paymentData);
+        console.log("Payment data being sent (with discount):", paymentData);
+        console.log("Final amount to charge:", grandTotal);
 
         // Create headers with token
         const headers = {
@@ -281,6 +289,8 @@ const CheckoutForm = ({
             `paymentIntentId_${currentBookingId}`,
             responseData.paymentIntentId
           );
+
+          console.log("Payment intent created successfully with amount:", grandTotal);
         } else {
           throw new Error("Could not initialize payment. Please try again.");
         }
@@ -299,6 +309,8 @@ const CheckoutForm = ({
               token: getAuthToken() ? "Token exists" : "No token",
               userId: user?._id || "No user ID",
               bookingId: currentBookingId,
+              grandTotal: grandTotal,
+              appliedCoupon: appliedCoupon,
               timestamp: new Date().toISOString(),
             },
             null,
@@ -362,6 +374,8 @@ const CheckoutForm = ({
       },
     };
 
+    console.log("Confirming payment with Stripe for amount:", grandTotal);
+
     // Confirm payment with Stripe
     const { error: paymentError, paymentIntent } =
       await stripe.confirmCardPayment(clientSecret, {
@@ -375,19 +389,22 @@ const CheckoutForm = ({
       setError(`Payment failed: ${paymentError.message}`);
       setProcessing(false);
     } else if (paymentIntent.status === "succeeded") {
+      console.log("Stripe payment succeeded for amount:", paymentIntent.amount / 100); // Stripe amounts are in cents
+      
       // Payment succeeded, now confirm with your backend
       try {
         const token = await ensureAuthToken();
 
-        // UPDATED: Match your API structure - only send paymentIntentId
+        // UPDATED: Include all relevant information in confirmation
         const confirmationData = {
           paymentIntentId: paymentIntent.id,
+          finalAmount: grandTotal, // Send the final discounted amount
           // Include coupon information if needed
           ...(appliedCoupon && {
             couponId: appliedCoupon.id,
             couponCode: appliedCoupon.code,
             discountApplied: appliedCoupon.discountAmount || discount,
-            finalAmount: grandTotal,
+            originalAmount: appliedCoupon.originalPrice,
           }),
         };
 
@@ -599,13 +616,6 @@ const CheckoutForm = ({
           )}
 
           <div className="mt-3 flex space-x-2">
-            {/* <button
-              type="button"
-              onClick={handleRetryPayment}
-              className="text-orange-300 hover:text-orange-200 underline cursor-pointer text-sm"
-            >
-              Retry Payment
-            </button> */}
             {error.includes("booking session has expired") && (
               <button
                 type="button"

@@ -48,7 +48,7 @@ const SeatPlanView = ({
   // Judges table component
   const JudgesTable = () => (
     <div className="flex flex-col items-center my-4">
-      <div className="text-xs text-orange-300 mb-1">Judges Panel</div>
+      <div className="text-xs text-orange-300 mb-1">Sound Engineer</div>
       <div className="flex flex-col items-center">
         {/* Table */}
         <div className="h-6 w-40 bg-gray-600 rounded-t-md flex items-center justify-center">
@@ -887,7 +887,7 @@ const SeatPlanView = ({
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className="w-4 h-4 bg-gray-600 rounded"></div>
-                    <span className="text-xs text-gray-400">Judges' Table</span>
+                    <span className="text-xs text-gray-400">Sound Engineer</span>
                   </div>
                   {sections.slice(1).map((section) => (
                     <div
