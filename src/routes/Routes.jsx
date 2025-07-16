@@ -21,7 +21,7 @@ import CheckoutTickets from "../pages/Home/CheckoutTickets/CheckoutTickets";
 import MyTickets from "../pages/Dashboard/UserDashboard/MyTickects/MyTickets";
 import AddEvents from "../pages/Dashboard/SellerDashboard/AddEvents/AddEvents";
 import MyEvents from "../pages/Dashboard/SellerDashboard/MyEvents/MyEvents";
-import TicketSellReport from "../pages/Dashboard/SellerDashboard/TicketSellReport/TicketSellReport";
+import TicketSellReport from "../pages/Dashboard/SellerDashboard/TicketSellReport/SellerReport";
 import UserDetailsForm from "../pages/Home/Home/UserDetailsForm/UserDetailsForm";
 import ManageUsers from "../pages/Dashboard/AdminDashborad/ManageUsers/ManageUsers";
 import CreateEvent from "../pages/Dashboard/AdminDashborad/CreateEvent/CreateEvent";
@@ -46,6 +46,8 @@ import AdminCancelTickets from "../pages/Dashboard/AdminDashborad/AdminCancelTic
 import MyReservation from "../pages/Dashboard/AdminDashborad/MyReservation/MyReservation";
 import ManageBanner from "../pages/Dashboard/AdminDashborad/ManageBanner/ManageBanner";
 import ResetPassword from "../pages/Login/ResetPassword/ResetPassword";
+import SellerReport from "../pages/Dashboard/SellerDashboard/TicketSellReport/SellerReport";
+import SellerEventReport from "../pages/Dashboard/SellerDashboard/TicketSellReport/SellerEventReport";
 
 export const router = createBrowserRouter([
   {
@@ -211,7 +213,11 @@ export const router = createBrowserRouter([
       },
       {
         path: "sales-report",
-        element: <TicketSellReport />,
+        element: <SellerReport />,
+      },
+      {
+        path: "sales-report/event/:eventId",
+        element: <SellerEventReport />,
       },
       {
         path: "seller-sold-tickets",

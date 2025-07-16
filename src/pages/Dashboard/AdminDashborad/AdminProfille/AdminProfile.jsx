@@ -24,6 +24,7 @@ import {
   Upload,
   ImageIcon,
   XCircle,
+  KeyRound,
 } from "lucide-react";
 import serverURL from "../../../../ServerConfig";
 import { AuthContext } from "../../../../providers/AuthProvider";
@@ -73,7 +74,6 @@ const AdminProfile = () => {
 
   // Password states
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
     newPassword: "",
@@ -82,8 +82,19 @@ const AdminProfile = () => {
   });
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
-  const [resetToken, setResetToken] = useState("");
-  const [resetPasswordView, setResetPasswordView] = useState(false);
+
+  // Forget password states - Following Login.jsx pattern
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showResetNewPassword, setShowResetNewPassword] = useState(false);
+  const [isSubmittingReset, setIsSubmittingReset] = useState(false);
+  const [isSubmittingOtp, setIsSubmittingOtp] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   // Get auth token from localStorage
   const getAuthToken = () => {
@@ -205,6 +216,9 @@ const AdminProfile = () => {
           ...prev,
           email: profileData.email || "",
         }));
+
+        // Set reset email for forgot password
+        setResetEmail(profileData.email || "");
       } else {
         throw new Error(result?.message || "Invalid response format");
       }
@@ -358,7 +372,7 @@ const AdminProfile = () => {
     }
   };
 
-  // Change password - FIXED: Use oldPassword instead of currentPassword
+  // Change password - FIXED: Use currentPassword (not oldPassword)
   const handleChangePassword = async (e) => {
     e.preventDefault();
 
@@ -401,7 +415,7 @@ const AdminProfile = () => {
 
       console.log("🔑 Attempting password change...");
 
-      // FIXED: Send oldPassword instead of currentPassword to match API
+      // Use the exact API structure you provided
       const response = await fetch(`${serverURL.url}auth/change-password`, {
         method: 'PUT',
         headers: {
@@ -409,7 +423,7 @@ const AdminProfile = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          oldPassword: passwordData.currentPassword.trim(),
+          currentPassword: passwordData.currentPassword.trim(),
           newPassword: passwordData.newPassword.trim()
         })
       });
@@ -438,6 +452,227 @@ const AdminProfile = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Send reset OTP to email - Following Login.jsx pattern
+  const handleSendResetOtp = async (e) => {
+    e.preventDefault();
+
+    if (!resetEmail.trim()) {
+      toast.error("Email is required!");
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(resetEmail.trim())) {
+      toast.error("Please enter a valid email address!");
+      return;
+    }
+
+    setIsSubmittingReset(true);
+
+    try {
+      console.log("🔄 Sending reset OTP request...");
+
+      const response = await axios.post(
+        `${serverURL.url}auth/send-reset-otp`,
+        {
+          email: resetEmail.trim(),
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          timeout: 10000, // 10 second timeout
+        }
+      );
+
+      console.log("📥 Reset OTP response:", response.data);
+
+      // Handle different response scenarios
+      if (response.data?.success || response.status === 200) {
+        toast.success(
+          "OTP sent to your email! Please check your inbox and spam folder."
+        );
+        setShowForgotPassword(false);
+        setShowOtpModal(true);
+      } else {
+        toast.error(
+          response.data?.message || "Failed to send OTP. Please try again."
+        );
+      }
+    } catch (err) {
+      console.error("❌ Error in sending reset OTP:", err);
+
+      // Handle different error types
+      if (err.code === "ECONNABORTED") {
+        toast.error("Request timed out. Please try again.");
+      } else if (err.response?.status === 404) {
+        toast.error("Email not found. Please check your email address.");
+      } else if (err.response?.status === 429) {
+        toast.error("Too many requests. Please try again later.");
+      } else if (err.response?.status >= 500) {
+        toast.error("Server error. Please try again later.");
+      } else {
+        const errorMessage =
+          err.response?.data?.message ||
+          err.message ||
+          "Failed to send OTP. Please try again.";
+        toast.error(errorMessage);
+      }
+    } finally {
+      setIsSubmittingReset(false);
+    }
+  };
+
+  // Reset password with OTP verification - Following Login.jsx pattern
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+
+    if (!otp.trim()) {
+      toast.error("OTP is required!");
+      return;
+    }
+
+    if (otp.trim().length !== 6) {
+      toast.error("OTP must be 6 digits!");
+      return;
+    }
+
+    if (!newPassword.trim()) {
+      toast.error("New password is required!");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast.error("Password must be at least 6 characters long!");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords do not match!");
+      return;
+    }
+
+    setIsSubmittingOtp(true);
+
+    try {
+      console.log("🔄 Resetting password with OTP...");
+
+      const response = await axios.post(
+        `${serverURL.url}auth/reset-password`,
+        {
+          email: resetEmail.trim(),
+          otp: otp.trim(),
+          newPassword: newPassword.trim(),
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          timeout: 10000,
+        }
+      );
+
+      console.log("📥 Password reset response:", response.data);
+      console.log("🔍 Success check:", response.data?.success === true);
+      console.log("🔍 Status check:", response.status === 200);
+      console.log("🔍 Success value type:", typeof response.data?.success);
+      console.log("🔍 Success value:", response.data?.success);
+
+      // Show success toast first, then delay modal closing
+      if (
+        response.data?.success === true ||
+        response.data?.success == true ||
+        response.status === 200
+      ) {
+        console.log("✅ Success condition met, showing success toast and modal...");
+
+        // Show success toast immediately - matching Login component
+        const successMsg = response.data?.message || "Password reset successful! Your password has been updated.";
+        
+        // Show toast first
+        toast.success(successMsg);
+        console.log("📢 Success toast shown:", successMsg);
+
+        // Store success message and close OTP modal
+        setSuccessMessage(successMsg);
+        setShowOtpModal(false);
+
+        // Show success modal after a brief delay
+        setTimeout(() => {
+          setShowSuccessModal(true);
+        }, 300);
+      } else {
+        console.log("❌ Success condition not met");
+        toast.error(
+          response.data?.message ||
+            "Failed to reset password. Please try again."
+        );
+      }
+    } catch (err) {
+      console.error("❌ Error in password reset:", err);
+
+      if (err.code === "ECONNABORTED") {
+        toast.error("Request timed out. Please try again.");
+      } else if (err.response?.status === 400) {
+        toast.error("Invalid or expired OTP. Please try again.");
+      } else if (err.response?.status === 404) {
+        toast.error(
+          "Password reset service not available. Please contact support."
+        );
+      } else if (err.response?.status === 429) {
+        toast.error("Too many attempts. Please try again later.");
+      } else if (err.response?.status >= 500) {
+        toast.error("Server error. Please try again later.");
+      } else {
+        const errorMessage =
+          err.response?.data?.message ||
+          err.message ||
+          "Failed to reset password. Please try again.";
+        toast.error(errorMessage);
+      }
+    } finally {
+      setIsSubmittingOtp(false);
+    }
+  };
+
+  // Resend OTP - Following Login.jsx pattern
+  const handleResendOtp = async () => {
+    setOtp(""); // Clear current OTP
+    setNewPassword(""); // Clear password fields
+    setConfirmPassword("");
+    await handleSendResetOtp({ preventDefault: () => {} });
+  };
+
+  // Reset all password reset states - Following Login.jsx pattern
+  const resetAllStates = () => {
+    setShowForgotPassword(false);
+    setShowOtpModal(false);
+    setShowSuccessModal(false);
+    setResetEmail(profile?.email || "");
+    setOtp("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setShowResetNewPassword(false);
+    setIsSubmittingReset(false);
+    setIsSubmittingOtp(false);
+    setSuccessMessage("");
+  };
+
+  // Close success modal and return to profile
+  const closeSuccessModal = () => {
+    setShowSuccessModal(false);
+    setOtp("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setShowResetNewPassword(false);
+    setIsSubmittingReset(false);
+    setIsSubmittingOtp(false);
+    setSuccessMessage("");
+    // Refresh profile data
+    fetchProfile();
   };
 
   // Handle form field changes
@@ -494,71 +729,16 @@ const AdminProfile = () => {
   // Reset modal states when closing
   const resetModals = () => {
     setShowChangePassword(false);
-    setShowForgotPassword(false);
-    setResetPasswordView(false);
     setPasswordData({
       currentPassword: "",
       newPassword: "",
       confirmPassword: "",
       email: profile?.email || "",
     });
+    resetAllStates();
   };
 
-  // Other handlers remain the same...
-  const handleForgotPassword = async (e) => {
-    e.preventDefault();
-    if (!passwordData.email) {
-      toast.error("Email is required!");
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      const response = await axios.post(
-        `${serverURL.url}auth/forget-password`,
-        { email: passwordData.email }
-      );
-      if (response.data?.success) {
-        toast.success("Password reset link sent to your email!");
-        setShowForgotPassword(false);
-      } else {
-        toast.error(response.data?.message || "Request failed. Please try again.");
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to process request. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleResetPassword = async (e) => {
-    e.preventDefault();
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      toast.error("Passwords don't match!");
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      const response = await axios.post(
-        `${serverURL.url}auth/reset-password/${resetToken}`,
-        {
-          newPassword: passwordData.newPassword,
-          confirmPassword: passwordData.confirmPassword,
-        }
-      );
-      if (response.data?.success) {
-        toast.success("Password reset successfully! Please log in.");
-        setResetPasswordView(false);
-        navigate("/login");
-      } else {
-        toast.error(response.data?.message || "Reset failed. Please try again.");
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to reset password. Please try again.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
+  // Handle delete account
   const handleDeleteAccount = async () => {
     try {
       const authHeaders = getAuthHeaders();
@@ -1036,98 +1216,8 @@ const AdminProfile = () => {
         </div>
       )}
 
-      {/* Forgot Password Modal */}
+      {/* Forgot Password Modal - Following Login.jsx pattern */}
       {showForgotPassword && (
-        <div className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity duration-300 ease-in-out">
-          <div
-            className="bg-white rounded-lg shadow-2xl w-full max-w-md transform transition-all duration-300 ease-out animate-fade-in-up"
-            style={{ animation: "fadeInUp 0.3s ease-out" }}
-          >
-            <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-amber-50">
-              <h2 className="text-xl font-bold text-gray-800">
-                Forgot Password
-              </h2>
-              <button
-                className="text-gray-500 hover:text-gray-700"
-                onClick={resetModals}
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            <form onSubmit={handleForgotPassword} className="p-6">
-              <div className="mb-6">
-                <div className="bg-orange-50 border-l-4 border-orange-500 p-4 mb-6">
-                  <div className="flex items-start">
-                    <AlertTriangle
-                      className="text-orange-500 mr-3 mt-0.5"
-                      size={20}
-                    />
-                    <p className="text-sm text-orange-700">
-                      We'll send you a password reset link to your email
-                      address. Please check your inbox after submitting.
-                    </p>
-                  </div>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="forgotEmail"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="forgotEmail"
-                      name="email"
-                      type="email"
-                      value={passwordData.email}
-                      onChange={handlePasswordChange}
-                      className="w-full pl-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      required
-                    />
-                    <Mail
-                      className="absolute left-3 top-2.5 text-gray-400"
-                      size={18}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-6 flex justify-end space-x-3">
-                <button
-                  type="button"
-                  className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 text-gray-800 transition-colors duration-200 font-medium cursor-pointer"
-                  onClick={resetModals}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors duration-200 shadow-md font-medium cursor-pointer flex items-center"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <RefreshCw className="animate-spin mr-2" size={16} />
-                      Sending...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="mr-2" size={16} />
-                      Send Reset Link
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Reset Password Modal */}
-      {resetPasswordView && (
         <div className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity duration-300 ease-in-out">
           <div
             className="bg-white rounded-lg shadow-2xl w-full max-w-md transform transition-all duration-300 ease-out animate-fade-in-up"
@@ -1139,120 +1229,298 @@ const AdminProfile = () => {
               </h2>
               <button
                 className="text-gray-500 hover:text-gray-700"
-                onClick={resetModals}
+                onClick={resetAllStates}
               >
                 <X size={24} />
               </button>
             </div>
 
-            <form onSubmit={handleResetPassword} className="p-6">
-              <div className="space-y-4">
-                <div>
-                  <label
-                    htmlFor="resetToken"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    Reset Token
-                  </label>
+            <div className="bg-orange-500/20 backdrop-blur-sm border border-orange-400/50 rounded-lg p-4 m-6 mb-4">
+              <div className="flex items-start">
+                <AlertTriangle
+                  className="text-orange-500 mr-3 mt-0.5 flex-shrink-0"
+                  size={20}
+                />
+                <p className="text-sm text-orange-700">
+                  We'll send a 6-digit OTP to your email address. Please check
+                  your inbox and spam folder.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSendResetOtp} className="p-6 pt-0">
+              <div className="form-control mb-4">
+                <label
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                  htmlFor="resetEmail"
+                >
+                  Email Address
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                    <Mail className="w-5 h-5 text-orange-500" />
+                  </div>
                   <input
-                    id="resetToken"
-                    type="text"
-                    value={resetToken}
-                    onChange={(e) => setResetToken(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    placeholder="Enter token from email"
+                    id="resetEmail"
+                    name="resetEmail"
+                    type="email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="Enter your email address"
+                    className="pl-10 w-full py-3 px-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
                     required
                   />
                 </div>
-
-                <div>
-                  <label
-                    htmlFor="resetNewPassword"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    New Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="resetNewPassword"
-                      name="newPassword"
-                      type={showNewPassword ? "text" : "password"}
-                      value={passwordData.newPassword}
-                      onChange={handlePasswordChange}
-                      className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      required
-                      minLength="6"
-                    />
-                    <Key
-                      className="absolute left-3 top-2.5 text-gray-400"
-                      size={18}
-                    />
-                    <button
-                      type="button"
-                      className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
-                      onClick={() => setShowNewPassword(!showNewPassword)}
-                    >
-                      {showNewPassword ? (
-                        <EyeOff size={18} />
-                      ) : (
-                        <Eye size={18} />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="resetConfirmPassword"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    Confirm New Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="resetConfirmPassword"
-                      name="confirmPassword"
-                      type={showNewPassword ? "text" : "password"}
-                      value={passwordData.confirmPassword}
-                      onChange={handlePasswordChange}
-                      className="w-full pl-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      required
-                    />
-                    <Key
-                      className="absolute left-3 top-2.5 text-gray-400"
-                      size={18}
-                    />
-                  </div>
-                </div>
               </div>
 
-              <div className="mt-6 flex justify-end space-x-3">
+              <div className="flex space-x-3 pt-2">
                 <button
                   type="button"
-                  className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 text-gray-800 transition-colors duration-200 font-medium cursor-pointer"
-                  onClick={resetModals}
+                  onClick={resetAllStates}
+                  disabled={isSubmittingReset}
+                  className="flex-1 py-3 rounded-md bg-gray-200 text-gray-800 font-medium hover:bg-gray-300 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors duration-200 shadow-md font-medium cursor-pointer flex items-center"
-                  disabled={isSubmitting}
+                  disabled={isSubmittingReset}
+                  className="flex-1 py-3 rounded-md bg-orange-500 text-white font-medium hover:bg-orange-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                 >
-                  {isSubmitting ? (
+                  {isSubmittingReset ? (
                     <>
                       <RefreshCw className="animate-spin mr-2" size={16} />
-                      Resetting...
+                      Sending...
                     </>
                   ) : (
                     <>
-                      <Save className="mr-2" size={16} />
-                      Reset Password
+                      <Send className="mr-2" size={16} />
+                      Send OTP
                     </>
                   )}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* OTP Verification and Password Reset Modal - Following Login.jsx pattern */}
+      {showOtpModal && (
+        <div className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm flex items-center justify-center z-50 px-4 py-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-md mx-auto animate-fade-in-up max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-amber-50">
+              <h2 className="text-xl font-bold text-gray-800">Reset Password</h2>
+              <button
+                onClick={resetAllStates}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="bg-blue-500/20 backdrop-blur-sm border border-blue-400/50 rounded-lg p-3 m-6 mb-4">
+              <div className="flex items-start">
+                <KeyRound
+                  className="text-blue-500 mr-2 mt-0.5 flex-shrink-0"
+                  size={18}
+                />
+                <div>
+                  <p className="text-xs text-blue-700 mb-1">
+                    OTP sent to{" "}
+                    <span className="font-medium">{resetEmail}</span>
+                  </p>
+                  <p className="text-xs text-blue-600">
+                    Enter OTP and new password. Expires in 10 minutes.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <form onSubmit={handleResetPassword} className="p-6 pt-0">
+              <div className="space-y-3">
+                <div className="form-control">
+                  <label
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                    htmlFor="otp"
+                  >
+                    Enter OTP
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                      <KeyRound className="w-4 h-4 text-orange-500" />
+                    </div>
+                    <input
+                      id="otp"
+                      name="otp"
+                      type="text"
+                      value={otp}
+                      onChange={(e) =>
+                        setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                      }
+                      placeholder="123456"
+                      className="pl-9 w-full py-2.5 px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 text-center text-lg tracking-widest"
+                      maxLength="6"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-control">
+                  <label
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                    htmlFor="resetNewPassword"
+                  >
+                    New Password
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                      <Lock className="w-4 h-4 text-orange-500" />
+                    </div>
+                    <input
+                      id="resetNewPassword"
+                      name="resetNewPassword"
+                      type={showResetNewPassword ? "text" : "password"}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Enter new password"
+                      className="pl-9 w-full py-2.5 px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      minLength="6"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-control">
+                  <label
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                    htmlFor="resetConfirmPassword"
+                  >
+                    Confirm Password
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                      <Lock className="w-4 h-4 text-orange-500" />
+                    </div>
+                    <input
+                      id="resetConfirmPassword"
+                      name="resetConfirmPassword"
+                      type={showResetNewPassword ? "text" : "password"}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Confirm new password"
+                      className="pl-9 w-full py-2.5 px-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      minLength="6"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <input
+                      id="show-reset-password"
+                      type="checkbox"
+                      checked={showResetNewPassword}
+                      onChange={() => setShowResetNewPassword(!showResetNewPassword)}
+                      className="w-3 h-3 rounded border-orange-300 text-orange-600 focus:ring-orange-500"
+                    />
+                    <label
+                      htmlFor="show-reset-password"
+                      className="ml-2 block text-xs text-gray-700"
+                    >
+                      Show passwords
+                    </label>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleResendOtp}
+                    disabled={isSubmittingReset}
+                    className="text-xs text-orange-600 hover:text-orange-800 font-medium underline underline-offset-2 hover:underline-offset-4 transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmittingReset ? "Sending..." : "Resend OTP"}
+                  </button>
+                </div>
+
+                <div className="flex space-x-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowOtpModal(false);
+                      setShowForgotPassword(true);
+                      setOtp("");
+                      setNewPassword("");
+                      setConfirmPassword("");
+                    }}
+                    disabled={isSubmittingOtp}
+                    className="flex-1 py-2.5 rounded-md bg-gray-200 text-gray-800 font-medium hover:bg-gray-300 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={
+                      isSubmittingOtp ||
+                      otp.length !== 6 ||
+                      !newPassword ||
+                      !confirmPassword ||
+                      newPassword !== confirmPassword
+                    }
+                    className="flex-1 py-2.5 rounded-md bg-orange-500 text-white font-medium hover:bg-orange-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-sm"
+                  >
+                    {isSubmittingOtp ? (
+                      <>
+                        <RefreshCw className="animate-spin mr-1" size={14} />
+                        Resetting...
+                      </>
+                    ) : (
+                      <>
+                        <KeyRound className="mr-1" size={14} />
+                        Reset Password
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal - Following Login.jsx pattern */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-md mx-auto animate-fade-in-up">
+            <div className="p-8 text-center">
+              <div className="bg-green-500/20 backdrop-blur-sm border border-green-400/50 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6">
+                <svg
+                  className="w-10 h-10 text-green-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </div>
+
+              <h3 className="text-2xl font-bold text-gray-800 mb-4">Success!</h3>
+
+              <p className="text-gray-600 mb-8 leading-relaxed">
+                {successMessage}
+              </p>
+
+              <button
+                onClick={closeSuccessModal}
+                className="w-full py-3 rounded-md bg-orange-500 text-white font-medium hover:bg-orange-600 transition-colors duration-200"
+              >
+                Continue
+              </button>
+            </div>
           </div>
         </div>
       )}

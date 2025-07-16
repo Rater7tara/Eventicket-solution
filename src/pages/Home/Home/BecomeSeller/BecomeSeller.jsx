@@ -8,7 +8,7 @@ const BecomeSeller = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    shopName: '',
+    organizationName: '',
     bio: '',
     contactNumber: '',
     address: '',
@@ -44,7 +44,7 @@ const BecomeSeller = () => {
         setFormData({
           name: '',
           email: '',
-          shopName: '',
+          organizationName: '',
           bio: '',
           contactNumber: '',
           address: '',
@@ -146,17 +146,17 @@ const BecomeSeller = () => {
 
                   {/* Shop Name */}
                   <div className="col-span-1">
-                    <label className="block text-gray-700 font-medium mb-2" htmlFor="shopName">
-                      Shop Name
+                    <label className="block text-gray-700 font-medium mb-2" htmlFor="organizationName">
+                      Organization Name
                     </label>
                     <input
                       type="text"
-                      id="shopName"
-                      name="shopName"
+                      id="organizationName"
+                      name="organizationName"
                       placeholder="Awesome Tickets"
                       required
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
-                      value={formData.shopName}
+                      value={formData.organizationName}
                       onChange={handleChange}
                     />
                   </div>
