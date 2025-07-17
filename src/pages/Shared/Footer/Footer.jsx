@@ -66,7 +66,7 @@ const Footer = () => {
               </Link>
             </div>
             <p className="text-gray-600 leading-relaxed">
-              Your premier destination for Event n tickets. Experience the thrill of live music with easy booking and secure transactions.
+              Your premier destination for Events n tickets. Experience the thrill of live music with easy booking and secure transactions.
             </p>
             <div className="flex space-x-4">
               <a href="https://www.facebook.com/share/1BUxxEVuy7/?mibextid=wwXIfr" className="w-10 h-10 rounded-full bg-orange-500 text-white flex items-center justify-center transform transition-transform duration-300 hover:scale-110 hover:bg-orange-600">
@@ -206,7 +206,7 @@ const Footer = () => {
       <div className="py-6 border-t border-orange-200">
         <div className="container mx-auto px-6 flex flex-col md:flex-row justify-between items-center">
           <p className="text-gray-600 text-sm mb-4 md:mb-0">
-            © {new Date().getFullYear()} Event n Tickets. All rights reserved.
+            © {new Date().getFullYear()} Events n Tickets. All rights reserved.
           </p>
           <div className="flex items-center space-x-1">
             <span className="text-gray-500 text-sm mr-2">Developed By</span>
