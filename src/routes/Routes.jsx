@@ -48,6 +48,8 @@ import ManageBanner from "../pages/Dashboard/AdminDashborad/ManageBanner/ManageB
 import ResetPassword from "../pages/Login/ResetPassword/ResetPassword";
 import SellerReport from "../pages/Dashboard/SellerDashboard/TicketSellReport/SellerReport";
 import SellerEventReport from "../pages/Dashboard/SellerDashboard/TicketSellReport/SellerEventReport";
+import ModeratorCreate from "../pages/Dashboard/AdminDashborad/Reports/ModeratorCreate";
+import ViewAllModerators from "../pages/Dashboard/AdminDashborad/Reports/ViewAllModerators ";
 
 export const router = createBrowserRouter([
   {
@@ -196,6 +198,14 @@ export const router = createBrowserRouter([
       {
         path: "reports/event/:eventId",
         element: <EventReport />,
+      },
+      {
+        path: "event/:eventId/create-moderator",
+        element: <ModeratorCreate />,
+      },
+      {
+        path: "event/:eventId/moderators",
+        element: <ViewAllModerators />,
       },
 
       // Seller specific routes

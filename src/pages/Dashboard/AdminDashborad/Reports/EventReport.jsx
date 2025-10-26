@@ -28,6 +28,7 @@ import {
   QrCode,
   X,
   Scan,
+  Shield, UserPlus
 } from "lucide-react";
 import serverURL from "../../../../ServerConfig";
 import { AuthContext } from "../../../../providers/AuthProvider";
@@ -164,11 +165,9 @@ const EventReport = () => {
           </div>
         </div>
         <div
-          className={`text-center ${
-            size === "large" ? "text-sm" : "text-xs"
-          } mt-2 font-mono tracking-wider ${
-            isCancelled ? "text-gray-400" : "text-gray-700"
-          }`}
+          className={`text-center ${size === "large" ? "text-sm" : "text-xs"
+            } mt-2 font-mono tracking-wider ${isCancelled ? "text-gray-400" : "text-gray-700"
+            }`}
         >
           {barcodeId}
         </div>
@@ -448,8 +447,7 @@ const EventReport = () => {
           seatDetails = order.seats
             .map(
               (seat) =>
-                `${seat.section} ${seat.row}${seat.seatNumber} ($${
-                  seat.price || 0
+                `${seat.section} ${seat.row}${seat.seatNumber} ($${seat.price || 0
                 })`
             )
             .join("; ");
@@ -704,7 +702,7 @@ const EventReport = () => {
               <div className="border border-gray-200 rounded-lg p-3">
                 <div className="text-sm font-medium text-gray-700 mb-2">
                   {selectedOrderForBarcode.seats &&
-                  selectedOrderForBarcode.seats.length > 0
+                    selectedOrderForBarcode.seats.length > 0
                     ? `${selectedOrderForBarcode.seats.length} Seat(s)`
                     : "General Admission"}
                 </div>
@@ -965,31 +963,26 @@ const EventReport = () => {
           <div class="header">
             <div class="title">${eventData?.title || "Event Sales Report"}</div>
             <div class="date">Generated: ${new Date().toLocaleDateString(
-              "en-US"
-            )}</div>
+        "en-US"
+      )}</div>
           </div>
           
           <div class="summary">
             <div class="summary-title">Summary</div>
             <div class="summary-grid">
-              <div class="summary-item"><strong>Total Orders:</strong> ${
-                stats.totalOrders
-              }</div>
+              <div class="summary-item"><strong>Total Orders:</strong> ${stats.totalOrders
+        }</div>
               <div class="summary-item"><strong>Total Revenue:</strong> ${formatCurrency(
-                stats.totalRevenue
-              )}</div>
-              <div class="summary-item"><strong>Total Seats:</strong> ${
-                stats.totalSeats
-              }</div>
-              <div class="summary-item"><strong>Successful:</strong> ${
-                stats.successfulOrders
-              }</div>
-              <div class="summary-item"><strong>Pending:</strong> ${
-                stats.pendingOrders
-              }</div>
-              <div class="summary-item"><strong>Failed:</strong> ${
-                stats.failedOrders
-              }</div>
+          stats.totalRevenue
+        )}</div>
+              <div class="summary-item"><strong>Total Seats:</strong> ${stats.totalSeats
+        }</div>
+              <div class="summary-item"><strong>Successful:</strong> ${stats.successfulOrders
+        }</div>
+              <div class="summary-item"><strong>Pending:</strong> ${stats.pendingOrders
+        }</div>
+              <div class="summary-item"><strong>Failed:</strong> ${stats.failedOrders
+        }</div>
             </div>
           </div>
           
@@ -1006,27 +999,26 @@ const EventReport = () => {
             </thead>
             <tbody>
               ${filteredOrders
-                .map((order) => {
-                  const seller = getUserById(order.sellerId);
-                  const buyer = getUserById(order.buyerId);
-                  const verificationInfo = getOrderVerificationStatus(order);
+          .map((order) => {
+            const seller = getUserById(order.sellerId);
+            const buyer = getUserById(order.buyerId);
+            const verificationInfo = getOrderVerificationStatus(order);
 
-                  return `
+            return `
                   <tr>
                     <td>${seller?.name || "N/A"}</td>
                     <td>${buyer?.name || "N/A"}</td>
                     <td>${formatCurrency(order.totalAmount)}</td>
                     <td>${order.quantity || 0}</td>
                     <td>${verificationInfo.status}</td>
-                    <td>${
-                      order.orderTime
-                        ? new Date(order.orderTime).toLocaleDateString()
-                        : "N/A"
-                    }</td>
+                    <td>${order.orderTime
+                ? new Date(order.orderTime).toLocaleDateString()
+                : "N/A"
+              }</td>
                   </tr>
                 `;
-                })
-                .join("")}
+          })
+          .join("")}
             </tbody>
           </table>
         </body>
@@ -1240,7 +1232,7 @@ const EventReport = () => {
     <div className="bg-gray-50 min-h-screen p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        {/* <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
             <div className="flex justify-between items-center">
               <div className="flex-1">
@@ -1272,7 +1264,7 @@ const EventReport = () => {
                   Scan
                 </button>
 
-                {/* EXCEL DOWNLOAD BUTTON - Compact */}
+                
                 <button
                   className="flex items-center px-3 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors duration-200 shadow-sm text-sm cursor-pointer disabled:opacity-50"
                   onClick={downloadExcelReport}
@@ -1309,6 +1301,99 @@ const EventReport = () => {
                   Refresh
                 </button>
               </div>
+            </div>
+          </div>
+        </div> */}
+
+        <div className="bg-white rounded-lg shadow-md p-4 md:p-8 mb-6">
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <button
+                  onClick={() => navigate("/dashboard/events")}
+                  className="text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  <ArrowLeft size={24} />
+                </button>
+                <h1 className="text-2xl md:text-4xl font-bold text-gray-800">
+                  📊 Event Report & Analytics
+                </h1>
+              </div>
+
+              {eventData && (
+                <div className="ml-9">
+                  <h2 className="text-xl md:text-2xl font-semibold text-gray-700 mb-2">
+                    {eventData.title}
+                  </h2>
+                  <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                    <span className="flex items-center">
+                      <Calendar className="mr-2" size={16} />
+                      {new Date(eventData.date).toLocaleDateString()}
+                    </span>
+                    <span className="flex items-center">
+                      <MapPin className="mr-2" size={16} />
+                      {eventData.venue}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 sm:flex-row gap-3">
+              <button
+                onClick={() => navigate(`/dashboard/event/${eventId}/moderators`)}
+                className="flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all font-medium shadow-md"
+                title="View all moderators"
+              >
+                <Shield size={20} className="mr-2" />
+                View Moderators
+              </button>
+
+              <button
+                onClick={() => navigate(`/dashboard/event/${eventId}/create-moderator`)}
+                className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-medium shadow-md"
+                title="Create new moderator for this event"
+              >
+                <UserPlus size={20} className="mr-2" />
+                Create Moderator
+              </button>
+
+              <button
+                onClick={downloadPDFReport}
+                disabled={downloadingPDF}
+                className="flex items-center justify-center px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+              >
+                {downloadingPDF ? (
+                  <>
+                    <RefreshCw className="mr-2 animate-spin" size={20} />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2" size={20} />
+                    Download PDF
+                  </>
+                )}
+              </button>
+
+              {/* Existing Download Excel Button */}
+              <button
+                onClick={downloadExcelReport}
+                disabled={downloadingExcel}
+                className="flex items-center justify-center px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+              >
+                {downloadingExcel ? (
+                  <>
+                    <RefreshCw className="mr-2 animate-spin" size={20} />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <FileSpreadsheet className="mr-2" size={20} />
+                    Download Excel
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -1555,15 +1640,14 @@ const EventReport = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="space-y-1">
                             <span
-                              className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                verificationInfo.status === "Verified"
+                              className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${verificationInfo.status === "Verified"
                                   ? "bg-green-100 text-green-800"
                                   : verificationInfo.status === "Used"
-                                  ? "bg-blue-100 text-blue-800"
-                                  : verificationInfo.status === "Partial"
-                                  ? "bg-orange-100 text-orange-800"
-                                  : "bg-gray-100 text-gray-800"
-                              }`}
+                                    ? "bg-blue-100 text-blue-800"
+                                    : verificationInfo.status === "Partial"
+                                      ? "bg-orange-100 text-orange-800"
+                                      : "bg-gray-100 text-gray-800"
+                                }`}
                             >
                               {verificationInfo.status === "Verified" &&
                                 "✅ All Verified"}
@@ -1619,31 +1703,30 @@ const EventReport = () => {
                                             </span>
                                             <div className="flex gap-1">
                                               <span
-                                                className={`px-1 py-0.5 rounded text-xs ${
-                                                  seatInfo.status === "Verified"
+                                                className={`px-1 py-0.5 rounded text-xs ${seatInfo.status === "Verified"
                                                     ? "bg-green-100 text-green-800"
                                                     : seatInfo.status === "Used"
-                                                    ? "bg-blue-100 text-blue-800"
-                                                    : "bg-gray-100 text-gray-800"
-                                                }`}
+                                                      ? "bg-blue-100 text-blue-800"
+                                                      : "bg-gray-100 text-gray-800"
+                                                  }`}
                                               >
                                                 {seatInfo.status}
                                               </span>
                                               {seatInfo.status ===
                                                 "Verified" && (
-                                                <button
-                                                  onClick={() =>
-                                                    handleSeatVerification(
-                                                      order._id,
-                                                      index,
-                                                      "Used"
-                                                    )
-                                                  }
-                                                  className="px-1 py-0.5 bg-purple-500 text-white rounded text-xs hover:bg-purple-600"
-                                                >
-                                                  Use
-                                                </button>
-                                              )}
+                                                  <button
+                                                    onClick={() =>
+                                                      handleSeatVerification(
+                                                        order._id,
+                                                        index,
+                                                        "Used"
+                                                      )
+                                                    }
+                                                    className="px-1 py-0.5 bg-purple-500 text-white rounded text-xs hover:bg-purple-600"
+                                                  >
+                                                    Use
+                                                  </button>
+                                                )}
                                             </div>
                                           </div>
                                         )
@@ -1712,11 +1795,10 @@ const EventReport = () => {
                             <span className="px-3 py-1 text-gray-500">...</span>
                           )}
                           <button
-                            className={`px-3 py-1 rounded-md cursor-pointer ${
-                              currentPage === page
+                            className={`px-3 py-1 rounded-md cursor-pointer ${currentPage === page
                                 ? "bg-blue-500 text-white"
                                 : "border border-gray-300 text-gray-600 hover:bg-gray-100"
-                            }`}
+                              }`}
                             onClick={() => handlePageChange(page)}
                           >
                             {page}
@@ -1806,11 +1888,10 @@ const EventReport = () => {
                   <button
                     onClick={handleTicketScan}
                     disabled={!scannedTicketId.trim() || isScanning}
-                    className={`w-full py-2 rounded-md transition-all ${
-                      !scannedTicketId.trim() || isScanning
+                    className={`w-full py-2 rounded-md transition-all ${!scannedTicketId.trim() || isScanning
                         ? "bg-gray-300 cursor-not-allowed"
                         : "bg-blue-500 hover:bg-blue-600 cursor-pointer"
-                    } text-white`}
+                      } text-white`}
                   >
                     {isScanning ? (
                       <div className="flex items-center justify-center">
@@ -1827,15 +1908,14 @@ const EventReport = () => {
               {/* Scan Result Display */}
               {scanResult && (
                 <div
-                  className={`border rounded-lg p-4 ${
-                    scanStatus === "success"
+                  className={`border rounded-lg p-4 ${scanStatus === "success"
                       ? "border-green-200 bg-green-50"
                       : scanStatus === "already-used"
-                      ? "border-yellow-200 bg-yellow-50"
-                      : scanStatus === "already-verified"
-                      ? "border-blue-200 bg-blue-50"
-                      : "border-red-200 bg-red-50"
-                  }`}
+                        ? "border-yellow-200 bg-yellow-50"
+                        : scanStatus === "already-verified"
+                          ? "border-blue-200 bg-blue-50"
+                          : "border-red-200 bg-red-50"
+                    }`}
                 >
                   <div className="flex items-center mb-2">
                     {scanStatus === "success" && (
@@ -1851,15 +1931,14 @@ const EventReport = () => {
                       <XCircle className="text-red-600 mr-2" size={20} />
                     )}
                     <h4
-                      className={`font-medium ${
-                        scanStatus === "success"
+                      className={`font-medium ${scanStatus === "success"
                           ? "text-green-800"
                           : scanStatus === "already-used"
-                          ? "text-yellow-800"
-                          : scanStatus === "already-verified"
-                          ? "text-blue-800"
-                          : "text-red-800"
-                      }`}
+                            ? "text-yellow-800"
+                            : scanStatus === "already-verified"
+                              ? "text-blue-800"
+                              : "text-red-800"
+                        }`}
                     >
                       {scanStatus === "success" &&
                         "✅ VERIFIED - Ticket Valid for Entry"}
@@ -1873,15 +1952,14 @@ const EventReport = () => {
                   </div>
 
                   <p
-                    className={`text-sm mb-2 ${
-                      scanStatus === "success"
+                    className={`text-sm mb-2 ${scanStatus === "success"
                         ? "text-green-700"
                         : scanStatus === "already-used"
-                        ? "text-yellow-700"
-                        : scanStatus === "already-verified"
-                        ? "text-blue-700"
-                        : "text-red-700"
-                    }`}
+                          ? "text-yellow-700"
+                          : scanStatus === "already-verified"
+                            ? "text-blue-700"
+                            : "text-red-700"
+                      }`}
                   >
                     {scanResult.message}
                   </p>
