@@ -700,8 +700,8 @@ const EventReport = () => {
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
                 <button
-                  onClick={() => navigate("/dashboard/events")}
-                  className="text-gray-600 hover:text-gray-800 transition-colors"
+                  onClick={() => navigate("/dashboard/reports")}
+                  className="text-gray-600 hover:text-gray-800 transition-colors cursor-pointer"
                 >
                   <ArrowLeft size={24} />
                 </button>
@@ -734,7 +734,7 @@ const EventReport = () => {
                 onClick={() =>
                   navigate(`/dashboard/event/${eventId}/moderators`)
                 }
-                className="flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all font-medium shadow-md"
+                className="flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all font-medium shadow-md cursor-pointer"
                 title="View all moderators"
               >
                 <Shield size={20} className="mr-2" />
@@ -745,7 +745,7 @@ const EventReport = () => {
                 onClick={() =>
                   navigate(`/dashboard/event/${eventId}/create-moderator`)
                 }
-                className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-medium shadow-md"
+                className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-medium shadow-md cursor-pointer"
                 title="Create new moderator for this event"
               >
                 <UserPlus size={20} className="mr-2" />
@@ -755,7 +755,7 @@ const EventReport = () => {
               <button
                 onClick={downloadPDFReport}
                 disabled={downloadingPDF}
-                className="flex items-center justify-center px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+                className="flex items-center justify-center px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md cursor-pointer"
               >
                 {downloadingPDF ? (
                   <>
@@ -773,7 +773,7 @@ const EventReport = () => {
               <button
                 onClick={downloadExcelReport}
                 disabled={downloadingExcel}
-                className="flex items-center justify-center px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+                className="flex items-center justify-center px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md cursor-pointer"
               >
                 {downloadingExcel ? (
                   <>
@@ -1148,7 +1148,7 @@ const EventReport = () => {
               {searchTerm && (
                 <button
                   onClick={() => setSearchTerm("")}
-                  className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200"
+                  className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors duration-200 cursor-pointer"
                 >
                   Clear Search
                 </button>

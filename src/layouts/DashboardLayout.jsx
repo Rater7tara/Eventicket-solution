@@ -163,9 +163,30 @@ const DashboardLayout = () => {
     const links = [...commonLinks, ...(roleLinks[role] || roleLinks.buyer)];
     
     // Check if a link is active
+    // const isActive = (path) => {
+    //     return location.pathname === path;
+    // };
     const isActive = (path) => {
+    // Exact match for dashboard home
+    if (path === '/dashboard') {
         return location.pathname === path;
-    };
+    }
+    
+    // For home page
+    if (path === '/') {
+        return location.pathname === path;
+    }
+    
+    // For all other paths, check if current path starts with the link path
+    // and ensure we're matching a full path segment (not partial)
+    const normalizedPath = path.endsWith('/') ? path.slice(0, -1) : path;
+    const normalizedLocation = location.pathname.endsWith('/') 
+        ? location.pathname.slice(0, -1) 
+        : location.pathname;
+    
+    return normalizedLocation === normalizedPath || 
+           normalizedLocation.startsWith(normalizedPath + '/');
+};
 
     // Handle logout
     const handleLogout = async () => {

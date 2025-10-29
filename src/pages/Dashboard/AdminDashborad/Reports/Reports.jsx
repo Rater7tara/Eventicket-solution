@@ -656,7 +656,7 @@ const Reports = () => {
                       </div>
 
                       <div className="mt-3 pt-3 border-t border-gray-100">
-                        <button className="w-full text-center text-blue-600 text-sm font-medium hover:text-blue-800">
+                        <button className="w-full text-center text-blue-600 text-sm font-medium hover:text-blue-800 cursor-pointer">
                           View Detailed Report →
                         </button>
                       </div>

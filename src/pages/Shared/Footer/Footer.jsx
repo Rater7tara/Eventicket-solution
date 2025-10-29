@@ -211,7 +211,7 @@ const Footer = () => {
           <div className="flex items-center space-x-1">
             <span className="text-gray-500 text-sm mr-2">Developed By</span>
             <Code size={16} className="text-red-500 animate-pulse" />
-            <span className="text-gray-500 text-sm ml-1 font-bold"><a target='_blank' href="http://www.codeclubitsolutions.com">CodeClub It Solution</a></span>
+            <span className="text-gray-500 text-sm ml-1 font-bold"><a target='_blank' href="http://www.codeclubitsolutions.com">CodeClub IT Solutions</a></span>
           </div>
         </div>
       </div>
