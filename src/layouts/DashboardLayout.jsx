@@ -1,50 +1,122 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
-import { Home, UserCircle, LayoutDashboard, Ticket, LogOut, Menu, X, Calendar, Settings, FileText, ShoppingBag } from 'lucide-react';
-import { AuthContext } from '../providers/AuthProvider'; // Adjust the path as needed
+import { Link, Outlet, useLocation, Navigate } from 'react-router-dom';
+import { Home, UserCircle, LayoutDashboard, Ticket, LogOut, Menu, X, Calendar, Settings, FileText, ShoppingBag, Armchair, Puzzle, TicketX, TicketCheck, Tickets, CalendarPlus, CalendarCog, UserCog, Users, FilePlus2, MonitorCog } from 'lucide-react';
+import { AuthContext } from '../providers/AuthProvider';
+import serverURL from '../ServerConfig'; // Adjust the path as needed
 
 const DashboardLayout = () => {
-    const { user, logOut } = useContext(AuthContext);
-    const [isSidebarOpen, setSidebarOpen] = useState(true);
-    const location = useLocation();
+    const { user, loading, logOut } = useContext(AuthContext);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [userName, setUserName] = useState('User');
+    const [profileImage, setProfileImage] = useState(null);
+    const [imageLoading, setImageLoading] = useState(false);
+    const [imageError, setImageError] = useState(false);
+    const location = useLocation();
     
-    // Get user data from AuthContext and localStorage
-    // Updated key name to match what we saved in the Register component
-    const [role, setRole] = useState('buyer'); // Default to buyer
-    
-    // Load role from localStorage when component mounts
-    useEffect(() => {
-        const storedRole = localStorage.getItem('user-role');
-        if (storedRole) {
-            console.log("Found role in localStorage:", storedRole);
-            setRole(storedRole);
-        } else {
-            console.log("No role found in localStorage, using default: buyer");
-        }
-    }, []);
-    
-    // Update userName when user object changes - with improved logging
-    useEffect(() => {
-        console.log("User object changed:", user); // Add debugging to see what's in the user object
-        if (user) {
-            if (user.displayName) {
-                setUserName(user.displayName);
-                console.log("Setting userName from displayName:", user.displayName);
-            } else if (user.name) {
-                // Try alternative property if displayName doesn't exist
-                setUserName(user.name);
-                console.log("Setting userName from name:", user.name);
-            } else if (user.email) {
-                // Fallback to email if no name is available
-                setUserName(user.email.split('@')[0]);
-                console.log("Setting userName from email:", user.email);
+    // Get auth token from localStorage
+    const getAuthToken = () => {
+        return localStorage.getItem("auth-token");
+    };
+
+    // Fetch user profile to get profile image
+    const fetchUserProfile = async () => {
+        try {
+            setImageLoading(true);
+            const token = getAuthToken();
+            
+            if (!token) {
+                console.log('No auth token found');
+                return;
             }
+
+            const response = await fetch(`${serverURL.url}auth/profile`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                
+                if (result?.success && result?.data) {
+                    const profileData = result.data;
+                    
+                    // Update user name
+                    if (profileData.name) {
+                        setUserName(profileData.name);
+                    } else if (profileData.email) {
+                        setUserName(profileData.email.split('@')[0]);
+                    }
+                    
+                    // Set profile image if exists
+                    if (profileData.profileImg) {
+                        setProfileImage(profileData.profileImg);
+                    }
+                }
+            } else {
+                console.error('Failed to fetch profile:', response.status);
+            }
+        } catch (error) {
+            console.error('Error fetching user profile:', error);
+        } finally {
+            setImageLoading(false);
+        }
+    };
+    
+    useEffect(() => {
+        if (user) {
+            // Set initial user name from context
+            if (user.name) {
+                setUserName(user.name);
+            } else if (user.email) {
+                setUserName(user.email.split('@')[0]);
+            }
+            
+            // Set initial profile image from context if available
+            if (user.profileImg) {
+                setProfileImage(user.profileImg);
+            }
+            
+            // Fetch fresh profile data to get updated info
+            fetchUserProfile();
         }
     }, [user]);
+
+    // Handle profile image error
+    const handleImageError = () => {
+        setImageError(true);
+        setProfileImage(null);
+    };
+
+    // Handle profile image load success
+    const handleImageLoad = () => {
+        setImageError(false);
+    };
+    
+    // Show loading spinner while checking authentication
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center min-h-screen bg-orange-50">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
+            </div>
+        );
+    }
+    
+    // If not logged in, redirect to login
+    if (!user) {
+        return <Navigate to="/login" state={{ from: location }} replace />;
+    }
+    
+    // Get role directly from user object, default to 'buyer' if not present
+    const userRole = user.role || 'buyer';
+    
+    // Treat 'user' role the same as 'buyer' role for dashboard purposes
+    const role = userRole === 'user' ? 'buyer' : userRole;
     
     // Format role for display (capitalize first letter)
-    const formattedRole = role.charAt(0).toUpperCase() + role.slice(1);
+    const formattedRole = userRole.charAt(0).toUpperCase() + userRole.slice(1);
     
     const commonLinks = [
         { to: '/', label: 'Home', icon: <Home size={20} /> },
@@ -53,39 +125,73 @@ const DashboardLayout = () => {
 
     const roleLinks = {
         admin: [
-            { to: '/dashboard/manage-users', label: 'Manage Users', icon: <UserCircle size={20} /> },
-            { to: '/dashboard/manage-events', label: 'Manage Events', icon: <Calendar size={20} /> },
+            { to: '/dashboard/manage-banner', label: 'Manage Banner', icon: <MonitorCog size={20} /> },
+            { to: '/dashboard/create-events', label: 'Create Events', icon: <CalendarPlus size={20} /> },
+            { to: '/dashboard/manage-events', label: 'Manage All Events', icon: <CalendarCog size={20} /> },
+            { to: '/dashboard/my-events', label: 'My Events', icon: <Calendar size={20} /> },
+            { to: '/dashboard/coupons', label: 'My Coupons', icon: <Puzzle size={20} /> },
+            { to: '/dashboard/my-tickets', label: 'My Tickets', icon: <Tickets size={20} /> },
+            { to: '/dashboard/admin-cancel-ticket', label: 'Cancel Tickets', icon: <TicketX size={20} /> },
+            // { to: '/dashboard/cancel-ticket', label: 'Cancel Tickets', icon: <Ticket size={20} /> },
+            { to: '/dashboard/sold-tickets', label: 'Sold Tickets', icon: <TicketCheck size={20} /> },
+            { to: '/dashboard/my-reservation', label: 'My Reservation', icon: <Armchair size={20} /> },
+            { to: '/dashboard/manage-users', label: 'Manage Users', icon: <UserCog size={20} /> },
+            { to: '/dashboard/manage-sellers', label: 'Manage Seller', icon: <Users size={20} /> },
             { to: '/dashboard/reports', label: 'Reports', icon: <FileText size={20} /> },
-            { to: '/dashboard/settings', label: 'Settings', icon: <Settings size={20} /> },
+            { to: '/dashboard/add-blogs', label: 'Add Blogs', icon: <FilePlus2 size={20} /> },
+            { to: '/dashboard/admin-profile', label: 'Settings', icon: <Settings size={20} /> },
         ],
         seller: [
+            
+            { to: '/dashboard/add-event', label: 'Add Event', icon: <CalendarPlus size={20} /> },
             { to: '/dashboard/my-events', label: 'My Events', icon: <Calendar size={20} /> },
-            { to: '/dashboard/add-event', label: 'Add Event', icon: <FileText size={20} /> },
+            { to: '/dashboard/coupons', label: 'My Coupons', icon: <Puzzle size={20} /> },
+            { to: '/dashboard/my-reservation', label: 'My Reservation', icon: <Armchair size={20} /> },
+            { to: '/dashboard/my-tickets', label: 'My Tickets', icon: <Tickets size={20} /> },
+            { to: '/dashboard/cancel-ticket', label: 'Cancel Tickets', icon: <TicketX size={20} /> },
+            { to: '/dashboard/seller-sold-tickets', label: 'Sold Tickets', icon: <TicketCheck size={20} /> },
             { to: '/dashboard/sales-report', label: 'Sales Report', icon: <ShoppingBag size={20} /> },
-            // { to: '/dashboard/settings', label: 'Settings', icon: <Settings size={20} /> },
+            { to: '/dashboard/seller-profile', label: 'Settings', icon: <Settings size={20} /> },
         ],
         buyer: [
-            { to: '/dashboard/my-tickets', label: 'My Tickets', icon: <Ticket size={20} /> },
-            { to: '/dashboard/purchase-history', label: 'Purchase History', icon: <ShoppingBag size={20} /> },
+            { to: '/dashboard/my-tickets', label: 'My Tickets', icon: <Tickets size={20} /> },
+            { to: '/dashboard/buyer-profile', label: 'Settings', icon: <Settings size={20} /> },
         ],
     };
 
-    // Use the role to determine which links to show
-    const links = [...commonLinks, ...(roleLinks[role] || [])];
+    // Use the role to determine which links to show, defaulting to buyer if invalid role
+    const links = [...commonLinks, ...(roleLinks[role] || roleLinks.buyer)];
     
     // Check if a link is active
+    // const isActive = (path) => {
+    //     return location.pathname === path;
+    // };
     const isActive = (path) => {
+    // Exact match for dashboard home
+    if (path === '/dashboard') {
         return location.pathname === path;
-    };
+    }
+    
+    // For home page
+    if (path === '/') {
+        return location.pathname === path;
+    }
+    
+    // For all other paths, check if current path starts with the link path
+    // and ensure we're matching a full path segment (not partial)
+    const normalizedPath = path.endsWith('/') ? path.slice(0, -1) : path;
+    const normalizedLocation = location.pathname.endsWith('/') 
+        ? location.pathname.slice(0, -1) 
+        : location.pathname;
+    
+    return normalizedLocation === normalizedPath || 
+           normalizedLocation.startsWith(normalizedPath + '/');
+};
 
     // Handle logout
     const handleLogout = async () => {
         try {
             await logOut();
-            // Clear role from localStorage on logout
-            localStorage.removeItem('user-role');
-            localStorage.removeItem('access-token');
-            // Navigate to home page will be handled by the auth provider
         } catch (error) {
             console.error('Logout error:', error);
         }
@@ -93,15 +199,40 @@ const DashboardLayout = () => {
 
     // Toggle sidebar visibility (for mobile)
     const toggleSidebar = () => {
-        setSidebarOpen(!isSidebarOpen);
+        setIsSidebarOpen(!isSidebarOpen);
     };
 
-    // Debugging helper - render this somewhere hidden if needed
-    const debugOutput = process.env.NODE_ENV === 'development' ? (
-        <div className="hidden">
-            <pre>{JSON.stringify({ user, userName, role }, null, 2)}</pre>
-        </div>
-    ) : null;
+    // Profile Image Component
+    const ProfileImageComponent = () => {
+        if (imageLoading) {
+            return (
+                <div className="w-14 h-14 rounded-full bg-orange-300 flex items-center justify-center border-2 border-white shadow-md">
+                    <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-white"></div>
+                </div>
+            );
+        }
+
+        if (profileImage && !imageError) {
+            return (
+                <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-white shadow-md bg-orange-300">
+                    <img
+                        src={profileImage}
+                        alt={userName}
+                        className="w-full h-full object-cover"
+                        onError={handleImageError}
+                        onLoad={handleImageLoad}
+                    />
+                </div>
+            );
+        }
+
+        // Fallback to UserCircle icon
+        return (
+            <div className="w-14 h-14 rounded-full bg-orange-300 flex items-center justify-center border-2 border-white shadow-md">
+                <UserCircle size={32} className="text-white" />
+            </div>
+        );
+    };
 
     return (
         <div className="flex h-screen bg-orange-50">
@@ -122,24 +253,23 @@ const DashboardLayout = () => {
                 {/* User profile section */}
                 <div className="p-6 border-b border-orange-400">
                     <div className="flex items-center space-x-3 mb-4">
-                        <div className="w-14 h-14 rounded-full bg-orange-300 flex items-center justify-center border-2 border-white shadow-md">
-                            {user && user.photoURL ? (
-                                <img 
-                                    src={user.photoURL} 
-                                    alt="Profile" 
-                                    className="w-full h-full rounded-full object-cover"
-                                />
-                            ) : (
-                                <UserCircle size={32} className="text-white" />
-                            )}
-                        </div>
-                        <div>
-                            <h2 className="font-bold text-lg text-white">{userName}</h2>
+                        <ProfileImageComponent />
+                        <div className="flex-1 min-w-0">
+                            <h2 className="font-bold text-lg text-white truncate">{userName}</h2>
                             <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-orange-200 text-orange-800">
                                 {formattedRole}
                             </div>
                         </div>
                     </div>
+                    
+                    {/* Quick refresh button for profile image */}
+                    {/* <button
+                        onClick={fetchUserProfile}
+                        className="text-xs text-orange-200 hover:text-white transition-colors duration-200 opacity-70 hover:opacity-100"
+                        title="Refresh profile"
+                    >
+                        {imageLoading ? 'Loading...' : 'Refresh Profile'}
+                    </button> */}
                 </div>
                 
                 {/* Navigation links */}
@@ -175,17 +305,21 @@ const DashboardLayout = () => {
             {/* Main content */}
             <main className="flex-1 overflow-y-auto p-6 lg:p-8">
                 <div className="max-w-6xl mx-auto">
-                    {/* Breadcrumb & page title could be added here */}
-                    <div className="mb-6">
-                        <h1 className="text-2xl font-bold text-gray-800">Welcome back, {userName}!</h1>
-                        <p className="text-gray-800">
-                            Here's your {role === 'buyer' ? 'ticket dashboard' : role === 'seller' ? 'event dashboard' : 'admin dashboard'}
-                        </p>
+                    {/* Page header with profile image */}
+                    <div className="mb-6 flex items-center gap-4">
+                        <div className="hidden sm:block">
+                            <ProfileImageComponent />
+                        </div>
+                        <div>
+                            <h1 className="text-2xl font-bold text-gray-800">Welcome back, {userName}!</h1>
+                            <p className="text-gray-600">
+                                Here's your {role === 'buyer' ? 'ticket dashboard' : role === 'seller' ? 'event dashboard' : 'admin dashboard'}
+                            </p>
+                        </div>
                     </div>
                     
                     {/* Dashboard content */}
                     <div className="bg-white rounded-xl shadow-lg p-6">
-                        {debugOutput}
                         <Outlet />
                     </div>
                 </div>

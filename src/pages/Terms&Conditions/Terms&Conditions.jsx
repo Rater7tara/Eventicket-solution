@@ -85,7 +85,7 @@ const TermsAndConditions = () => {
             <div className="flex items-center p-4 bg-orange-50 rounded-xl relative z-10">
               <AlertCircle size={24} className="text-orange-500 mr-3 flex-shrink-0" />
               <p className="text-sm text-gray-700">
-                If you have any questions about these Terms & Conditions, please contact us at <span className="text-orange-600 font-medium">support@eventsntickets.com.au</span>
+                If you have any questions about these Terms & Conditions, please contact us at <span className="text-orange-600 font-medium">	info@eventsntickets.com.au</span>
               </p>
             </div>
           </div>

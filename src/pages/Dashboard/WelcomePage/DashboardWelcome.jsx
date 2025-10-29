@@ -5,7 +5,6 @@ import { AuthContext } from '../../../providers/AuthProvider';
 
 const DashboardWelcome = () => {
   const { user } = useContext(AuthContext);
-  const [role, setRole] = useState('buyer');
   const [stats, setStats] = useState({
     totalEvents: 0,
     upcomingEvents: 0,
@@ -14,13 +13,10 @@ const DashboardWelcome = () => {
     revenue: 0
   });
   
-  // Load role from localStorage when component mounts
+  // Get user role directly from the user object in context
+  const role = user?.role || '';
+  
   useEffect(() => {
-    const storedRole = localStorage.getItem('user-role');
-    if (storedRole) {
-      setRole(storedRole);
-    }
-    
     // Load events data for stats
     const loadData = () => {
       try {
@@ -135,7 +131,7 @@ const DashboardWelcome = () => {
         <div className="absolute inset-0 opacity-20 bg-pattern-dots"></div>
         <div className="relative px-8 py-12 md:py-20 text-white">
           <h1 className="text-3xl md:text-4xl font-bold mb-2">
-            {getGreeting()}, {user?.displayName || 'there'}!
+            {getGreeting()}, {user?.name || 'there'}!
           </h1>
           <p className="text-xl opacity-90 mb-8">
             Welcome to your {role === 'buyer' ? 'ticket' : role === 'seller' ? 'event management' : 'admin'} dashboard
