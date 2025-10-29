@@ -1,87 +1,36 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { Calendar, DollarSign, BarChart2, Filter, Download, Search, RefreshCw, Ticket, TrendingUp, Users, Clock, AlertCircle, User } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Calendar, DollarSign, BarChart2, Filter, Download, Search, RefreshCw, Ticket, TrendingUp, Users, Clock, AlertCircle } from 'lucide-react';
 import axios from 'axios';
 import serverURL from '../../../ServerConfig';
 
-// import { AuthContext } from "../../../../providers/AuthProvider"; // Uncomment this line in your actual app
-// import { toast } from "react-toastify"; // Uncomment this line in your actual app
-// import { useNavigate } from "react-router-dom"; // Uncomment this line in your actual app
-
 const SellerDashboard = () => {
-  // const { user } = useContext(AuthContext); // Uncomment this line in your actual app
-  // const navigate = useNavigate(); // Uncomment this line in your actual app
-  
   const [salesData, setSalesData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'orderTime', direction: 'desc' });
-  const [showStats, setShowStats] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
-  const [debugInfo, setDebugInfo] = useState(null);
 
-  // Get auth token from localStorage (following SellerProfile pattern)
+  // Get auth token from localStorage
   const getAuthToken = () => {
-    const token = localStorage.getItem("auth-token");
-    console.log("Retrieved auth token:", token ? `${token.substring(0, 20)}...` : 'null');
-    return token;
+    return localStorage.getItem("auth-token");
   };
 
-  // Set up axios headers with authentication (following SellerProfile pattern)
+  // Set up axios headers with authentication
   const getAuthHeaders = () => {
     const token = getAuthToken();
     if (!token) {
-      const errorMsg = "No authentication token found. Please login again.";
-      console.error(errorMsg);
-      // toast.error(errorMsg); // Uncomment in actual app
-      // navigate('/login'); // Uncomment in actual app
-      setError(errorMsg);
+      setError("Please login to view your dashboard");
       return null;
     }
     
-    const headers = {
+    return {
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
     };
-    
-    console.log("Auth headers prepared:", {
-      ...headers,
-      headers: {
-        ...headers.headers,
-        Authorization: `Bearer ${token.substring(0, 20)}...`
-      }
-    });
-    
-    return headers;
-  };
-
-  // Check if user is authenticated and has seller role
-  const checkAuthStatus = () => {
-    const token = getAuthToken();
-    if (!token) {
-      return { isValid: false, error: "No authentication token found" };
-    }
-
-    try {
-      // Basic token validation (you might want to decode JWT here)
-      const tokenParts = token.split('.');
-      if (tokenParts.length !== 3) {
-        return { isValid: false, error: "Invalid token format" };
-      }
-
-      // You can add JWT decoding here to check expiration and role
-      // const payload = JSON.parse(atob(tokenParts[1]));
-      // if (payload.exp < Date.now() / 1000) {
-      //   return { isValid: false, error: "Token expired" };
-      // }
-
-      return { isValid: true };
-    } catch (err) {
-      return { isValid: false, error: "Token validation failed" };
-    }
   };
 
   // Fetch seller earnings data
@@ -89,93 +38,32 @@ const SellerDashboard = () => {
     try {
       setLoading(true);
       setError(null);
-      setDebugInfo(null);
-      
-      // Check authentication first
-      const authStatus = checkAuthStatus();
-      if (!authStatus.isValid) {
-        throw new Error(authStatus.error);
-      }
 
       const authHeaders = getAuthHeaders();
       if (!authHeaders) return;
 
-      const apiUrl = `${serverURL.url}seller/earnings`;
-      console.log("Making request to:", apiUrl);
-      console.log("Server URL config:", serverURL);
+      const response = await axios.get(`${serverURL.url}seller/earnings`, authHeaders);
 
-      const response = await axios.get(apiUrl, authHeaders);
-
-      console.log("Full API Response:", response);
-      console.log("Response status:", response.status);
-      console.log("Response data:", response.data);
-      
       if (response.data?.success) {
-        const earningsData = response.data.data;
-        console.log("Earnings data structure:", earningsData);
-        console.log("Total earnings:", earningsData?.totalEarnings);
-        console.log("Total tickets sold:", earningsData?.totalTicketsSold);
-        console.log("Orders array:", earningsData?.orders);
-        console.log("Orders length:", earningsData?.orders?.length);
-        
-        setSalesData(earningsData);
-        setDebugInfo({
-          success: true,
-          apiUrl,
-          dataReceived: true,
-          ordersCount: earningsData?.orders?.length || 0,
-          totalEarnings: earningsData?.totalEarnings || 0,
-          totalTickets: earningsData?.totalTicketsSold || 0
-        });
+        setSalesData(response.data.data);
       } else {
-        console.error("API returned success: false", response.data);
-        throw new Error(response.data?.message || "Invalid response format");
+        throw new Error(response.data?.message || "Failed to fetch earnings data");
       }
     } catch (err) {
-      console.error("Complete error object:", err);
-      console.error("Error response:", err.response);
-      console.error("Error response data:", err.response?.data);
-      console.error("Error message:", err.message);
-      console.error("Error status:", err.response?.status);
-      console.error("Error config:", err.config);
-      
-      let errorMessage = "Failed to fetch earnings data. Please try again.";
-      let debugData = {
-        success: false,
-        errorType: err.name || 'Unknown',
-        status: err.response?.status,
-        statusText: err.response?.statusText,
-        apiUrl: err.config?.url,
-        method: err.config?.method?.toUpperCase(),
-        hasAuthHeader: !!err.config?.headers?.Authorization
-      };
+      let errorMessage = "Failed to load dashboard data";
 
       if (err.response?.status === 404) {
-        if (err.response?.data?.message === 'Seller not found') {
-          errorMessage = "Seller account not found. You may need to complete your seller registration.";
-          debugData.suggestion = "Check if you have completed seller onboarding or contact support";
-        } else {
-          errorMessage = "API endpoint not found. Please check if the server is running correctly.";
-          debugData.suggestion = "Verify the API endpoint URL and server status";
-        }
+        errorMessage = "Seller profile not found. Please complete your seller registration.";
       } else if (err.response?.status === 401) {
-        errorMessage = "Authentication failed. Please login again.";
+        errorMessage = "Session expired. Please login again.";
         localStorage.removeItem("auth-token");
-        debugData.suggestion = "Token may be expired or invalid";
-        // navigate('/login'); // Uncomment in actual app
       } else if (err.response?.status === 403) {
-        errorMessage = "Access denied. You don't have permission to view seller data.";
-        debugData.suggestion = "Check if your account has seller privileges";
-      } else if (err.code === 'NETWORK_ERROR' || !err.response) {
-        errorMessage = "Network error. Please check your connection and try again.";
-        debugData.suggestion = "Check internet connection and server availability";
-      } else {
-        errorMessage = err.response?.data?.message || err.message || errorMessage;
+        errorMessage = "Access denied. You don't have seller permissions.";
+      } else if (!err.response) {
+        errorMessage = "Network error. Please check your connection.";
       }
 
       setError(errorMessage);
-      setDebugInfo(debugData);
-      // toast.error(errorMessage); // Uncomment in actual app
     } finally {
       setLoading(false);
     }
@@ -187,35 +75,13 @@ const SellerDashboard = () => {
   }, []);
   
   // Refresh data handler
-  const handleRefresh = async () => {
-    await fetchSalesData();
+  const handleRefresh = () => {
+    fetchSalesData();
   };
 
-  // Clear debug info
-  const clearDebugInfo = () => {
-    setDebugInfo(null);
-  };
-
-  // Handle login redirect (for demo purposes)
-  const handleLoginRedirect = () => {
-    console.log("Redirecting to login...");
-    // navigate('/login'); // Uncomment in actual app
-    alert("In a real app, this would redirect to the login page");
-  };
-
-  // Handle seller registration redirect (for demo purposes)
-  const handleSellerRegistration = () => {
-    console.log("Redirecting to seller registration...");
-    // navigate('/seller/register'); // Uncomment in actual app
-    alert("In a real app, this would redirect to the seller registration page");
-  };
-  
   // Calculate summary statistics
   const calculateStats = () => {
-    console.log("Calculating stats with salesData:", salesData);
-    
-    if (!salesData) {
-      console.log("No salesData found, returning zeros");
+    if (!salesData || !salesData.orders) {
       return { 
         totalSales: 0, 
         totalTickets: 0, 
@@ -227,19 +93,8 @@ const SellerDashboard = () => {
       };
     }
     
-    console.log("salesData.orders:", salesData.orders);
-    console.log("salesData.totalEarnings:", salesData.totalEarnings);
-    console.log("salesData.totalTicketsSold:", salesData.totalTicketsSold);
-    
-    // Handle case where orders might be undefined or empty
-    const orders = salesData.orders || [];
-    console.log("Orders array length:", orders.length);
-    
-    const completedOrders = orders.filter(order => {
-      console.log("Order payment status:", order.paymentStatus);
-      return order.paymentStatus === 'completed' || order.paymentStatus === 'paid';
-    });
-    
+    const orders = salesData.orders;
+    const completedOrders = orders.filter(order => order.paymentStatus === 'success');
     const pendingOrders = orders.filter(order => order.paymentStatus === 'pending');
     
     // Calculate recent orders (last 7 days)
@@ -250,10 +105,7 @@ const SellerDashboard = () => {
     const totalAmount = completedOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
     const avgOrderValue = completedOrders.length > 0 ? totalAmount / completedOrders.length : 0;
     
-    console.log("Completed orders:", completedOrders.length);
-    console.log("Pending orders:", pendingOrders.length);
-    
-    const stats = {
+    return {
       totalSales: salesData.totalEarnings || 0,
       totalTickets: salesData.totalTicketsSold || 0,
       completedSales: completedOrders.length,
@@ -262,19 +114,6 @@ const SellerDashboard = () => {
       avgOrderValue: avgOrderValue,
       recentOrders: recentOrders.length
     };
-    
-    console.log("Calculated stats:", stats);
-    return stats;
-  };
-  
-  // Get event title (you might need to fetch this from another API or include it in the response)
-  const getEventTitle = (eventId) => {
-    return `Event ${eventId.slice(-8)}`;
-  };
-  
-  // Get buyer email (you might need to fetch this from another API or include it in the response)
-  const getBuyerEmail = (buyerId) => {
-    return `buyer-${buyerId.slice(-8)}@example.com`;
   };
   
   // Filter and sort data
@@ -290,11 +129,10 @@ const SellerDashboard = () => {
       // Filter by search term
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
-        const eventTitle = getEventTitle(order.eventId);
-        const buyerEmail = getBuyerEmail(order.buyerId);
         return (
-          eventTitle.toLowerCase().includes(searchLower) ||
-          buyerEmail.toLowerCase().includes(searchLower) ||
+          order.eventId?.title?.toLowerCase().includes(searchLower) ||
+          order.buyerId?.email?.toLowerCase().includes(searchLower) ||
+          order.buyerId?.name?.toLowerCase().includes(searchLower) ||
           order.bookingId.toLowerCase().includes(searchLower)
         );
       }
@@ -351,8 +189,7 @@ const SellerDashboard = () => {
   // Get status badge class
   const getStatusBadge = (status) => {
     switch (status) {
-      case 'completed':
-      case 'paid':
+      case 'success':
         return 'bg-green-100 text-green-800 border-green-200';
       case 'pending':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
@@ -364,9 +201,48 @@ const SellerDashboard = () => {
     }
   };
   
-  // Format seat information
-  const formatSeats = (seats) => {
-    return seats.map(seat => `${seat.section}-${seat.row}${seat.seatNumber}`).join(', ');
+  // Format date
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // Export to CSV
+  const handleExport = () => {
+    if (!salesData || !salesData.orders || salesData.orders.length === 0) return;
+
+    const headers = ['Booking ID', 'Event', 'Buyer Name', 'Buyer Email', 'Date', 'Quantity', 'Amount', 'Status'];
+    const csvData = filteredData.map(order => [
+      order.bookingId,
+      order.eventId?.title || 'N/A',
+      order.buyerId?.name || 'N/A',
+      order.buyerId?.email || 'N/A',
+      formatDate(order.orderTime),
+      order.quantity,
+      order.totalAmount,
+      order.paymentStatus
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `seller-report-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
   };
 
   return (
@@ -376,26 +252,27 @@ const SellerDashboard = () => {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
           <div>
             <h2 className="text-3xl font-bold text-gray-800">Seller Dashboard</h2>
-            <p className="text-gray-600 mt-1">Manage your events and track your sales performance</p>
+            <p className="text-gray-600 mt-1">Track your sales performance and manage earnings</p>
           </div>
           
           <div className="flex items-center space-x-2 mt-4 md:mt-0">
             <button 
               onClick={handleRefresh}
-              className="inline-flex items-center gap-2 p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 transition-colors"
               disabled={loading}
             >
               <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-              <span className="hidden sm:inline">Refresh</span>
+              <span>Refresh</span>
             </button>
             
-            <button 
-              className="inline-flex items-center gap-2 p-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
-              disabled={!salesData}
+            {/* <button 
+              onClick={handleExport}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+              disabled={!salesData || filteredData.length === 0}
             >
               <Download size={16} />
-              <span className="hidden sm:inline">Export Report</span>
-            </button>
+              <span>Export</span>
+            </button> */}
           </div>
         </div>
       </div>
@@ -406,7 +283,7 @@ const SellerDashboard = () => {
           <nav className="-mb-px flex space-x-8 px-6">
             <button
               onClick={() => setActiveTab('overview')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === 'overview'
                   ? 'border-orange-500 text-orange-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -416,7 +293,7 @@ const SellerDashboard = () => {
             </button>
             <button
               onClick={() => setActiveTab('sales')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === 'sales'
                   ? 'border-orange-500 text-orange-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -424,52 +301,24 @@ const SellerDashboard = () => {
             >
               Sales Details
             </button>
-            <button
-              onClick={() => setActiveTab('debug')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'debug'
-                  ? 'border-orange-500 text-orange-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Debug Info
-            </button>
           </nav>
         </div>
       </div>
 
       {/* Error Message */}
       {error && (
-        <div className="bg-red-100 border border-red-500 text-red-700 px-4 py-3 rounded-lg">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <div className="flex items-start space-x-3">
             <AlertCircle size={20} className="text-red-600 mt-0.5 flex-shrink-0" />
             <div className="flex-grow">
-              <h4 className="font-semibold mb-1">Error Loading Dashboard</h4>
-              <p className="mb-3">{error}</p>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={handleRefresh}
-                  className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-                >
-                  Retry
-                </button>
-                {error.includes('not found') && (
-                  <button
-                    onClick={handleSellerRegistration}
-                    className="px-3 py-1 bg-orange-600 text-white rounded text-sm hover:bg-orange-700"
-                  >
-                    Complete Seller Setup
-                  </button>
-                )}
-                {error.includes('login') && (
-                  <button
-                    onClick={handleLoginRedirect}
-                    className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
-                  >
-                    Login Again
-                  </button>
-                )}
-              </div>
+              <h4 className="font-semibold text-red-800 mb-1">Error</h4>
+              <p className="text-red-700 text-sm">{error}</p>
+              <button
+                onClick={handleRefresh}
+                className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
+              >
+                Retry
+              </button>
             </div>
           </div>
         </div>
@@ -486,167 +335,84 @@ const SellerDashboard = () => {
       )}
 
       {/* Dashboard Content */}
-      {!loading && (
+      {!loading && !error && salesData && (
         <>
-          {activeTab === 'debug' && (
-            <div className="space-y-4">
-              {/* Debug Information */}
-              <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
-                <div className="flex justify-between items-start mb-3">
-                  <h3 className="font-semibold text-blue-800">🔍 Debug Information</h3>
-                  {debugInfo && (
-                    <button
-                      onClick={clearDebugInfo}
-                      className="text-blue-600 hover:text-blue-800 text-sm"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-                
-                {debugInfo ? (
-                  <div className="text-sm text-blue-700 space-y-2">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <h4 className="font-medium mb-2">Request Details:</h4>
-                        <ul className="space-y-1">
-                          <li><strong>Success:</strong> {debugInfo.success ? 'Yes' : 'No'}</li>
-                          <li><strong>API URL:</strong> {debugInfo.apiUrl}</li>
-                          <li><strong>Method:</strong> {debugInfo.method || 'GET'}</li>
-                          <li><strong>Auth Header:</strong> {debugInfo.hasAuthHeader ? 'Present' : 'Missing'}</li>
-                        </ul>
-                      </div>
-                      
-                      <div>
-                        <h4 className="font-medium mb-2">Response Details:</h4>
-                        <ul className="space-y-1">
-                          <li><strong>Status:</strong> {debugInfo.status} {debugInfo.statusText}</li>
-                          <li><strong>Error Type:</strong> {debugInfo.errorType || 'N/A'}</li>
-                          {debugInfo.success && (
-                            <>
-                              <li><strong>Orders Count:</strong> {debugInfo.ordersCount}</li>
-                              <li><strong>Total Earnings:</strong> ${debugInfo.totalEarnings}</li>
-                              <li><strong>Total Tickets:</strong> {debugInfo.totalTickets}</li>
-                            </>
-                          )}
-                        </ul>
-                      </div>
-                    </div>
-                    
-                    {debugInfo.suggestion && (
-                      <div className="mt-3 p-3 bg-blue-100 rounded">
-                        <strong>Suggestion:</strong> {debugInfo.suggestion}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-blue-700">No debug information available. Try refreshing the data.</p>
-                )}
-              </div>
-
-              {/* Auth Token Info */}
-              <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
-                <h3 className="font-semibold text-yellow-800 mb-2">🔐 Authentication Status</h3>
-                <div className="text-sm text-yellow-700">
-                  {(() => {
-                    const token = getAuthToken();
-                    const authStatus = checkAuthStatus();
-                    return (
-                      <div className="space-y-1">
-                        <p><strong>Token Present:</strong> {token ? 'Yes' : 'No'}</p>
-                        {token && (
-                          <>
-                            <p><strong>Token Preview:</strong> {token.substring(0, 20)}...</p>
-                            <p><strong>Token Valid:</strong> {authStatus.isValid ? 'Yes' : 'No'}</p>
-                            {!authStatus.isValid && (
-                              <p><strong>Validation Error:</strong> {authStatus.error}</p>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-
-              {/* Server Config Info */}
-              <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
-                <h3 className="font-semibold text-gray-800 mb-2">⚙️ Server Configuration</h3>
-                <div className="text-sm text-gray-700">
-                  <p><strong>Base URL:</strong> {serverURL.url}</p>
-                  <p><strong>Full Endpoint:</strong> {serverURL.url}seller/earnings</p>
-                </div>
-              </div>
-            </div>
-          )}
-
           {activeTab === 'overview' && (
             <div className="space-y-6">
               {/* Key Metrics */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-gray-500 text-sm">Total Earnings</p>
-                      <h3 className="text-2xl font-bold text-gray-800">${stats.totalSales.toLocaleString()}</h3>
-                      <p className="text-xs text-green-600 mt-1">+12% from last month</p>
+                      <p className="text-gray-500 text-sm font-medium">Total Earnings</p>
+                      <h3 className="text-2xl font-bold text-gray-800 mt-1">
+                        ${stats.totalSales.toLocaleString()}
+                      </h3>
                     </div>
                     <div className="p-3 bg-green-100 rounded-full">
-                      <DollarSign size={20} className="text-green-600" />
+                      <DollarSign size={24} className="text-green-600" />
                     </div>
                   </div>
                 </div>
                 
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-gray-500 text-sm">Tickets Sold</p>
-                      <h3 className="text-2xl font-bold text-gray-800">{stats.totalTickets.toLocaleString()}</h3>
-                      <p className="text-xs text-green-600 mt-1">+8% from last month</p>
+                      <p className="text-gray-500 text-sm font-medium">Tickets Sold</p>
+                      <h3 className="text-2xl font-bold text-gray-800 mt-1">
+                        {stats.totalTickets.toLocaleString()}
+                      </h3>
                     </div>
                     <div className="p-3 bg-blue-100 rounded-full">
-                      <Ticket size={20} className="text-blue-600" />
+                      <Ticket size={24} className="text-blue-600" />
                     </div>
                   </div>
                 </div>
                 
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-gray-500 text-sm">Total Orders</p>
-                      <h3 className="text-2xl font-bold text-gray-800">{stats.totalOrders}</h3>
-                      <p className="text-xs text-blue-600 mt-1">{stats.recentOrders} in last 7 days</p>
+                      <p className="text-gray-500 text-sm font-medium">Total Orders</p>
+                      <h3 className="text-2xl font-bold text-gray-800 mt-1">
+                        {stats.totalOrders}
+                      </h3>
+                      <p className="text-xs text-blue-600 mt-1">
+                        {stats.recentOrders} in last 7 days
+                      </p>
                     </div>
                     <div className="p-3 bg-indigo-100 rounded-full">
-                      <BarChart2 size={20} className="text-indigo-600" />
+                      <BarChart2 size={24} className="text-indigo-600" />
                     </div>
                   </div>
                 </div>
                 
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-gray-500 text-sm">Avg Order Value</p>
-                      <h3 className="text-2xl font-bold text-gray-800">${stats.avgOrderValue.toFixed(2)}</h3>
-                      <p className="text-xs text-orange-600 mt-1">Per transaction</p>
+                      <p className="text-gray-500 text-sm font-medium">Avg Order Value</p>
+                      <h3 className="text-2xl font-bold text-gray-800 mt-1">
+                        ${stats.avgOrderValue.toFixed(2)}
+                      </h3>
                     </div>
                     <div className="p-3 bg-orange-100 rounded-full">
-                      <TrendingUp size={20} className="text-orange-600" />
+                      <TrendingUp size={24} className="text-orange-600" />
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Status Overview */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-gray-500 text-sm">Completed Orders</p>
-                      <h3 className="text-2xl font-bold text-green-600">{stats.completedSales}</h3>
+                      <p className="text-gray-500 text-sm font-medium">Completed Orders</p>
+                      <h3 className="text-3xl font-bold text-green-600 mt-2">
+                        {stats.completedSales}
+                      </h3>
                     </div>
                     <div className="p-3 bg-green-100 rounded-full">
-                      <Users size={20} className="text-green-600" />
+                      <Users size={24} className="text-green-600" />
                     </div>
                   </div>
                 </div>
@@ -654,11 +420,13 @@ const SellerDashboard = () => {
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-gray-500 text-sm">Pending Orders</p>
-                      <h3 className="text-2xl font-bold text-yellow-600">{stats.pendingSales}</h3>
+                      <p className="text-gray-500 text-sm font-medium">Pending Orders</p>
+                      <h3 className="text-3xl font-bold text-yellow-600 mt-2">
+                        {stats.pendingSales}
+                      </h3>
                     </div>
                     <div className="p-3 bg-yellow-100 rounded-full">
-                      <Clock size={20} className="text-yellow-600" />
+                      <Clock size={24} className="text-yellow-600" />
                     </div>
                   </div>
                 </div>
@@ -666,27 +434,29 @@ const SellerDashboard = () => {
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-gray-500 text-sm">Success Rate</p>
-                      <h3 className="text-2xl font-bold text-blue-600">
-                        {stats.totalOrders > 0 ? Math.round((stats.completedSales / stats.totalOrders) * 100) : 0}%
+                      <p className="text-gray-500 text-sm font-medium">Success Rate</p>
+                      <h3 className="text-3xl font-bold text-blue-600 mt-2">
+                        {stats.totalOrders > 0 
+                          ? Math.round((stats.completedSales / stats.totalOrders) * 100) 
+                          : 0}%
                       </h3>
                     </div>
                     <div className="p-3 bg-blue-100 rounded-full">
-                      <TrendingUp size={20} className="text-blue-600" />
+                      <TrendingUp size={24} className="text-blue-600" />
                     </div>
                   </div>
                 </div>
-              </div>
+              </div> */}
 
               {/* Recent Orders Preview */}
-              {salesData && salesData.orders && salesData.orders.length > 0 && (
+              {salesData.orders && salesData.orders.length > 0 && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100">
                   <div className="p-6 border-b border-gray-200">
                     <div className="flex justify-between items-center">
                       <h3 className="text-lg font-semibold text-gray-800">Recent Orders</h3>
                       <button
                         onClick={() => setActiveTab('sales')}
-                        className="text-orange-600 hover:text-orange-700 text-sm font-medium"
+                        className="text-orange-600 hover:text-orange-700 text-sm font-medium transition-colors"
                       >
                         View All →
                       </button>
@@ -695,19 +465,31 @@ const SellerDashboard = () => {
                   <div className="p-6">
                     <div className="space-y-4">
                       {salesData.orders.slice(0, 5).map((order) => (
-                        <div key={order._id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                        <div 
+                          key={order._id} 
+                          className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                        >
                           <div className="flex items-center space-x-4">
-                            <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-                              <Ticket size={16} className="text-orange-600" />
+                            <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
+                              <Ticket size={18} className="text-orange-600" />
                             </div>
                             <div>
-                              <p className="font-medium text-gray-800">{getEventTitle(order.eventId)}</p>
-                              <p className="text-sm text-gray-500">{getBuyerEmail(order.buyerId)}</p>
+                              <p className="font-medium text-gray-800">
+                                {order.eventId?.title || 'Event'}
+                              </p>
+                              <p className="text-sm text-gray-500">
+                                {order.buyerId?.name || order.buyerId?.email || 'Customer'}
+                              </p>
+                              <p className="text-xs text-gray-400 mt-0.5">
+                                {formatDate(order.orderTime)}
+                              </p>
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-semibold text-gray-800">${order.totalAmount}</p>
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(order.paymentStatus)}`}>
+                            <p className="font-semibold text-gray-800 mb-1">
+                              ${order.totalAmount}
+                            </p>
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusBadge(order.paymentStatus)}`}>
                               {order.paymentStatus.charAt(0).toUpperCase() + order.paymentStatus.slice(1)}
                             </span>
                           </div>
@@ -727,27 +509,26 @@ const SellerDashboard = () => {
                 <div className="flex flex-col sm:flex-row gap-4">
                   <div className="relative flex-grow">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Search size={16} className="text-gray-400" />
+                      <Search size={18} className="text-gray-400" />
                     </div>
                     <input
                       type="text"
-                      placeholder="Search by booking ID, event, or buyer"
+                      placeholder="Search by event, buyer, or booking ID..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      className="pl-10 w-full border border-gray-300 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                     />
                   </div>
                   
                   <div className="flex items-center gap-2">
-                    <Filter size={16} className="text-gray-500" />
+                    <Filter size={18} className="text-gray-500" />
                     <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
-                      className="border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      className="border border-gray-300 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent min-w-[150px]"
                     >
                       <option value="all">All Statuses</option>
-                      <option value="completed">Completed</option>
-                      <option value="paid">Paid</option>
+                      <option value="success">Success</option>
                       <option value="pending">Pending</option>
                       <option value="failed">Failed</option>
                       <option value="refunded">Refunded</option>
@@ -757,155 +538,147 @@ const SellerDashboard = () => {
               </div>
 
               {/* Sales Table */}
-              {salesData && (
-                <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
+              <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        {/* <th 
+                          scope="col" 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                          onClick={() => requestSort('bookingId')}
+                        >
+                          Booking ID{getSortIndicator('bookingId')}
+                        </th> */}
+                        <th 
+                          scope="col" 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                          onClick={() => requestSort('eventId')}
+                        >
+                          Event{getSortIndicator('eventId')}
+                        </th>
+                        <th 
+                          scope="col" 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                          onClick={() => requestSort('orderTime')}
+                        >
+                          Order Date{getSortIndicator('orderTime')}
+                        </th>
+                        <th 
+                          scope="col" 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          Buyer
+                        </th>
+                        <th 
+                          scope="col" 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                          onClick={() => requestSort('quantity')}
+                        >
+                          Quantity{getSortIndicator('quantity')}
+                        </th>
+                        <th 
+                          scope="col" 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                          onClick={() => requestSort('totalAmount')}
+                        >
+                          Amount{getSortIndicator('totalAmount')}
+                        </th>
+                        <th 
+                          scope="col" 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                          onClick={() => requestSort('paymentStatus')}
+                        >
+                          Status{getSortIndicator('paymentStatus')}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredData.length === 0 ? (
                         <tr>
-                          <th 
-                            scope="col" 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                            onClick={() => requestSort('bookingId')}
-                          >
-                            Booking ID{getSortIndicator('bookingId')}
-                          </th>
-                          <th 
-                            scope="col" 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                            onClick={() => requestSort('eventId')}
-                          >
-                            Event{getSortIndicator('eventId')}
-                          </th>
-                          <th 
-                            scope="col" 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                            onClick={() => requestSort('orderTime')}
-                          >
-                            Order Date{getSortIndicator('orderTime')}
-                          </th>
-                          <th 
-                            scope="col" 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                          >
-                            Buyer
-                          </th>
-                          <th 
-                            scope="col" 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                            onClick={() => requestSort('quantity')}
-                          >
-                            Quantity{getSortIndicator('quantity')}
-                          </th>
-                          <th 
-                            scope="col" 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                            onClick={() => requestSort('totalAmount')}
-                          >
-                            Amount{getSortIndicator('totalAmount')}
-                          </th>
-                          <th 
-                            scope="col" 
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-                            onClick={() => requestSort('paymentStatus')}
-                          >
-                            Status{getSortIndicator('paymentStatus')}
-                          </th>
+                          <td colSpan="7" className="px-6 py-12 text-center">
+                            <div className="flex flex-col items-center">
+                              <BarChart2 size={48} className="text-gray-300 mb-3" />
+                              <p className="text-gray-500 font-medium">No orders found</p>
+                              <p className="text-gray-400 text-sm mt-1">
+                                {searchTerm || filterStatus !== 'all' 
+                                  ? 'Try adjusting your filters' 
+                                  : 'Orders will appear here once customers make purchases'}
+                              </p>
+                            </div>
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredData.length === 0 ? (
-                          <tr>
-                            <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
-                              <div className="flex flex-col items-center">
-                                <BarChart2 size={48} className="text-gray-300 mb-2" />
-                                <p>No sales records found matching your criteria</p>
+                      ) : (
+                        filteredData.map((order) => (
+                          <tr key={order._id} className="hover:bg-gray-50 transition-colors">
+                            {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
+                              #{order.bookingId.slice(-8)}
+                            </td> */}
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm font-medium text-gray-900">
+                                {order.eventId?.title || 'N/A'}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {new Date(order.eventId?.date).toLocaleDateString()}
                               </div>
                             </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {formatDate(order.orderTime)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">
+                                {order.buyerId?.name || 'N/A'}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {order.buyerId?.email || 'N/A'}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {order.quantity} {order.quantity === 1 ? 'ticket' : 'tickets'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                              ${order.totalAmount.toLocaleString()}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusBadge(order.paymentStatus)}`}>
+                                {order.paymentStatus.charAt(0).toUpperCase() + order.paymentStatus.slice(1)}
+                              </span>
+                            </td>
                           </tr>
-                        ) : (
-                          filteredData.map((order) => (
-                            <tr key={order._id} className="hover:bg-gray-50">
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
-                                #{order.bookingId.slice(-8)}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                {getEventTitle(order.eventId)}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {new Date(order.orderTime).toLocaleDateString()}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {getBuyerEmail(order.buyerId)}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {order.quantity} tickets
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                                ${order.totalAmount}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusBadge(order.paymentStatus)}`}>
-                                  {order.paymentStatus.charAt(0).toUpperCase() + order.paymentStatus.slice(1)}
-                                </span>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                  
-                  {/* Results Summary */}
-                  <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                    <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-sm text-gray-700">
-                          Showing <span className="font-medium">{filteredData.length}</span> of{" "}
-                          <span className="font-medium">{salesData.orders?.length || 0}</span> results
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-              )}
+                
+                {/* Results Summary */}
+                {filteredData.length > 0 && (
+                  <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+                    <p className="text-sm text-gray-700">
+                      Showing <span className="font-medium">{filteredData.length}</span> of{" "}
+                      <span className="font-medium">{salesData.orders?.length || 0}</span> orders
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </>
       )}
 
       {/* Empty State */}
-      {!loading && !error && (!salesData || !salesData.orders || salesData.orders.length === 0) && activeTab !== 'debug' && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12">
+      {!loading && !error && (!salesData || !salesData.orders || salesData.orders.length === 0) && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-16">
           <div className="text-center">
-            {error && error.includes('not found') ? (
-              <>
-                <User size={64} className="text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">Seller Profile Not Found</h3>
-                <p className="text-gray-600 mb-6">
-                  You need to complete your seller registration to access this dashboard.
-                </p>
-                <button 
-                  onClick={handleSellerRegistration}
-                  className="inline-flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
-                >
-                  <User className="mr-2" size={16} />
-                  Complete Seller Setup
-                </button>
-              </>
-            ) : (
-              <>
-                <BarChart2 size={64} className="text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">No Sales Data Yet</h3>
-                <p className="text-gray-600 mb-6">
-                  Start selling tickets to see your earnings and analytics here.
-                </p>
-                <button className="inline-flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">
-                  <Calendar className="mr-2" size={16} />
-                  Create Your First Event
-                </button>
-              </>
-            )}
+            <BarChart2 size={64} className="text-gray-300 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-800 mb-2">No Sales Yet</h3>
+            <p className="text-gray-600 mb-6 max-w-md mx-auto">
+              Start selling tickets to see your earnings and analytics here. Create your first event to get started!
+            </p>
+            <button className="inline-flex items-center px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-medium">
+              <Calendar className="mr-2" size={18} />
+              Create Your First Event
+            </button>
           </div>
         </div>
       )}

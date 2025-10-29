@@ -11,8 +11,9 @@ import visa from "../../../assets/payment/visa.png";
 import master from "../../../assets/payment/master.png";
 
 const stripePromise = loadStripe(
-  "pk_live_QkL9qpFUdlXjYpeqw7cRguzE00vDvU8i1W"
-  // "pk_test_1BSyvkPwDVAlaNVuUyzRGTXN00EN3SVYTn"
+  // "pk_live_QkL9qpFUdlXjYpeqw7cRguzE00vDvU8i1W"
+
+  "pk_test_1BSyvkPwDVAlaNVuUyzRGTXN00EN3SVYTn"
 );
 
 const CheckoutTickets = () => {

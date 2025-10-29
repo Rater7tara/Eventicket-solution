@@ -489,7 +489,7 @@ const Reports = () => {
   }
 
   return (
-    <div className="bg-gray-50 min-h-screen p-6">
+    <div className="bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -505,7 +505,7 @@ const Reports = () => {
                 </p>
               </div>
               <div className="flex gap-3">
-                <button
+                {/* <button
                   className="flex items-center px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors duration-200 shadow-md font-medium cursor-pointer"
                   onClick={downloadExcelReport}
                   disabled={downloadingExcel}
@@ -515,7 +515,7 @@ const Reports = () => {
                     size={16}
                   />
                   {downloadingExcel ? "Generating..." : "Download Excel"}
-                </button>
+                </button> */}
                 <button
                   className="flex items-center px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors duration-200 shadow-md font-medium cursor-pointer"
                   onClick={handleRefresh}

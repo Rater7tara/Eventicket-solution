@@ -942,7 +942,7 @@ const ManageBanner = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 lg:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden mb-6">

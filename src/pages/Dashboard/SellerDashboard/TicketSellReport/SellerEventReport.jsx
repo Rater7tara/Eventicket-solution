@@ -20,14 +20,9 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowLeft,
-  ExternalLink,
   User,
   Mail,
-  Phone,
-  MapPin,
-  QrCode,
-  X,
-  Scan,
+  TrendingUp,
 } from "lucide-react";
 import serverURL from "../../../../ServerConfig";
 import { AuthContext } from "../../../../providers/AuthProvider";
@@ -42,12 +37,12 @@ const SellerEventReport = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [eventOrders, setEventOrders] = useState([]);
-  const [allEvents, setAllEvents] = useState([]);
   const [eventData, setEventData] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   
   // States for search and filtering
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [ordersPerPage] = useState(10);
   const [filteredOrders, setFilteredOrders] = useState([]);
@@ -75,41 +70,6 @@ const SellerEventReport = () => {
     };
   };
 
-  // Fetch all events to resolve event details
-  const fetchAllEvents = async () => {
-    try {
-      const authHeaders = getAuthHeaders();
-      if (!authHeaders) return;
-
-      const response = await axios.get(
-        `${serverURL.url}event/events`,
-        authHeaders
-      );
-      
-      let events = [];
-      if (response.data) {
-        if (Array.isArray(response.data)) {
-          events = response.data;
-        } else if (response.data.events && Array.isArray(response.data.events)) {
-          events = response.data.events;
-        } else if (response.data.data && Array.isArray(response.data.data)) {
-          events = response.data.data;
-        }
-      }
-      
-      setAllEvents(events);
-      
-      // Find current event data
-      const currentEvent = events.find(event => event._id === eventId);
-      if (currentEvent) {
-        setEventData(currentEvent);
-      }
-    } catch (err) {
-      console.error("Error fetching events:", err);
-      setAllEvents([]);
-    }
-  };
-
   // Fetch seller earnings and filter for current event
   const fetchEventOrders = async () => {
     try {
@@ -125,9 +85,17 @@ const SellerEventReport = () => {
         const orders = response.data.data.orders || [];
         
         // Filter orders for this specific event
-        const currentEventOrders = orders.filter(order => order.eventId === eventId);
+        const currentEventOrders = orders.filter(order => {
+          const orderEventId = order.eventId?._id || order.eventId;
+          return orderEventId === eventId;
+        });
         
         setEventOrders(currentEventOrders);
+        
+        // Set event data from the first order if available
+        if (currentEventOrders.length > 0 && currentEventOrders[0].eventId) {
+          setEventData(currentEventOrders[0].eventId);
+        }
       } else {
         throw new Error(response.data?.message || "Invalid response format");
       }
@@ -137,11 +105,16 @@ const SellerEventReport = () => {
     }
   };
 
-  // Filter orders based on search term
+  // Filter orders based on search term and status
   const filterOrders = () => {
     if (!eventOrders) return [];
 
     let filtered = eventOrders;
+
+    // Filter by status
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(order => order.paymentStatus === statusFilter);
+    }
 
     // Filter by search term (booking ID, buyer info)
     if (searchTerm.trim()) {
@@ -149,7 +122,8 @@ const SellerEventReport = () => {
       filtered = filtered.filter(order => {
         return (
           order.bookingId?.toLowerCase().includes(term) ||
-          order.buyerId?.toLowerCase().includes(term) ||
+          order.buyerId?.name?.toLowerCase().includes(term) ||
+          order.buyerId?.email?.toLowerCase().includes(term) ||
           order._id?.toLowerCase().includes(term)
         );
       });
@@ -158,12 +132,12 @@ const SellerEventReport = () => {
     return filtered;
   };
 
-  // Update filtered orders when search term changes
+  // Update filtered orders when search term or status changes
   useEffect(() => {
     const filtered = filterOrders();
     setFilteredOrders(filtered);
     setCurrentPage(1); // Reset to first page when filtering
-  }, [searchTerm, eventOrders]);
+  }, [searchTerm, statusFilter, eventOrders]);
 
   // Download Excel report
   const downloadExcelReport = async () => {
@@ -172,18 +146,34 @@ const SellerEventReport = () => {
 
       // Create worksheet data for detailed event report
       const worksheetData = [];
+      const sellerInfo = eventOrders[0]?.sellerId;
 
-      // Add headers
+      // Add seller information header
+      if (sellerInfo) {
+        worksheetData.push(["SELLER INFORMATION"]);
+        worksheetData.push(["Seller Name", sellerInfo.name || "N/A"]);
+        worksheetData.push(["Email", sellerInfo.email || "N/A"]);
+        worksheetData.push(["Contact Number", sellerInfo.contactNumber || "N/A"]);
+        worksheetData.push([]);
+      }
+
+      // Add event information
+      if (eventData) {
+        worksheetData.push(["EVENT INFORMATION"]);
+        worksheetData.push(["Event Name", eventData.title || "N/A"]);
+        worksheetData.push(["Event Date", eventData.date ? new Date(eventData.date).toLocaleDateString() : "N/A"]);
+        worksheetData.push([]);
+      }
+
+      // Add headers for orders
       worksheetData.push([
-        "Booking ID",
-        "Order ID",
-        "Buyer ID",
+        "Buyer Name",
+        "Buyer Email",
         "Amount",
-        "Payment Status",
-        "Seats",
+        "Quantity",
         "Seat Details",
         "Order Date",
-        "Quantity"
+        "Ticket Code"
       ]);
 
       // Add order data
@@ -199,17 +189,28 @@ const SellerEventReport = () => {
         }
 
         worksheetData.push([
-          order.bookingId || "N/A",
-          order._id || "N/A",
-          order.buyerId || "N/A",
+          order.buyerId?.name || "N/A",
+          order.buyerId?.email || "N/A",
           order.totalAmount || 0,
-          order.paymentStatus || "Unknown",
           order.quantity || 0,
           seatDetails,
           order.orderTime ? new Date(order.orderTime).toLocaleDateString() : "N/A",
-          order.quantity || 0
+          order.ticketCode || "N/A"
         ]);
       });
+
+      // Add summary
+      const stats = calculateStats();
+      worksheetData.push([]);
+      worksheetData.push(["SUMMARY"]);
+      worksheetData.push(["Total Revenue", stats.totalRevenue]);
+      worksheetData.push(["Total Orders", stats.totalOrders]);
+      worksheetData.push(["Total Seats", stats.totalSeats]);
+      worksheetData.push(["Successful Orders", stats.successfulOrders]);
+      worksheetData.push(["Pending Orders", stats.pendingOrders]);
+      worksheetData.push(["Failed Orders", stats.failedOrders]);
+      worksheetData.push(["Success Rate", `${stats.successRate}%`]);
+      worksheetData.push(["Average Order Value", stats.avgOrderValue]);
 
       // Try to create Excel file using SheetJS, fallback to CSV
       try {
@@ -228,15 +229,13 @@ const SellerEventReport = () => {
 
           // Set column widths for better readability
           const colWidths = [
-            { wch: 15 }, // Booking ID
-            { wch: 25 }, // Order ID
-            { wch: 25 }, // Buyer ID
+            { wch: 20 }, // Buyer Name
+            { wch: 25 }, // Buyer Email
             { wch: 12 }, // Amount
-            { wch: 15 }, // Payment Status
-            { wch: 8 },  // Seats
+            { wch: 10 }, // Quantity
             { wch: 30 }, // Seat Details
-            { wch: 12 }, // Order Date
-            { wch: 10 }  // Quantity
+            { wch: 15 }, // Order Date
+            { wch: 15 }  // Ticket Code
           ];
           worksheet["!cols"] = colWidths;
 
@@ -304,6 +303,7 @@ const SellerEventReport = () => {
       setDownloadingPDF(true);
       
       const stats = calculateStats();
+      const sellerInfo = eventOrders[0]?.sellerId;
       
       // Create simple HTML content for PDF
       const htmlContent = `
@@ -322,17 +322,41 @@ const SellerEventReport = () => {
             .header { 
               text-align: center; 
               margin-bottom: 20px; 
-              border-bottom: 1px solid #333; 
+              border-bottom: 2px solid #f97316; 
               padding-bottom: 10px; 
             }
             .title { 
               font-size: 18px; 
               font-weight: bold; 
-              margin-bottom: 5px; 
+              margin-bottom: 5px;
+              color: #f97316;
+            }
+            .subtitle {
+              font-size: 14px;
+              color: #666;
+              margin-bottom: 3px;
             }
             .date { 
               font-size: 12px; 
               color: #666; 
+            }
+            .seller-info {
+              margin: 15px 0;
+              padding: 10px;
+              background-color: #e0f2fe;
+              border: 1px solid #0ea5e9;
+              border-radius: 5px;
+            }
+            .seller-info h4 {
+              margin: 0 0 8px 0;
+              font-size: 13px;
+              color: #0369a1;
+            }
+            .seller-details {
+              display: grid;
+              grid-template-columns: 1fr 1fr 1fr;
+              gap: 10px;
+              font-size: 11px;
             }
             table { 
               width: 100%; 
@@ -347,7 +371,8 @@ const SellerEventReport = () => {
               vertical-align: top;
             }
             th { 
-              background-color: #f0f0f0; 
+              background-color: #f97316; 
+              color: white;
               font-weight: bold; 
               font-size: 11px;
             }
@@ -367,11 +392,19 @@ const SellerEventReport = () => {
             }
             .summary-grid {
               display: grid;
-              grid-template-columns: 1fr 1fr 1fr;
+              grid-template-columns: 1fr 1fr 1fr 1fr;
               gap: 10px;
             }
             .summary-item {
               font-size: 11px;
+            }
+            .footer {
+              margin-top: 20px;
+              text-align: center;
+              font-size: 10px;
+              color: #666;
+              border-top: 1px solid #333;
+              padding-top: 10px;
             }
             @media print { 
               body { margin: 0; }
@@ -382,45 +415,65 @@ const SellerEventReport = () => {
         <body>
           <div class="header">
             <div class="title">${eventData?.title || 'Event Sales Report'}</div>
-            <div class="date">Generated: ${new Date().toLocaleDateString('en-US')}</div>
+            <div class="subtitle">${eventData?.date ? `Event Date: ${new Date(eventData.date).toLocaleDateString('en-US')}` : ''}</div>
+            <div class="date">Report Generated: ${new Date().toLocaleDateString('en-US')}</div>
           </div>
           
+          ${sellerInfo ? `
+          <div class="seller-info">
+            <h4>Seller Information</h4>
+            <div class="seller-details">
+              <div><strong>Name:</strong> ${sellerInfo.name || 'N/A'}</div>
+              <div><strong>Email:</strong> ${sellerInfo.email || 'N/A'}</div>
+              <div><strong>Contact:</strong> ${sellerInfo.contactNumber || 'N/A'}</div>
+            </div>
+          </div>
+          ` : ''}
+          
           <div class="summary">
-            <div class="summary-title">Summary</div>
+            <div class="summary-title">Performance Summary</div>
             <div class="summary-grid">
               <div class="summary-item"><strong>Total Orders:</strong> ${stats.totalOrders}</div>
               <div class="summary-item"><strong>Total Revenue:</strong> ${formatCurrency(stats.totalRevenue)}</div>
               <div class="summary-item"><strong>Total Seats:</strong> ${stats.totalSeats}</div>
+              <div class="summary-item"><strong>Success Rate:</strong> ${stats.successRate}%</div>
               <div class="summary-item"><strong>Successful:</strong> ${stats.successfulOrders}</div>
               <div class="summary-item"><strong>Pending:</strong> ${stats.pendingOrders}</div>
               <div class="summary-item"><strong>Failed:</strong> ${stats.failedOrders}</div>
+              <div class="summary-item"><strong>Avg Order:</strong> ${formatCurrency(stats.avgOrderValue)}</div>
             </div>
           </div>
           
           <table>
             <thead>
               <tr>
-                <th>Booking ID</th>
+                <th>Buyer Name</th>
+                <th>Buyer Email</th>
                 <th>Amount</th>
                 <th>Seats</th>
-                <th>Status</th>
-                <th>Date</th>
+                <th>Seat Details</th>
+                <th>Order Date</th>
               </tr>
             </thead>
             <tbody>
               ${filteredOrders.map(order => {
                 return `
                   <tr>
-                    <td>${order.bookingId?.slice(-8) || "N/A"}</td>
+                    <td>${order.buyerId?.name || "N/A"}</td>
+                    <td>${order.buyerId?.email || "N/A"}</td>
                     <td>${formatCurrency(order.totalAmount)}</td>
                     <td>${order.quantity || 0}</td>
-                    <td>${order.paymentStatus || "Unknown"}</td>
+                    <td>${formatSeats(order.seats)}</td>
                     <td>${order.orderTime ? new Date(order.orderTime).toLocaleDateString() : "N/A"}</td>
                   </tr>
                 `;
               }).join('')}
             </tbody>
           </table>
+          
+          <div class="footer">
+            <p>This report contains confidential information. Generated by Ticket Management System.</p>
+          </div>
         </body>
         </html>
       `;
@@ -453,7 +506,6 @@ const SellerEventReport = () => {
       setLoading(true);
       setError(null);
 
-      await fetchAllEvents();
       await fetchEventOrders();
 
       if (showToast) {
@@ -478,17 +530,12 @@ const SellerEventReport = () => {
   };
 
   useEffect(() => {
-    // If we have event orders from navigation state, use them initially
-    if (location.state?.eventOrders) {
-      setEventOrders(location.state.eventOrders);
-    }
-    
     fetchAllData();
   }, [eventId]);
 
   // Format currency
   const formatCurrency = (amount) => {
-    return `$${amount?.toLocaleString() || 0}`;
+    return `$${(amount || 0).toLocaleString()}`;
   };
 
   // Format date
@@ -508,9 +555,10 @@ const SellerEventReport = () => {
     const totalRevenue = filteredOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
     const totalOrders = filteredOrders.length;
     const totalSeats = filteredOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
-    const successfulOrders = filteredOrders.filter(order => order.paymentStatus === 'completed' || order.paymentStatus === 'paid').length;
+    const successfulOrders = filteredOrders.filter(order => order.paymentStatus === 'success').length;
     const pendingOrders = filteredOrders.filter(order => order.paymentStatus === 'pending').length;
     const failedOrders = filteredOrders.filter(order => order.paymentStatus === 'failed' || order.paymentStatus === 'refunded').length;
+    const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
     
     return {
       totalRevenue,
@@ -519,15 +567,15 @@ const SellerEventReport = () => {
       successfulOrders,
       pendingOrders,
       failedOrders,
-      successRate: totalOrders > 0 ? ((successfulOrders / totalOrders) * 100).toFixed(1) : 0
+      successRate: totalOrders > 0 ? ((successfulOrders / totalOrders) * 100).toFixed(1) : 0,
+      avgOrderValue
     };
   };
 
   // Get status badge class
   const getStatusBadge = (status) => {
     switch (status) {
-      case 'completed':
-      case 'paid':
+      case 'success':
         return 'bg-green-100 text-green-800';
       case 'pending':
         return 'bg-yellow-100 text-yellow-800';
@@ -563,6 +611,7 @@ const SellerEventReport = () => {
         <div className="max-w-7xl mx-auto">
           <div className="flex justify-center items-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
+            <span className="ml-3 text-gray-600">Loading event report...</span>
           </div>
         </div>
       </div>
@@ -570,7 +619,7 @@ const SellerEventReport = () => {
   }
 
   return (
-    <div className="bg-gray-50 min-h-screen p-6">
+    <div className="bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -580,7 +629,7 @@ const SellerEventReport = () => {
                 <div className="flex items-center mb-2">
                   <button
                     onClick={() => navigate('/dashboard/sales-report')}
-                    className="flex items-center text-gray-600 hover:text-gray-800 mr-4"
+                    className="flex items-center text-gray-600 hover:text-gray-800 mr-4 transition-colors"
                   >
                     <ArrowLeft size={20} className="mr-1" />
                     Back to Reports
@@ -591,42 +640,43 @@ const SellerEventReport = () => {
                   {eventData?.title || location.state?.eventTitle || "Event Report"}
                 </h1>
                 <p className="text-gray-600 mt-1">
-                  Detailed sales report for this event
+                  {eventData?.date && `Event Date: ${formatDate(eventData.date)} • `}
+                  Detailed sales report and analytics
                 </p>
               </div>
               <div className="flex gap-2">
                 <button
-                  className="flex items-center px-3 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors duration-200 shadow-sm text-sm cursor-pointer"
+                  className="flex items-center px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors duration-200 shadow-sm text-sm cursor-pointer disabled:opacity-50"
                   onClick={downloadExcelReport}
-                  disabled={downloadingExcel}
+                  disabled={downloadingExcel || filteredOrders.length === 0}
                 >
                   <FileSpreadsheet
-                    className={`mr-1 ${downloadingExcel ? "animate-spin" : ""}`}
-                    size={14}
+                    className={`mr-2 ${downloadingExcel ? "animate-spin" : ""}`}
+                    size={16}
                   />
-                  {downloadingExcel ? "Excel..." : "Excel"}
+                  {downloadingExcel ? "Generating..." : "Excel"}
                 </button>
                 
                 <button
                   onClick={downloadPDFReport}
-                  disabled={downloadingPDF}
-                  className="flex items-center px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200 shadow-sm text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={downloadingPDF || filteredOrders.length === 0}
+                  className="flex items-center px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200 shadow-sm text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <FileText
-                    className={`mr-1 ${downloadingPDF ? "animate-spin" : ""}`}
-                    size={14}
+                    className={`mr-2 ${downloadingPDF ? "animate-spin" : ""}`}
+                    size={16}
                   />
-                  {downloadingPDF ? "PDF..." : "PDF"}
+                  {downloadingPDF ? "Generating..." : "PDF"}
                 </button>
                 
                 <button
-                  className="flex items-center px-3 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors duration-200 shadow-sm text-sm cursor-pointer"
+                  className="flex items-center px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors duration-200 shadow-sm text-sm cursor-pointer"
                   onClick={handleRefresh}
                   disabled={refreshing}
                 >
                   <RefreshCw
-                    className={`mr-1 ${refreshing ? "animate-spin" : ""}`}
-                    size={14}
+                    className={`mr-2 ${refreshing ? "animate-spin" : ""}`}
+                    size={16}
                   />
                   Refresh
                 </button>
@@ -644,8 +694,57 @@ const SellerEventReport = () => {
           </div>
         )}
 
+        {/* Seller Information Card */}
+        {eventOrders && eventOrders.length > 0 && eventOrders[0].sellerId && (
+          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-blue-100">
+              <h3 className="text-lg font-bold text-gray-800 flex items-center mb-4">
+                <User className="mr-2" size={20} />
+                Seller Information
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="flex items-start space-x-3">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <User className="text-blue-600" size={20} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider">Seller Name</p>
+                    <p className="text-base font-semibold text-gray-900 mt-1">
+                      {eventOrders[0].sellerId?.name || "N/A"}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start space-x-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Mail className="text-green-600" size={20} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider">Email</p>
+                    <p className="text-base font-semibold text-gray-900 mt-1">
+                      {eventOrders[0].sellerId?.email || "N/A"}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start space-x-3">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <User className="text-purple-600" size={20} />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider">Contact Number</p>
+                    <p className="text-base font-semibold text-gray-900 mt-1">
+                      {eventOrders[0].sellerId?.contactNumber || "N/A"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Event Stats */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        {/* <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="p-6 border-b border-gray-200">
             <h3 className="text-lg font-bold text-gray-800 flex items-center">
               <BarChart3 className="mr-2" size={20} />
@@ -702,8 +801,35 @@ const SellerEventReport = () => {
                 </div>
               </div>
             </div>
+
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 pt-6 border-t border-gray-200">
+              <div className="text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <CheckCircle className="text-green-600 mr-2" size={20} />
+                  <p className="text-sm font-medium text-gray-600">Successful</p>
+                </div>
+                <p className="text-xl font-bold text-gray-900">{stats.successfulOrders}</p>
+              </div>
+              
+              <div className="text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <Clock className="text-yellow-600 mr-2" size={20} />
+                  <p className="text-sm font-medium text-gray-600">Pending</p>
+                </div>
+                <p className="text-xl font-bold text-gray-900">{stats.pendingOrders}</p>
+              </div>
+              
+              <div className="text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <TrendingUp className="text-blue-600 mr-2" size={20} />
+                  <p className="text-sm font-medium text-gray-600">Avg Order Value</p>
+                </div>
+                <p className="text-xl font-bold text-gray-900">{formatCurrency(stats.avgOrderValue)}</p>
+              </div>
+            </div>
           </div>
-        </div>
+        </div> */}
 
 
         {/* Orders Table */}
@@ -716,18 +842,30 @@ const SellerEventReport = () => {
                   Orders Details ({filteredOrders.length} orders)
                 </h3>
                 
-                {/* Search Controls */}
+                {/* Search and Filter Controls */}
                 <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                   <div className="relative">
                     <input
                       type="text"
-                      placeholder="Search by booking ID or order..."
+                      placeholder="Search by booking ID or buyer..."
                       className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 w-full sm:w-64"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
                     <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
                   </div>
+                  
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="success">Success</option>
+                    <option value="pending">Pending</option>
+                    <option value="failed">Failed</option>
+                    <option value="refunded">Refunded</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -737,7 +875,7 @@ const SellerEventReport = () => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Booking ID
+                      Buyer
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Amount
@@ -749,24 +887,33 @@ const SellerEventReport = () => {
                       Seat Details
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
+                      Order Date
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {currentOrders.map((order) => (
-                    <tr key={order._id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
-                        {order.bookingId?.slice(-8) || order._id?.slice(-8) || "N/A"}
+                    <tr key={order._id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                            <User className="text-blue-600" size={18} />
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900">
+                              {order.buyerId?.name || "N/A"}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {order.buyerId?.email || "N/A"}
+                            </div>
+                          </div>
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
                         {formatCurrency(order.totalAmount)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                           {order.quantity || 0} seat(s)
                         </span>
                       </td>
@@ -774,11 +921,6 @@ const SellerEventReport = () => {
                         <div className="truncate" title={formatSeats(order.seats)}>
                           {formatSeats(order.seats)}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(order.paymentStatus)}`}>
-                          {(order.paymentStatus || "unknown").charAt(0).toUpperCase() + (order.paymentStatus || "unknown").slice(1)}
-                        </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {formatDate(order.orderTime)}
@@ -858,16 +1000,19 @@ const SellerEventReport = () => {
               <FileText className="mx-auto text-gray-400 mb-4" size={48} />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No Orders Found</h3>
               <p className="text-gray-500">
-                {searchTerm
-                  ? "No orders match your current search criteria. Try adjusting your search."
+                {searchTerm || statusFilter !== "all"
+                  ? "No orders match your current search or filter criteria. Try adjusting your filters."
                   : "No orders have been recorded for this event yet."}
               </p>
-              {searchTerm && (
+              {(searchTerm || statusFilter !== "all") && (
                 <button
-                  onClick={() => setSearchTerm("")}
+                  onClick={() => {
+                    setSearchTerm("");
+                    setStatusFilter("all");
+                  }}
                   className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 transition-colors duration-200"
                 >
-                  Clear Search
+                  Clear Filters
                 </button>
               )}
             </div>

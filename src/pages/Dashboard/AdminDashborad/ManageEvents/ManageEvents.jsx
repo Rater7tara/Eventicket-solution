@@ -728,7 +728,7 @@ const handleEditSubmit = async (e, formData = null) => {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen p-6">
+    <div className="bg-gray-50 min-h-screen">
       <div className="max-w-7xl mx-auto">
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           {/* Header */}
