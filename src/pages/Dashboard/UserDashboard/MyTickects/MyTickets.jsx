@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useRef } from "react";
 import {
   Calendar,
   Clock,
@@ -14,6 +14,7 @@ import {
 import { Link } from "react-router-dom";
 import { AuthContext } from "../../../../providers/AuthProvider";
 import { jsPDF } from "jspdf";
+import JsBarcode from "jsbarcode";
 import serverURL from "../../../../ServerConfig";
 import logo from "../../../../assets/logo.png";
 
@@ -31,100 +32,40 @@ const MyTickets = () => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [ticketToCancel, setTicketToCancel] = useState(null);
 
-  // ENHANCED REALISTIC BARCODE COMPONENT - Updated to use backend ticketCode
+  // UPDATED BARCODE COMPONENT USING JSBARCODE
   const BarcodeDisplay = ({
-    ticketCode, // Changed from ticketId and seatInfo to ticketCode
+    ticketCode,
     isCancelled = false,
     size = "normal",
   }) => {
-    // Use the ticketCode directly from backend, no generation needed
-    const barcodeId = ticketCode || "000000000000"; // Fallback if no ticketCode
-    const containerHeight = size === "large" ? "h-16" : "h-12";
+    const canvasRef = useRef(null);
 
-    // Generate REALISTIC Code 128 style barcode pattern
-    const generateRealisticBarcode = (data) => {
-      const bars = [];
-
-      // Start pattern for Code 128
-      bars.push({ type: "bar", width: 2 });
-      bars.push({ type: "space", width: 1 });
-      bars.push({ type: "bar", width: 1 });
-      bars.push({ type: "space", width: 1 });
-      bars.push({ type: "bar", width: 1 });
-      bars.push({ type: "space", width: 1 });
-
-      // Data pattern based on barcode ID
-      for (let i = 0; i < data.length; i++) {
-        const digit = parseInt(data[i]) || 0;
-
-        // Create realistic barcode pattern based on digit value
-        switch (digit % 4) {
-          case 0:
-            bars.push({ type: "bar", width: 1 });
-            bars.push({ type: "space", width: 1 });
-            bars.push({ type: "bar", width: 3 });
-            bars.push({ type: "space", width: 2 });
-            break;
-          case 1:
-            bars.push({ type: "bar", width: 2 });
-            bars.push({ type: "space", width: 1 });
-            bars.push({ type: "bar", width: 1 });
-            bars.push({ type: "space", width: 3 });
-            break;
-          case 2:
-            bars.push({ type: "bar", width: 1 });
-            bars.push({ type: "space", width: 2 });
-            bars.push({ type: "bar", width: 2 });
-            bars.push({ type: "space", width: 1 });
-            break;
-          case 3:
-            bars.push({ type: "bar", width: 3 });
-            bars.push({ type: "space", width: 1 });
-            bars.push({ type: "bar", width: 1 });
-            bars.push({ type: "space", width: 2 });
-            break;
+    useEffect(() => {
+      if (canvasRef.current && ticketCode) {
+        try {
+          JsBarcode(canvasRef.current, ticketCode, {
+            format: "CODE128",
+            width: size === "large" ? 2 : 1.5,
+            height: size === "large" ? 45 : 35,
+            displayValue: false,
+            background: "#ffffff",
+            lineColor: isCancelled ? "#9ca3af" : "#000000",
+            margin: 5,
+          });
+        } catch (err) {
+          console.error("Error generating barcode:", err);
         }
       }
+    }, [ticketCode, isCancelled, size]);
 
-      // End pattern for Code 128
-      bars.push({ type: "bar", width: 2 });
-      bars.push({ type: "space", width: 1 });
-      bars.push({ type: "bar", width: 1 });
-      bars.push({ type: "space", width: 1 });
-      bars.push({ type: "bar", width: 1 });
-      bars.push({ type: "space", width: 1 });
-      bars.push({ type: "bar", width: 2 });
-
-      return bars;
-    };
-
-    const barPattern = generateRealisticBarcode(barcodeId);
+    const containerHeight = size === "large" ? "h-16" : "h-12";
 
     return (
       <div className="text-center">
         <div
           className={`bg-white p-3 rounded border ${containerHeight} flex items-center justify-center shadow-sm`}
         >
-          <div className="flex items-end">
-            {barPattern.map((element, i) => {
-              if (element.type === "space") {
-                return <div key={i} style={{ width: `${element.width}px` }} />;
-              }
-
-              const height = size === "large" ? 45 : 35;
-
-              return (
-                <div
-                  key={i}
-                  className={`${isCancelled ? "bg-gray-400" : "bg-black"}`}
-                  style={{
-                    width: `${element.width}px`,
-                    height: `${height}px`,
-                  }}
-                />
-              );
-            })}
-          </div>
+          <canvas ref={canvasRef}></canvas>
         </div>
         <div
           className={`text-center ${
@@ -133,10 +74,25 @@ const MyTickets = () => {
             isCancelled ? "text-gray-400" : "text-gray-700"
           }`}
         >
-          {barcodeId}
+          {ticketCode || "000000000000"}
         </div>
       </div>
     );
+  };
+
+  // Function to generate unique ticket code for each ticket
+  const generateUniqueTicketCode = (orderTicketCode, seatIndex) => {
+    // If order has a ticket code, append seat index to make it unique
+    if (orderTicketCode) {
+      // Remove any existing seat suffix and add new one
+      const baseCode = orderTicketCode.replace(/-S\d+$/, "");
+      return `${baseCode}-S${seatIndex + 1}`;
+    }
+    
+    // Fallback: generate a unique code based on timestamp and seat
+    const timestamp = Date.now().toString().slice(-8);
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `TKT${timestamp}${random}S${seatIndex + 1}`;
   };
 
   // Function to format time to 12-hour format
@@ -144,14 +100,11 @@ const MyTickets = () => {
     if (!timeString) return "Time TBA";
 
     try {
-      // Handle different time formats
       let date;
 
-      // If it's a full datetime string
       if (timeString.includes("T") || timeString.includes(" ")) {
         date = new Date(timeString);
       } else {
-        // If it's just a time string (HH:MM format)
         const timeRegex = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/;
         const match = timeString.match(timeRegex);
 
@@ -161,17 +114,14 @@ const MyTickets = () => {
           date = new Date();
           date.setHours(hours, minutes, 0, 0);
         } else {
-          // Try to parse as date
           date = new Date(timeString);
         }
       }
 
-      // Check if date is valid
       if (isNaN(date.getTime())) {
-        return timeString; // Return original if can't parse
+        return timeString;
       }
 
-      // Format to 12-hour time
       return date.toLocaleTimeString("en-US", {
         hour: "numeric",
         minute: "2-digit",
@@ -179,7 +129,7 @@ const MyTickets = () => {
       });
     } catch (e) {
       console.error("Error formatting time:", e);
-      return timeString; // Return original if error
+      return timeString;
     }
   };
 
@@ -216,21 +166,16 @@ const MyTickets = () => {
         const eventData = await response.json();
         console.log("Event API response data:", eventData);
 
-        // Handle your specific API response structure
         let event = null;
 
         if (eventData.success && eventData.event) {
-          // Your API structure: { success: true, message: "...", event: { ... } }
           event = eventData.event;
         } else if (eventData.data) {
-          // Fallback: { data: { ... } }
           event = eventData.data;
         } else if (eventData.success === false) {
-          // Handle API error response
           console.error("API returned error:", eventData.message);
           throw new Error(eventData.message || "Event not found");
         } else {
-          // Direct event object
           event = eventData;
         }
 
@@ -238,11 +183,11 @@ const MyTickets = () => {
           console.log("Successfully fetched event:", event);
           return {
             title: event.title,
-            name: event.title, // Use title as name as well
+            name: event.title,
             date: event.date,
             time: event.time,
             location: event.location,
-            venue: event.location, // Use location as venue
+            venue: event.location,
             description: event.description || "No description available",
             price: event.price,
             image: event.image,
@@ -264,7 +209,6 @@ const MyTickets = () => {
     } catch (error) {
       console.error("Error fetching event details:", error);
 
-      // Return fallback data with event ID only as last resort
       return {
         title: `Event ${eventId.substring(0, 8)}...`,
         name: `Event ${eventId.substring(0, 8)}...`,
@@ -282,19 +226,15 @@ const MyTickets = () => {
   // Load tickets from localStorage
   const loadLocalTickets = () => {
     try {
-      // Check for ticketPurchases in localStorage
       const ticketPurchasesString = localStorage.getItem("ticketPurchases");
 
       if (ticketPurchasesString) {
         const ticketPurchases = safelyParseJSON(ticketPurchasesString, []);
 
-        // If ticketPurchases is an array, use it directly
         if (Array.isArray(ticketPurchases) && ticketPurchases.length > 0) {
           setTickets(ticketPurchases);
           return true;
-        }
-        // If it's an object (single purchase), wrap it in an array
-        else if (
+        } else if (
           ticketPurchases &&
           typeof ticketPurchases === "object" &&
           !Array.isArray(ticketPurchases)
@@ -304,11 +244,9 @@ const MyTickets = () => {
         }
       }
 
-      // Check if there's a currentOrderId in localStorage
       const currentOrderId = localStorage.getItem("currentOrderId");
 
       if (currentOrderId) {
-        // Try to find this specific order in localStorage
         const allStorageKeys = Object.keys(localStorage);
 
         for (const key of allStorageKeys) {
@@ -320,7 +258,6 @@ const MyTickets = () => {
             try {
               const value = safelyParseJSON(localStorage.getItem(key));
 
-              // Check if this data contains our order ID
               if (
                 value &&
                 ((Array.isArray(value) &&
@@ -328,7 +265,6 @@ const MyTickets = () => {
                   (typeof value === "object" &&
                     value.orderId === currentOrderId))
               ) {
-                // Found matching ticket data
                 const ticketData = Array.isArray(value)
                   ? value.filter((item) => item.orderId === currentOrderId)
                   : [value];
@@ -352,7 +288,6 @@ const MyTickets = () => {
 
   // Helper function to get ticket price with fallbacks
   const getTicketPrice = (ticket) => {
-    // Try multiple price fields in order of preference
     const priceFields = [
       ticket.grandTotal,
       ticket.totalPrice,
@@ -370,7 +305,6 @@ const MyTickets = () => {
       }
     }
 
-    // If no valid price found, try to calculate from order total and seat count
     if (
       ticket.rawOrderData?.totalAmount &&
       ticket.rawOrderData?.seats?.length > 0
@@ -395,19 +329,16 @@ const MyTickets = () => {
     setError("");
 
     try {
-      // Check if refreshToken function is available
       if (typeof refreshToken === "function") {
         await refreshToken();
       }
 
-      // Get token from localStorage
       const token = localStorage.getItem("auth-token");
 
       if (!token) {
         throw new Error("Authentication token not found. Please log in again.");
       }
 
-      // Call the purchased tickets API
       const response = await fetch(`${API_BASE_URL}orders/my-orders`, {
         method: "GET",
         headers: {
@@ -416,7 +347,6 @@ const MyTickets = () => {
         },
       });
 
-      // Parse the response
       const data = await response.json();
 
       if (!response.ok) {
@@ -425,14 +355,11 @@ const MyTickets = () => {
         );
       }
 
-      // Check if the data structure matches what we expect
       if (data.success && data.data && Array.isArray(data.data)) {
         console.log("Processing orders:", data.data);
 
-        // Convert orders to individual tickets
         const individualTickets = convertOrdersToIndividualTickets(data.data);
 
-        // Fetch event details for each unique event
         const uniqueEventIds = [
           ...new Set(
             individualTickets
@@ -457,7 +384,6 @@ const MyTickets = () => {
               `Failed to fetch event details for ${eventId}:`,
               error
             );
-            // Set fallback event data
             eventDetailsMap[eventId] = {
               title: `Event ${eventId.substring(0, 8)}...`,
               date: null,
@@ -470,12 +396,10 @@ const MyTickets = () => {
           }
         }
 
-        // Update tickets with event details
         const ticketsWithEventDetails = individualTickets.map((ticket) => {
           const eventId = ticket.rawOrderData.eventId;
           const eventDetails = eventDetailsMap[eventId];
 
-          // Enhanced fallback for missing event details
           let finalEventDetails = eventDetails;
 
           if (!eventDetails || !eventDetails.title) {
@@ -517,28 +441,24 @@ const MyTickets = () => {
           };
         });
 
-        // Sort tickets by purchase date (newest first) - ensure proper date comparison
         const sortedTickets = ticketsWithEventDetails.sort((a, b) => {
           const dateA = new Date(a.purchaseDate || a.createdAt || 0);
           const dateB = new Date(b.purchaseDate || b.createdAt || 0);
 
-          // If dates are invalid, put them at the end
           if (isNaN(dateA.getTime())) return 1;
           if (isNaN(dateB.getTime())) return -1;
 
-          return dateB.getTime() - dateA.getTime(); // Newest first (descending order)
+          return dateB.getTime() - dateA.getTime();
         });
 
         console.log("Final formatted individual tickets:", sortedTickets);
         setTickets(sortedTickets);
       } else if (data.success && data.data) {
-        // Handle single order response
         const order = data.data;
         console.log("Processing single order:", order);
 
         const individualTickets = convertOrdersToIndividualTickets([order]);
 
-        // Fetch event details if available
         if (order.eventId) {
           const eventDetails = await fetchEventDetails(order.eventId);
           individualTickets.forEach((ticket) => {
@@ -548,7 +468,6 @@ const MyTickets = () => {
 
         setTickets(individualTickets);
       } else {
-        // If API returns empty or incorrect data, try localStorage as fallback
         const foundLocalTickets = loadLocalTickets();
 
         if (!foundLocalTickets) {
@@ -561,7 +480,6 @@ const MyTickets = () => {
         `${err.message} Please try refreshing or check your login status.`
       );
 
-      // Try to load from localStorage as fallback
       loadLocalTickets();
     } finally {
       setLoading(false);
@@ -574,9 +492,7 @@ const MyTickets = () => {
     setError("");
 
     try {
-      // Check if ticket is already cancelled
       if (ticket.isCancelled) {
-        // Refresh tickets to get the most accurate state
         try {
           await fetchTickets();
         } catch (refreshError) {
@@ -588,19 +504,16 @@ const MyTickets = () => {
         return;
       }
 
-      // Check if refreshToken function is available
       if (typeof refreshToken === "function") {
         await refreshToken();
       }
 
-      // Get token from localStorage
       const token = localStorage.getItem("auth-token");
 
       if (!token) {
         throw new Error("Authentication token not found. Please log in again.");
       }
 
-      // UPDATED: Get orderId - try different sources
       let orderId = null;
 
       const possibleOrderIds = [
@@ -613,7 +526,6 @@ const MyTickets = () => {
           : ticket._id,
       ];
 
-      // Find the first valid order ID
       for (const id of possibleOrderIds) {
         if (id && typeof id === "string" && id.trim() !== "") {
           orderId = id;
@@ -624,7 +536,6 @@ const MyTickets = () => {
       console.log("Available order ID options:", possibleOrderIds);
       console.log("Using order ID:", orderId);
 
-      // Validate that we have an order ID
       if (!orderId) {
         throw new Error(
           `Order ID is missing. Cannot cancel this ticket. Please contact support with Order ID: ${
@@ -633,7 +544,6 @@ const MyTickets = () => {
         );
       }
 
-      // UPDATED: Build seatToCancel object from ticket data
       let seatToCancel = null;
 
       if (
@@ -642,10 +552,8 @@ const MyTickets = () => {
         ticket.seat.row &&
         ticket.seat.number
       ) {
-        // Try to get the seat _id from rawOrderData
         let seatId = null;
 
-        // If we have seat index, try to get the original seat data
         if (
           ticket.seatIndex !== undefined &&
           ticket.rawOrderData?.seats &&
@@ -662,12 +570,10 @@ const MyTickets = () => {
           price: ticket.seat.price || getTicketPrice(ticket),
         };
 
-        // Add seat _id if available
         if (seatId) {
           seatToCancel._id = seatId;
         }
       } else {
-        // For general admission tickets, create a basic seat object
         seatToCancel = {
           section: ticket.seat?.section || "GA",
           row: ticket.seat?.row || "",
@@ -676,7 +582,6 @@ const MyTickets = () => {
         };
       }
 
-      // UPDATED: Prepare request body with new structure
       const requestBody = {
         orderId: orderId,
         seatToCancel: seatToCancel,
@@ -684,7 +589,6 @@ const MyTickets = () => {
 
       console.log("Cancelling ticket with new API structure:", requestBody);
 
-      // Call the updated cancel API
       const response = await fetch(`${API_BASE_URL}payments/booking/cancel`, {
         method: "POST",
         headers: {
@@ -697,9 +601,7 @@ const MyTickets = () => {
       let data = await response.json();
       console.log("Cancel API response:", { status: response.status, data });
 
-      // Handle the response
       if (!response.ok) {
-        // Check if the error is about booking already being cancelled
         if (response.status === 400 && data.message) {
           const errorMessage = data.message.toLowerCase();
 
@@ -711,7 +613,6 @@ const MyTickets = () => {
             errorMessage.includes("not found") ||
             errorMessage.includes("does not exist")
           ) {
-            // If booking is already cancelled or not found, refresh tickets to get accurate state
             try {
               await fetchTickets();
             } catch (refreshError) {
@@ -719,11 +620,10 @@ const MyTickets = () => {
             }
             setShowCancelModal(false);
             setTicketToCancel(null);
-            return; // Exit the function early
+            return;
           }
         }
 
-        // For other errors, provide detailed error message
         const errorDetails = {
           status: response.status,
           message: data.message || "Unknown error",
@@ -739,8 +639,6 @@ const MyTickets = () => {
         );
       }
 
-      // If cancellation was successful, refresh the tickets list to get updated state
-      // This ensures we have the most accurate data from the server
       console.log("Ticket cancelled successfully - refreshing tickets...");
       try {
         await fetchTickets();
@@ -750,7 +648,6 @@ const MyTickets = () => {
           "Failed to refresh tickets after cancellation:",
           refreshError
         );
-        // If refresh fails, still close the modal but show error
         setError(
           "Ticket cancelled but failed to refresh list. Please refresh the page manually."
         );
@@ -768,12 +665,10 @@ const MyTickets = () => {
 
   // UPDATED: Better validation for showing cancel confirmation
   const showCancelConfirmation = (ticket) => {
-    // Check if ticket is already cancelled
     if (ticket.isCancelled) {
       return;
     }
 
-    // UPDATED: Check for orderId with multiple fallbacks
     const possibleOrderIds = [
       ticket.originalOrderId,
       ticket.orderId,
@@ -797,7 +692,6 @@ const MyTickets = () => {
       return;
     }
 
-    // Check if we have valid seat information
     if (!ticket.seat || (!ticket.seat.section && !ticket.seat.name)) {
       setError(
         `Cannot cancel this ticket - seat information is missing. Please contact support with Order ID: ${
@@ -811,12 +705,11 @@ const MyTickets = () => {
     setShowCancelModal(true);
   };
 
-  // ENHANCED: Better error handling in convertOrdersToIndividualTickets
+  // UPDATED: Convert orders to individual tickets with UNIQUE ticket codes
   const convertOrdersToIndividualTickets = (orders) => {
     const individualTickets = [];
 
     orders.forEach((order) => {
-      // ENHANCED CANCELLED STATUS DETECTION
       const isCancelled =
         order.status === "cancelled" ||
         order.status === "canceled" ||
@@ -844,7 +737,6 @@ const MyTickets = () => {
         order.refundAmount > 0 ||
         order.refund_amount > 0;
 
-      // ENHANCED: Ensure we capture the booking ID properly
       const ensureBookingId = (order) => {
         return (
           order.bookingId ||
@@ -860,7 +752,6 @@ const MyTickets = () => {
       // If there are seats, create individual tickets for each seat
       if (order.seats && order.seats.length > 0) {
         order.seats.forEach((seat, seatIndex) => {
-          // Enhanced price calculation for individual seats
           const seatPrice =
             seat.price ||
             seat.seatPrice ||
@@ -870,13 +761,19 @@ const MyTickets = () => {
             order.price ||
             0;
 
+          // GENERATE UNIQUE TICKET CODE FOR EACH SEAT
+          const uniqueTicketCode = generateUniqueTicketCode(
+            order.ticketCode,
+            seatIndex
+          );
+
           individualTickets.push({
             _id: `${order._id}_seat_${seatIndex}`,
             orderId: order._id,
-            bookingId: ensureBookingId(order), // ENHANCED booking ID
+            bookingId: ensureBookingId(order),
             originalOrderId: order._id,
             seatIndex: seatIndex,
-            event: null, // Will be populated later
+            event: null,
             seat: {
               section: seat.section,
               row: seat.row,
@@ -884,15 +781,15 @@ const MyTickets = () => {
               price: seatPrice,
               name: `${seat.section} ${seat.row}${seat.seatNumber}`,
             },
-            quantity: 1, // Each ticket is for one seat
+            quantity: 1,
             totalPrice: seatPrice,
             grandTotal: seatPrice,
             purchaseDate: order.orderTime || order.createdAt,
             createdAt: order.createdAt,
             paymentStatus: order.paymentStatus || "Unknown",
             isCancelled: isCancelled,
-            ticketCode: order.ticketCode, // Add ticketCode from backend
-            rawOrderData: order, // Store complete order data for debugging
+            ticketCode: uniqueTicketCode, // UNIQUE ticket code for each seat
+            rawOrderData: order,
             userInfo: {
               name:
                 user?.name ||
@@ -903,8 +800,7 @@ const MyTickets = () => {
           });
         });
       } else {
-        // If no seats, create a general admission ticket
-        // Enhanced price calculation for general admission
+        // For general admission, still generate unique code
         const ticketPrice =
           order.totalAmount ||
           order.amount ||
@@ -914,13 +810,15 @@ const MyTickets = () => {
           order.cost ||
           0;
 
+        const uniqueTicketCode = generateUniqueTicketCode(order.ticketCode, 0);
+
         individualTickets.push({
           _id: order._id,
           orderId: order._id,
-          bookingId: ensureBookingId(order), // ENHANCED booking ID
+          bookingId: ensureBookingId(order),
           originalOrderId: order._id,
           seatIndex: 0,
-          event: null, // Will be populated later
+          event: null,
           seat: {
             name: "General Admission",
             section: "GA",
@@ -935,8 +833,8 @@ const MyTickets = () => {
           createdAt: order.createdAt,
           paymentStatus: order.paymentStatus || "Unknown",
           isCancelled: isCancelled,
-          ticketCode: order.ticketCode, // Add ticketCode from backend
-          rawOrderData: order, // Store complete order data for debugging
+          ticketCode: uniqueTicketCode, // UNIQUE ticket code
+          rawOrderData: order,
           userInfo: {
             name:
               user?.name ||
@@ -948,15 +846,13 @@ const MyTickets = () => {
       }
     });
 
-    // Debug: Log the booking IDs for verification
     console.log(
-      "Generated tickets with order IDs:",
+      "Generated tickets with UNIQUE ticket codes:",
       individualTickets.map((t) => ({
         ticketId: t._id,
         orderId: t.orderId,
-        originalOrderId: t.originalOrderId,
         seatIndex: t.seatIndex,
-        ticketCode: t.ticketCode, // Log ticketCode for verification
+        ticketCode: t.ticketCode,
       }))
     );
 
@@ -981,7 +877,6 @@ const MyTickets = () => {
     setError("");
 
     try {
-      // First check if we have this ticket in our state already
       const localTicket = tickets.find(
         (ticket) => ticket._id === ticketId || ticket.orderId === ticketId
       );
@@ -992,25 +887,20 @@ const MyTickets = () => {
         return;
       }
 
-      // If not in local state, try to fetch from API
-      // Ensure we have a valid token
       if (typeof refreshToken === "function") {
         await refreshToken();
       }
 
-      // Get token from localStorage
       const token = localStorage.getItem("auth-token");
 
       if (!token) {
         throw new Error("Authentication token not found. Please log in again.");
       }
 
-      // Extract original order ID if this is an individual seat ticket
       const orderIdToFetch = ticketId.includes("_seat_")
         ? ticketId.split("_seat_")[0]
         : ticketId;
 
-      // Call the ticket details API with the correct endpoint
       const response = await fetch(
         `${API_BASE_URL}orders/my-orders/${orderIdToFetch}`,
         {
@@ -1022,14 +912,12 @@ const MyTickets = () => {
         }
       );
 
-      // Parse the response
       const data = await response.json();
 
       if (!response.ok) {
         throw new Error(data.message || "Failed to fetch ticket details");
       }
 
-      // Set selected ticket based on local ticket if available
       if (localTicket) {
         setSelectedTicket(localTicket);
       } else {
@@ -1039,7 +927,6 @@ const MyTickets = () => {
       console.error("Error fetching ticket details:", err);
       setError(`Failed to load ticket details: ${err.message}`);
 
-      // Try to find ticket in local state again as a last resort
       const possibleTicket = tickets.find(
         (ticket) =>
           (ticket.orderId && ticket.orderId.includes(ticketId)) ||
@@ -1054,9 +941,8 @@ const MyTickets = () => {
     }
   };
 
-  // IMPROVED PDF GENERATION WITH BACKEND BARCODE
+  // IMPROVED PDF GENERATION WITH JSBARCODE
   const generateLocalTicketPDF = (ticketId) => {
-    // Find the ticket in our state
     const ticket = tickets.find(
       (t) => t._id === ticketId || t.orderId === ticketId
     );
@@ -1067,31 +953,26 @@ const MyTickets = () => {
     }
 
     try {
-      // Create new PDF document
       const doc = new jsPDF();
 
-      // Set up dimensions and colors
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
       const margin = 15;
       const contentWidth = pageWidth - margin * 2;
 
-      // Color palette (RGB values for jsPDF) - Updated with gray header
       const colors = {
-        primary: [108, 117, 125], // Gray for header background
-        secondary: [73, 80, 87], // Darker gray
-        dark: [45, 55, 72], // Dark gray
-        light: [247, 250, 252], // Light gray
+        primary: [108, 117, 125],
+        secondary: [73, 80, 87],
+        dark: [45, 55, 72],
+        light: [247, 250, 252],
         white: [255, 255, 255],
-        success: [34, 197, 94], // Green
-        danger: [239, 68, 68], // Red
-        border: [229, 231, 235], // Border gray
-        accent: [224, 88, 41], // Orange for accents
+        success: [34, 197, 94],
+        danger: [239, 68, 68],
+        border: [229, 231, 235],
+        accent: [224, 88, 41],
       };
 
-      // ----- MAIN TICKET CONTAINER -----
-
-      // Background with subtle gradient effect
+      // Background
       doc.setFillColor(...colors.light);
       doc.rect(0, 0, pageWidth, pageHeight, "F");
 
@@ -1104,22 +985,16 @@ const MyTickets = () => {
       doc.setLineWidth(1);
       doc.roundedRect(margin, margin, contentWidth, 240, 5, 5, "S");
 
-      // ----- HEADER SECTION -----
-
-      // Main header background
+      // Header
       doc.setFillColor(...colors.primary);
       doc.roundedRect(margin, margin, contentWidth, 35, 5, 5, "F");
-
-      // Header bottom rectangle to square off bottom corners
       doc.rect(margin, margin + 30, contentWidth, 5, "F");
 
-      // Add your imported logo
+      // Logo
       try {
-        // Use your imported logo (supports PNG, JPG, JPEG)
         doc.addImage(logo, "PNG", margin + 8, margin + 5, 24, 24);
       } catch (logoError) {
         console.log("Logo failed to load, using fallback");
-        // Fallback to text logo if image fails
         doc.setFillColor(...colors.white);
         doc.circle(margin + 20, margin + 17.5, 12, "F");
         doc.setTextColor(...colors.primary);
@@ -1128,7 +1003,7 @@ const MyTickets = () => {
         doc.text("LOGO", margin + 20, margin + 20, { align: "center" });
       }
 
-      // Event name in header
+      // Event name
       const title =
         ticket.event?.title ||
         ticket.rawOrderData?.eventTitle ||
@@ -1143,7 +1018,7 @@ const MyTickets = () => {
       doc.setFont("helvetica", "bold");
       doc.text(displayTitle, margin + 40, margin + 18);
 
-      // Single ticket badge
+      // Badge
       doc.setFillColor(...colors.secondary);
       const badgeWidth = 30;
       doc.roundedRect(
@@ -1166,25 +1041,21 @@ const MyTickets = () => {
         { align: "center" }
       );
 
-      // ----- MAIN CONTENT AREA -----
-
-      const contentY = margin + 50; // Start content right after header
+      // Content area
+      const contentY = margin + 50;
       const leftColWidth = contentWidth * 0.55;
       const rightColStart = margin + leftColWidth + 10;
       const rightColWidth = contentWidth * 0.4;
 
-      // ----- LEFT COLUMN: EVENT & TICKET DETAILS -----
-
+      // Left column
       let currentY = contentY;
 
-      // Section: Event Information
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(...colors.accent);
       doc.text("EVENT INFORMATION", margin + 5, currentY);
       currentY += 8;
 
-      // Date & Time
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(...colors.dark);
@@ -1203,7 +1074,6 @@ const MyTickets = () => {
       );
       currentY += 12;
 
-      // Section: Ticket Holder Information
       doc.setFont("helvetica", "bold");
       doc.setTextColor(...colors.accent);
       doc.text("TICKET HOLDER", margin + 5, currentY);
@@ -1224,7 +1094,6 @@ const MyTickets = () => {
       );
       currentY += 12;
 
-      // Section: Seat Information
       doc.setFont("helvetica", "bold");
       doc.setTextColor(...colors.accent);
       doc.text("SEAT ASSIGNMENT", margin + 5, currentY);
@@ -1247,7 +1116,6 @@ const MyTickets = () => {
       }
       currentY += 6;
 
-      // Section: Order Information
       doc.setFont("helvetica", "bold");
       doc.setTextColor(...colors.accent);
       doc.text("ORDER DETAILS", margin + 5, currentY);
@@ -1281,9 +1149,7 @@ const MyTickets = () => {
         currentY
       );
 
-      // ----- RIGHT COLUMN: PRICING & VALIDATION -----
-
-      // Right column border
+      // Right column
       doc.setDrawColor(...colors.border);
       doc.setLineWidth(0.5);
       doc.line(
@@ -1295,14 +1161,12 @@ const MyTickets = () => {
 
       let rightY = contentY;
 
-      // Price section
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(...colors.accent);
       doc.text("PAYMENT", rightColStart, rightY);
       rightY += 12;
 
-      // Total price - larger and prominent
       doc.setFontSize(24);
       doc.setFont("helvetica", "bold");
       const isValidTicket = !ticket.isCancelled;
@@ -1313,107 +1177,54 @@ const MyTickets = () => {
       doc.text(`${totalPrice}`, rightColStart, rightY);
       rightY += 15;
 
-      // Enhanced Barcode section
+      // BARCODE SECTION USING JSBARCODE
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(...colors.accent);
       doc.text("VALIDATION", rightColStart, rightY);
       rightY += 10;
 
-      // Use the SAME ticketCode from backend
-      const barcodeId = ticket.ticketCode || "000000000000"; // Use backend ticketCode
+      const barcodeId = ticket.ticketCode || "000000000000";
 
-      // Barcode
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(...colors.primary);
       doc.text("BARCODE", rightColStart, rightY);
       rightY += 8;
 
-      // Generate IDENTICAL barcode pattern as in display component
-      const generateRealisticBarcodePDF = (data) => {
-        const bars = [];
+      // Generate barcode using jsbarcode on a canvas
+      try {
+        const canvas = document.createElement("canvas");
+        JsBarcode(canvas, barcodeId, {
+          format: "CODE128",
+          width: 2,
+          height: 40,
+          displayValue: false,
+          margin: 0,
+          background: "#ffffff",
+          lineColor: ticket.isCancelled ? "#9ca3af" : "#000000",
+        });
 
-        // Start pattern for Code 128 (same as display)
-        bars.push({ type: "bar", width: 2 });
-        bars.push({ type: "space", width: 1 });
-        bars.push({ type: "bar", width: 1 });
-        bars.push({ type: "space", width: 1 });
-        bars.push({ type: "bar", width: 1 });
-        bars.push({ type: "space", width: 1 });
+        // Convert canvas to image and add to PDF
+        const barcodeImage = canvas.toDataURL("image/png");
+        doc.addImage(
+          barcodeImage,
+          "PNG",
+          rightColStart,
+          rightY,
+          rightColWidth - 5,
+          20
+        );
+        rightY += 22;
+      } catch (barcodeError) {
+        console.error("Error generating barcode for PDF:", barcodeError);
+        // Fallback text if barcode fails
+        doc.setFontSize(8);
+        doc.text("Barcode generation failed", rightColStart, rightY);
+        rightY += 10;
+      }
 
-        // Data pattern based on barcode ID (IDENTICAL to display)
-        for (let i = 0; i < data.length; i++) {
-          const digit = parseInt(data[i]) || 0;
-
-          // Create realistic barcode pattern based on digit value (SAME LOGIC)
-          switch (digit % 4) {
-            case 0:
-              bars.push({ type: "bar", width: 1 });
-              bars.push({ type: "space", width: 1 });
-              bars.push({ type: "bar", width: 3 });
-              bars.push({ type: "space", width: 2 });
-              break;
-            case 1:
-              bars.push({ type: "bar", width: 2 });
-              bars.push({ type: "space", width: 1 });
-              bars.push({ type: "bar", width: 1 });
-              bars.push({ type: "space", width: 3 });
-              break;
-            case 2:
-              bars.push({ type: "bar", width: 1 });
-              bars.push({ type: "space", width: 2 });
-              bars.push({ type: "bar", width: 2 });
-              bars.push({ type: "space", width: 1 });
-              break;
-            case 3:
-              bars.push({ type: "bar", width: 3 });
-              bars.push({ type: "space", width: 1 });
-              bars.push({ type: "bar", width: 1 });
-              bars.push({ type: "space", width: 2 });
-              break;
-          }
-        }
-
-        // End pattern for Code 128 (same as display)
-        bars.push({ type: "bar", width: 2 });
-        bars.push({ type: "space", width: 1 });
-        bars.push({ type: "bar", width: 1 });
-        bars.push({ type: "space", width: 1 });
-        bars.push({ type: "bar", width: 1 });
-        bars.push({ type: "space", width: 1 });
-        bars.push({ type: "bar", width: 2 });
-
-        return bars;
-      };
-
-      // Create barcode background
-      doc.setFillColor(250, 250, 250);
-      const barcodeHeight = 25;
-      doc.rect(rightColStart, rightY, rightColWidth - 5, barcodeHeight, "F");
-
-      // Generate the SAME barcode pattern as display
-      const barPattern = generateRealisticBarcodePDF(barcodeId);
-      doc.setFillColor(...colors.dark);
-
-      let barX = rightColStart + 2;
-      const barSpacing = (rightColWidth - 10) / barPattern.length;
-
-      // Draw each bar with exact same pattern as display
-      barPattern.forEach((element, i) => {
-        if (element.type === "bar") {
-          const barWidth = element.width * 0.8; // Scale for PDF
-          const barHeight = barcodeHeight * 0.8;
-          const barY = rightY + (barcodeHeight - barHeight) / 2;
-
-          doc.rect(barX, barY, barWidth, barHeight, "F");
-        }
-        barX += barSpacing;
-      });
-
-      rightY += barcodeHeight + 5;
-
-      // Barcode number - Use backend ticketCode
+      // Barcode number
       doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(...colors.dark);
@@ -1421,19 +1232,15 @@ const MyTickets = () => {
         align: "center",
       });
 
-      // ----- FOOTER SECTION -----
-
+      // Footer
       const footerY = margin + 220;
 
-      // Footer background
       doc.setFillColor(...colors.light);
       doc.rect(margin, footerY, contentWidth, 35, "F");
 
-      // Footer border
       doc.setDrawColor(...colors.border);
       doc.line(margin, footerY, margin + contentWidth, footerY);
 
-      // Terms and conditions
       doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(...colors.dark);
@@ -1465,7 +1272,7 @@ const MyTickets = () => {
         });
       }
 
-      // Save the PDF with descriptive filename
+      // Save PDF
       const shortId = (ticket._id || ticket.orderId || "ticket").substring(
         0,
         8
@@ -1488,13 +1295,12 @@ const MyTickets = () => {
     }
   };
 
-  // Modified downloadTicket function that prioritizes local generation
+  // Modified downloadTicket function
   const downloadTicket = async (ticketId) => {
     setDownloadLoading(true);
     setError("");
 
     try {
-      // Generate the PDF locally first to avoid API errors
       console.log("Generating individual ticket PDF locally");
       generateLocalTicketPDF(ticketId);
       setDownloadLoading(false);
@@ -1503,7 +1309,6 @@ const MyTickets = () => {
       console.error("Error downloading ticket:", err);
       setError(`Failed to download ticket: ${err.message}`);
 
-      // Try the fallback local generation method
       try {
         console.log(
           "Attempting local ticket generation as fallback after error"
@@ -1599,7 +1404,7 @@ const MyTickets = () => {
         </div>
       </div>
 
-      {/* Error Messages Only - Removed Status Messages */}
+      {/* Error Messages */}
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
           {error}
@@ -1789,7 +1594,7 @@ const MyTickets = () => {
                       </div>
                     </div>
 
-                    {/* Enhanced Barcode - Updated to use backend ticketCode */}
+                    {/* Barcode Display */}
                     <div className="mt-4 mb-4 md:mb-0">
                       <BarcodeDisplay
                         ticketCode={ticket.ticketCode}
@@ -1844,11 +1649,10 @@ const MyTickets = () => {
         </div>
       )}
 
-      {/* Cancel Confirmation Modal */}
+      {/* Cancel Confirmation Modal - REMOVED AS REQUESTED */}
       {showCancelModal && ticketToCancel && (
         <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-md">
-            {/* Modal header */}
             <div className="bg-red-500 p-4 flex justify-between items-center rounded-t-lg">
               <h3 className="text-xl font-bold text-white flex items-center gap-2">
                 <AlertTriangle size={24} />
@@ -1863,7 +1667,6 @@ const MyTickets = () => {
               </button>
             </div>
 
-            {/* Modal content */}
             <div className="p-6">
               <div className="mb-4">
                 <h4 className="text-lg font-semibold text-gray-800 mb-2">
@@ -1902,7 +1705,6 @@ const MyTickets = () => {
                 </div>
               </div>
 
-              {/* Action buttons */}
               <div className="flex justify-end gap-3">
                 <button
                   onClick={closeCancelModal}
@@ -1937,7 +1739,6 @@ const MyTickets = () => {
       {selectedTicket && (
         <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            {/* Modal header */}
             <div
               className={`${
                 selectedTicket.isCancelled
@@ -1978,7 +1779,6 @@ const MyTickets = () => {
               </button>
             </div>
 
-            {/* Cancelled Notice in Modal */}
             {selectedTicket.isCancelled && (
               <div className="bg-red-50 border-l-4 border-red-500 p-4">
                 <div className="flex items-center">
@@ -1991,9 +1791,7 @@ const MyTickets = () => {
               </div>
             )}
 
-            {/* Ticket content */}
             <div className="p-6">
-              {/* Event info */}
               <div className="border-b border-gray-200 pb-4 mb-6">
                 <h4 className="text-2xl font-bold text-gray-800 mb-2">
                   {selectedTicket.event?.title ||
@@ -2050,9 +1848,7 @@ const MyTickets = () => {
                 </p>
               </div>
 
-              {/* Ticket breakdown */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                {/* Ticket info */}
                 <div>
                   <h4 className="font-bold text-gray-700 mb-3">
                     Ticket Information
@@ -2117,7 +1913,6 @@ const MyTickets = () => {
                   </div>
                 </div>
 
-                {/* Price details */}
                 <div>
                   <h4 className="font-bold text-gray-700 mb-3">
                     Price Details
@@ -2146,7 +1941,6 @@ const MyTickets = () => {
                 </div>
               </div>
 
-              {/* Ticket visualization */}
               <div className="mb-6 border-t border-gray-200 pt-6">
                 <h4 className="font-bold text-gray-700 mb-3">Ticket Preview</h4>
                 <div
@@ -2156,7 +1950,6 @@ const MyTickets = () => {
                       : "bg-white"
                   }`}
                 >
-                  {/* Ticket header */}
                   <div
                     className={`p-3 flex justify-between items-center ${
                       selectedTicket.isCancelled
@@ -2182,14 +1975,12 @@ const MyTickets = () => {
                     </div>
                   </div>
 
-                  {/* Cancelled overlay for ticket preview */}
                   {selectedTicket.isCancelled && (
                     <div className="bg-red-500 text-white text-center py-1 text-xs font-bold">
                       CANCELLED
                     </div>
                   )}
 
-                  {/* Ticket body */}
                   <div className="p-4 flex justify-between">
                     <div className="w-2/3">
                       <div className="flex flex-col space-y-3">
@@ -2261,7 +2052,6 @@ const MyTickets = () => {
                         </div>
                       </div>
 
-                      {/* Enhanced Barcode in preview - Updated to use backend ticketCode */}
                       <div className="mt-2">
                         <BarcodeDisplay
                           ticketCode={selectedTicket.ticketCode}
@@ -2286,7 +2076,6 @@ const MyTickets = () => {
                 </div>
               </div>
 
-              {/* Action buttons */}
               <div className="flex justify-end gap-4 mt-6">
                 <button
                   onClick={closeModal}
@@ -2313,23 +2102,6 @@ const MyTickets = () => {
                       )}
                       Download Ticket
                     </button>
-
-                    {/* <button
-                      onClick={() => showCancelConfirmation(selectedTicket)}
-                      className={`inline-flex items-center gap-2 px-4 py-2 ${
-                        cancelLoading
-                          ? "bg-gray-400 cursor-not-allowed"
-                          : "bg-gradient-to-r from-red-500 to-red-600 hover:shadow-lg cursor-pointer"
-                      } text-white rounded-lg transition-all`}
-                      disabled={cancelLoading}
-                    >
-                      {cancelLoading ? (
-                        <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
-                      ) : (
-                        <X size={18} />
-                      )}
-                      Cancel Ticket
-                    </button> */}
                   </>
                 )}
               </div>
